@@ -5,4 +5,5 @@ def test():
 test()
 
 a = 5
+b = 10
 
