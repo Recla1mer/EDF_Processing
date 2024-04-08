@@ -4,3 +4,5 @@ def test():
 
 test()
 
+a = 5
+
