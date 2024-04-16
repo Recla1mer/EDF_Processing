@@ -1,3 +1,9 @@
+"""
+Python implementation of mean amplitude deviation (MAD) calculation for movement acceleration data.
+
+Main function: calc_mad
+"""
+
 import numpy as np
 
 def check_mad_conditions(data: dict, frequency: dict, relevant_keys = ["X", "Y", "Z"]):
@@ -79,7 +85,7 @@ def calc_mad(data: dict, frequency: dict, time_period: int, relevant_keys = ["X"
 
     #calculate MAD in intervals
     MAD = []
-    for i in np.arange(0, len(data[relevant_keys[0]]) - number_of_samples, number_of_samples):
+    for i in np.arange(0, len(data[relevant_keys[0]]), number_of_samples):
         MAD.append(calc_mad_in_interval(data, i, i + time_period, relevant_keys))
 
     return MAD

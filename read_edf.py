@@ -7,7 +7,7 @@ import pickle
 import NN_plot_helper as NNPH
 
 # https://github.com/holgern/pyedflib
-
+test_file_path = "Test_Data/Somnowatch_Messung.edf"
 
 
 def test_library(file_name):
@@ -20,6 +20,7 @@ def test_library(file_name):
     # print("filetype: %i\n"%hdr.filetype);
     print("edfsignals: %i" % f.signals_in_file)
     print("file duration: %i seconds" % f.file_duration)
+    print("weird: %i" % f.datarecord_duration)
     print("startdate: %i-%i-%i" % (f.getStartdatetime().day,f.getStartdatetime().month,f.getStartdatetime().year))
     print("starttime: %i:%02i:%02i" % (f.getStartdatetime().hour,f.getStartdatetime().minute,f.getStartdatetime().second))
     # print("patient: %s" % f.getP);
@@ -70,6 +71,8 @@ def test_library(file_name):
 def get_edf_data(file_name):
     """
     Read an EDF file and return a dictionary: {"Signal_Label": Signal}.
+
+    ATTENTION: In the actual EDF file, the signals are shown in blocks over time. This was previously not considered in the pyedflib library. Now it seems to be fixed.
     """
     f = pyedflib.EdfReader(file_name)
 
@@ -89,7 +92,6 @@ def get_edf_data(file_name):
             n_min = len(this_signal)
     f._close()
     return sigbufs, sigfreqs, duration
-
 
 
 # file_name = "Neural_Networks/Test_Data/Somnowatch_Messung.edf"

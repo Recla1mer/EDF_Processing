@@ -12,8 +12,8 @@ date: 04/2023
 from pyedflib import EdfReader
 from biosppy.signals.ecg import correct_rpeaks
 from biosppy.signals.tools import filter_signal
-from fix_edf import edf_deidentify
-from mad import cal_mad_jit
+from old_code.fix_edf import edf_deidentify
+from old_code.mad import cal_mad_jit 
 from ecgdetectors import Detectors
 import numpy as np
 

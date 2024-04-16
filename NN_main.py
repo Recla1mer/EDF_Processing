@@ -7,6 +7,7 @@ import pickle
 import read_edf
 import MAD
 import NN_plot_helper as NNPH
+import rpeak_detection
 
 
 TEMPORARY_PICKLE_DIRECTORY_NAME = "Temporary_Pickles/"
@@ -60,4 +61,10 @@ file_name = "Test_Data/Somnowatch_Messung.edf"
 
 
 sigbufs, sigfreqs, duration = read_edf.get_edf_data(file_name)
-print(MAD.calc_mad(sigbufs, sigfreqs, 60))
+#print(MAD.calc_mad(sigbufs, sigfreqs, 60))
+
+
+"""
+Compare R-peak detection methods
+"""
+rpeak_detection.compare_rpeak_detection_methods(sigbufs, sigfreqs)
