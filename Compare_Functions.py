@@ -125,12 +125,15 @@ def rpeak_detection_compare(
                                         4056800 (normal with energy jump)
                                         4046592 (normal with energy jump)
     """
+    sigbufs, sigfreqs, duration = read_edf.get_edf_data(edf_file_path)
+
     if lower_border is None:
         detection_interval = None
     else:
+        if lower_border + interval_size > len(sigbufs[relevant_key]):
+            raise ValueError("Interval size is too large for the dataset.")
         detection_interval = (lower_border, lower_border + interval_size)
 
-    sigbufs, sigfreqs, duration = read_edf.get_edf_data(edf_file_path)
 
     start_time = time.time()
     rpeaks_primary = primary_function(sigbufs, sigfreqs, relevant_key, detection_interval)
@@ -142,9 +145,16 @@ def rpeak_detection_compare(
     secondary_time = end_time - start_time
     # print("%s R peaks:" % name_primary, rpeaks_primary)
     # print("%s R peaks:" % name_secondary, rpeaks_secondary)
-    print("%s Time: %f s" % (name_primary, primary_time))
-    print("%s Time: %f s" % (name_secondary, secondary_time))
+    print("%s Total Time: %f s" % (name_primary, primary_time))
+    print("%s Total Time: %f s" % (name_secondary, secondary_time))
     print("Time Difference (%s - %s): %f s" % (name_primary, name_secondary, round(primary_time - secondary_time,3)))
+    if lower_border is not None:
+        print("Datapoints per second (%s): %f" % (name_primary, interval_size / primary_time))
+        print("Datapoints per second (%s): %f" % (name_secondary, interval_size / secondary_time))
+    else:
+        print("Datapoints per second (%s): %f" % (name_primary, len(sigbufs[relevant_key]) / primary_time))
+        print("Datapoints per second (%s): %f" % (name_secondary, len(sigbufs[relevant_key]) / secondary_time))
+
 
     print("Number of R peaks in %s: %d" % (name_primary, len(rpeaks_primary)))
     print("Number of R peaks in %s: %d" % (name_secondary, len(rpeaks_secondary)))
@@ -153,7 +163,8 @@ def rpeak_detection_compare(
     removed_rpeaks_primary = np.setdiff1d(rpeaks_primary, intersecting_rpeaks)
     removed_rpeaks_secondary = np.setdiff1d(rpeaks_secondary, intersecting_rpeaks)
 
-    print("Percentage of intersecting R peaks:", len(intersecting_rpeaks) / len(rpeaks_primary) * 100, "%")
+    print("Percentage of intersecting R peaks (%s): %f %%" % (name_primary, (len(intersecting_rpeaks) / len(rpeaks_primary) * 100)))
+    print("Percentage of intersecting R peaks (%s): %f %%" % (name_secondary, (len(intersecting_rpeaks) / len(rpeaks_secondary) * 100)))
 
     if detection_interval is not None:
         fig, ax = plt.subplots()
@@ -168,4 +179,4 @@ def rpeak_detection_compare(
 
 #MAD_compare(test_file_path)
 #rpeak_detection_compare(test_file_path)
-rpeak_detection_compare(test_file_path, lower_border = 2247100, interval_size = 10000000, secondary_function=rpeak_detection.get_rpeaks_old, name_secondary="Old")
+rpeak_detection_compare(test_file_path, lower_border = 0, interval_size = 10000, secondary_function=rpeak_detection.get_rpeaks_old, name_secondary="Old")

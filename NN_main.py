@@ -62,9 +62,9 @@ file_name = "Test_Data/Somnowatch_Messung.edf"
 
 sigbufs, sigfreqs, duration = read_edf.get_edf_data(file_name)
 #print(MAD.calc_mad(sigbufs, sigfreqs, 60))
+save_to_pickle(sigbufs["ECG"][0:1000000], "Calibration_Data/ecg_1.pkl")
+save_to_pickle(sigbufs["ECG"][7000000:8000000], "Calibration_Data/ecg_2.pkl")
+save_to_pickle(sigbufs["ECG"][2000000:3000000], "Calibration_Data/ecg_3.pkl")
+print(sigbufs["ECG"][0:1000000])
 
 
-"""
-Compare R-peak detection methods
-"""
-rpeak_detection.compare_rpeak_detection_methods(sigbufs, sigfreqs)
