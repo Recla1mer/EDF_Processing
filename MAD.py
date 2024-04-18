@@ -1,4 +1,6 @@
 """
+Author: Johannes Peter Knoll
+
 Python implementation of mean amplitude deviation (MAD) calculation for movement acceleration data.
 
 Main function: calc_mad
@@ -6,11 +8,22 @@ Main function: calc_mad
 
 import numpy as np
 
-def check_mad_conditions(data: dict, frequency: dict, relevant_keys = ["X", "Y", "Z"]):
+def check_mad_conditions(
+        data: dict, 
+        frequency: dict, 
+        relevant_keys = ["X", "Y", "Z"]
+    ):
     """
     Check if the data is valid for MAD calculation (uniform frequency and data points).
 
-    ARGUMENTS: explained in calc_mad
+    ARGUMENTS:
+    --------------------------------
+    data: dict
+        dictionary containing the data arrays
+    frequency: dict
+        dictionary containing the frequencies of the data arrays
+    relevant_keys: list
+        list of keys of data dictionary that are relevant for MAD calculation
 
     NO RETURN VALUE: raises ValueError if conditions are not met
     """
@@ -30,16 +43,33 @@ def check_mad_conditions(data: dict, frequency: dict, relevant_keys = ["X", "Y",
     del compare_key
 
 
-def calc_mad_in_interval(data: dict, start_position: int, end_position: int, relevant_keys = ["X", "Y", "Z"]):
+def calc_mad_in_interval(
+        data: dict, 
+        start_position: int, 
+        end_position: int, 
+        relevant_keys = ["X", "Y", "Z"]
+    ):
     """
     Calculate MAD in a given time frame.
         current_acceleration = root(x^2 + y^2 + z^2)
         average_acceleration = sum(current_acceleration) / interval_size
         MAD = sum(abs(current_acceleration - average_acceleration)) / interval_size
 
-    ARGUMENTS: explained in calc_mad
+    ARGUMENTS:
+    --------------------------------
+    data: dict
+        dictionary containing the data arrays
+    start_position: int
+        start position of the interval
+    end_position: int
+        end position of the interval
+    relevant_keys: list
+        list of keys of data dictionary that are relevant for MAD calculation
 
-    RETURNS: single MAD value
+    RETURNS: 
+    --------------------------------
+    MAD: float
+        mean amplitude deviation of the movement acceleration data in the given interval
     """
     #calculate average acceleration over given interval (start_position to end_position)
     interval_size = end_position - start_position
@@ -65,17 +95,30 @@ def calc_mad_in_interval(data: dict, start_position: int, end_position: int, rel
     return mad
 
 
-def calc_mad(data: dict, frequency: dict, time_period: int, relevant_keys = ["X", "Y", "Z"]):
+def calc_mad(
+        data: dict, 
+        frequency: dict, 
+        time_period: int, 
+        relevant_keys = ["X", "Y", "Z"]
+    ):
     """
     Calculate mean amplitude deviation (MAD) of movement acceleration data.
 
     ARGUMENTS:
-    data: dictionary of data (sigbufs in read_edf.py)
-    frequency: dictionary of frequencies (sigfreqs in read_edf.py)
-    time_period: time period in seconds over which MAD value should be calculated
-    relevant_keys: keys of data dictionary that are relevant for MAD calculation
+    --------------------------------
+    data: dict
+        dictionary containing the data arrays
+    frequency: dict
+        dictionary containing the frequencies of the data arrays
+    time_period: int
+        length of the time period in seconds
+    relevant_keys: list
+        list of keys of data dictionary that are relevant for MAD calculation
 
-    RETURNS: list of MAD values
+    RETURNS:
+    --------------------------------
+    MAD: list
+        list of MAD values for each interval
     """
     #check if data is valid
     check_mad_conditions(data, frequency, relevant_keys)
@@ -89,5 +132,3 @@ def calc_mad(data: dict, frequency: dict, time_period: int, relevant_keys = ["X"
         MAD.append(calc_mad_in_interval(data, i, i + time_period, relevant_keys))
 
     return MAD
-
-            

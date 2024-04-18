@@ -179,4 +179,4 @@ def rpeak_detection_compare(
 
 #MAD_compare(test_file_path)
 #rpeak_detection_compare(test_file_path)
-rpeak_detection_compare(test_file_path, lower_border = 0, interval_size = 10000, secondary_function=rpeak_detection.get_rpeaks_old, name_secondary="Old")
+rpeak_detection_compare(test_file_path, lower_border = 2091000, interval_size = 2500, secondary_function=rpeak_detection.get_rpeaks_old, name_secondary="Old")

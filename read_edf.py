@@ -1,16 +1,20 @@
+"""
+Author: Johannes Peter Knoll
+
+This file contains functions that are used to read EDF files.
+"""
+
 import pyedflib # https://github.com/holgern/pyedflib
 import numpy as np
-import os
-
-import pickle
-
-import NN_plot_helper as NNPH
 
 # https://github.com/holgern/pyedflib
-test_file_path = "Test_Data/Somnowatch_Messung.edf"
 
 
-def test_library(file_name):
+def library_overview(file_name):
+    """
+    This function won't be used in the project. It is just a demonstration of available
+    commands in the pyedflib library.
+    """
     f = pyedflib.EdfReader(file_name)
     #f = pyedflib.data.test_generator()
     print("\nlibrary version: %s" % pyedflib.version.version)
@@ -70,9 +74,26 @@ def test_library(file_name):
 
 def get_edf_data(file_name):
     """
-    Read an EDF file and return a dictionary: {"Signal_Label": Signal}.
+    Reads data from an EDF file.
 
-    ATTENTION: In the actual EDF file, the signals are shown in blocks over time. This was previously not considered in the pyedflib library. Now it seems to be fixed.
+    ARGUMENTS:
+    --------------------------------
+    file_name: str
+        path to the EDF file
+    
+    RETURNS:
+    --------------------------------
+    sigbufs: dict
+        dictionary containing the signals
+    sigfreqs: dict
+        dictionary containing the frequencies of the signals
+    duration: float
+        duration of the EDF file in seconds
+
+    ATTENTION: 
+    --------------------------------
+    In the actual EDF file, the signals are shown in blocks over time. This was 
+    previously not considered in the pyedflib library. Now it seems to be fixed.
     """
     f = pyedflib.EdfReader(file_name)
 
@@ -92,17 +113,3 @@ def get_edf_data(file_name):
             n_min = len(this_signal)
     f._close()
     return sigbufs, sigfreqs, duration
-
-
-# file_name = "Neural_Networks/Test_Data/Somnowatch_Messung.edf"
-# sigbufs, sigfreqs, duration = get_edf_data(file_name)
-# for key, value in sigbufs.items():
-#     this_data = value
-#     this_time = array_from_duration(duration, sigfreqs[key])
-#     NNPH.seperate_plots(this_data, this_time, key, TEMPORARY_FIGURE_DIRECTORY_PATH + "test_data", xlim=[2990, 3000])
-
-# signals = read_edf(file_name)
-# save_to_pickle(signals, TEMPORARY_PICKLE_DIRECTORY_NAME + "signals.pkl")
-
-# NNPH.seperate_plots_from_bib(TEMPORARY_PICKLE_DIRECTORY_NAME + "signals.pkl", TEMPORARY_FIGURE_DIRECTORY_PATH)
-# clear_directory(TEMPORARY_PICKLE_DIRECTORY_NAME)

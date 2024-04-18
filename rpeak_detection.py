@@ -13,6 +13,8 @@ import wfdb.processing
 # import old code used for rpeak detection
 import old_code.rpeak_detection as old_rpeak
 
+CALIBRATION_DATA_DIRECTORY = "Calibration_Data/"
+
 
 def get_rpeaks_neuro(
         data: dict, 
@@ -69,7 +71,7 @@ def get_rpeaks_wfdb(
     ):
     """
     Detect R-peaks in ECG data using the wfdb library.
-    See link mentioned above: excellent performance, but slower.
+    See link mentioned above: excellent performance, but slower. 
 
     ARGUMENTS:
     --------------------------------
@@ -101,6 +103,55 @@ def get_rpeaks_wfdb(
     if detection_interval is not None:
         rpeaks_corrected += detection_interval[0]
     return rpeaks_corrected
+
+
+def calculate_time_threshold_for_wfdb(calibration_files = ["ecg_1.pkl", "ecg_2.pkl", "ecg_3.pkl"]):
+    """
+    Calculate the time threshold for optimize_wfdb_detection function.
+    """
+    return None
+
+
+def optimize_wfdb_detection(
+        data: dict, 
+        frequency: dict, 
+        time_threshold: float,
+        relevant_key = "ECG", 
+        detection_interval = None,
+    ):
+    """
+    Detect R-peaks in ECG data using the wfdb library.
+    
+    Detection time with wfdb is usually good (around 500.000 datapoints can be checked per
+    second, this is slower compared to other methods but still  acceptable).
+    But if the data gets faulty, the detection time can increase drastically (20.000 
+    datapoints per second). 
+    This function is used to optimize the detection time. It will stop to detect R-peaks
+    if the detection time exceeds a certain threshold.
+
+    (I thought about changing to a different detection method in this case, but I later
+    want to combine the results of different detection methods to get safer results.) 
+
+    ARGUMENTS:
+    --------------------------------
+    data: dict
+        dictionary containing the ECG data among other signals
+    frequency: dict
+        dictionary containing the frequency of the signals
+    relevant_key: str
+        key of the ECG data in the data dictionary
+    detection_interval: tuple, default None
+        interval in which the R-peaks should be detected
+    time_threshold_multiplier: float, default 1.0
+        This function 
+        
+
+    RETURNS:
+    --------------------------------
+    rpeaks_corrected: 1D numpy array
+        R-peak locations
+    """
+    return None
 
 
 def get_rpeaks_old(
