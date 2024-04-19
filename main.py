@@ -18,18 +18,23 @@ import plot_helper as NNPH
 
 
 """
-In this section we create the needed directories for the project.
-We will also implement functions to manipulate the directories and save data to pickle files.
+--------------------------------
+PARAMETERS AND FILE SECTION
+--------------------------------
+
+In this section we set the parameters for the project and define the file/directory names.
 """
 
-
 # define directory and file names (will always be written in capital letters)
+DATA_DIRECTORY = "Data/"
+
 TEMPORARY_PICKLE_DIRECTORY_NAME = "Temporary_Pickles/"
 TEMPORARY_FIGURE_DIRECTORY_PATH = "Temporary_Figures/"
 
-THRESHOLD_DIRECTORY = "Thresholds/"
+PREPARATION_DIRECTORY = "Preparation/"
 
-CHECK_ECG_DATA_THRESHOLDS = THRESHOLD_DIRECTORY + "Check_ECG_Data_Thresholds.pkl"
+CHECK_ECG_DATA_THRESHOLDS = PREPARATION_DIRECTORY + "Check_ECG_Data_Thresholds.pkl"
+VALID_ECG_REGIONS = PREPARATION_DIRECTORY + "Valid_ECG_Regions.pkl"
 
 CALIBRATION_DATA_PATH = "Calibration_Data/Somnowatch_Messung.edf"
 
@@ -38,9 +43,67 @@ if not os.path.isdir(TEMPORARY_PICKLE_DIRECTORY_NAME):
     os.mkdir(TEMPORARY_PICKLE_DIRECTORY_NAME)
 if not os.path.isdir(TEMPORARY_FIGURE_DIRECTORY_PATH):
     os.mkdir(TEMPORARY_FIGURE_DIRECTORY_PATH)
-if not os.path.isdir(THRESHOLD_DIRECTORY):
-    os.mkdir(THRESHOLD_DIRECTORY)
+if not os.path.isdir(PREPARATION_DIRECTORY):
+    os.mkdir(PREPARATION_DIRECTORY)
 
+# set the parameters for the project
+parameters = {
+    "file_path": CALIBRATION_DATA_PATH, # path to the EDF file for threshold calibration
+    "data_directory": DATA_DIRECTORY, # directory where the data is stored
+    "valid_file_types": [".edf"], # valid file types in the data directory
+    "ecg_key": "ECG", # key for the ECG data in the data dictionary
+    "wrist_acceleration_keys": ["X", "Y", "Z"], # keys for the wrist acceleration data in the data dictionary
+    "ecg_threshold_multiplier": 0.75, # multiplier for the thresholds in check_data.check_ecg() (between 0 and 1)
+    "show_calibration_data": False, # if True, the calibration data in the manually chosen intervals will be plotted and saved to TEMPORARY_FIGURE_DIRECTORY_PATH
+    "calculate_thresholds": False, # if True, you will have the option to recalculate the thresholds for various functions
+    "threshold_dezimal_places": 2, # number of dezimal places for the thresholds in the pickle files
+    "time_interval_seconds": 10, # time interval considered when calculating thresholds
+    "min_valid_length_minutes": 5, # minimum length of valid data in minutes
+    "allowed_invalid_region_length_seconds": 30, # data region (see above) still considered valid if the invalid part is shorter than this
+    "determine_valid_ecg_regions": False, # if True, the valid regions for the ECG data will be determined
+    "valid_ecg_regions": dict() # dictionary containing the valid regions for the ECG data, will be overwritten below (so don't bother)
+}
+
+# check the parameters
+if not isinstance(parameters["file_path"], str):
+    raise ValueError("'file_path' parameter must be a string.")
+if not isinstance(parameters["data_directory"], str):
+    raise ValueError("'data_directory' parameter must be a string.")
+if not isinstance(parameters["valid_file_types"], list):
+    raise ValueError("'valid_file_types' parameter must be a list.")
+if not isinstance(parameters["ecg_key"], str):
+    raise ValueError("'ecg_key' parameter must be a string.")
+if not isinstance(parameters["wrist_acceleration_keys"], list):
+    raise ValueError("'wrist_acceleration_keys' parameter must be a list.")
+if not isinstance(parameters["ecg_threshold_multiplier"], (int, float)):
+    raise ValueError("'ecg_threshold_multiplier' parameter must be an integer or a float.")
+if parameters["ecg_threshold_multiplier"] <= 0 or parameters["ecg_threshold_multiplier"] > 1:
+    raise ValueError("'ecg_threshold_multiplier' parameter must be between 0 and 1.")
+if not isinstance(parameters["show_calibration_data"], bool):
+    raise ValueError("'show_calibration_data' parameter must be a boolean.")
+if not isinstance(parameters["calculate_thresholds"], bool):
+    raise ValueError("'calculate_thresholds' parameter must be a boolean.")
+if parameters["show_calibration_data"] and parameters["calculate_thresholds"]:
+    raise ValueError("'show_calibration_data' and 'calculate_thresholds' parameter cannot both be True at the same time.")
+if not isinstance(parameters["threshold_dezimal_places"], int):
+    raise ValueError("'threshold_dezimal_places' parameter must be an integer.")
+if not isinstance(parameters["time_interval_seconds"], int):
+    raise ValueError("'time_interval_seconds' parameter must be an integer.")
+if not isinstance(parameters["min_valid_length_minutes"], int):
+    raise ValueError("'min_valid_length_minutes' parameter must be an integer.")
+if not isinstance(parameters["allowed_invalid_region_length_seconds"], int):
+    raise ValueError("'allowed_invalid_region_length_seconds' parameter must be an integer.")
+if not isinstance(parameters["determine_valid_ecg_regions"], bool):
+    raise ValueError("'determine_valid_ecg_regions' parameter must be a boolean.")
+
+
+"""
+--------------------------------
+HELPER FUNCTIONS SECTION
+--------------------------------
+
+In this section we provide small functions to keep the code a little cleaner.
+"""
 
 def clear_directory(directory):
     """
@@ -55,6 +118,13 @@ def clear_directory(directory):
                 clear_directory(file_path)
         except Exception as e:
             print(e)
+
+
+def get_file_type(file_name):
+    """
+    Get the file type of a file.
+    """
+    return os.path.splitext(file_name)[1]
 
 
 def save_to_pickle(data, file_name):
@@ -74,41 +144,35 @@ def load_from_pickle(file_name):
     return data
 
 
-"""
-In this section we can set the parameters for the project (kwargs). It also contains a 
-function to easily create a sub dictionary of the main one (kwargs).
-"""
-kwargs = {
-    "file_path": CALIBRATION_DATA_PATH, # path to the EDF file for threshold calibration
-    "ecg_threshold_multiplier": 0.75, # multiplier for the thresholds in check_data.check_ecg() (between 0 and 1)
-    "show_calibration_data": False, # if True, the calibration data in the manually chosen intervals will be plotted and saved to TEMPORARY_FIGURE_DIRECTORY_PATH
-    "calculate_thresholds": False, # if True, you will have the option to recalculate the thresholds for various functions
-    "threshold_dezimal_places": 2, # number of dezimal places for the thresholds in the pickle files
-    "time_interval_seconds": 10, # time interval considered when calculating thresholds
-    "min_valid_length_minutes": 5, # minimum length of valid data in minutes
-    "allowed_invalid_region_length_seconds": 30 # data region (see above) still considered valid if the invalid part is shorter than this
-}
+def ask_for_permission_to_override(file_path: str, message: str):
+    """
+    If a file already exists, ask the user if they want to overwrite it.
 
-if not isinstance(kwargs["file_path"], str):
-    raise ValueError("'file_path' parameter must be a string.")
-if not isinstance(kwargs["ecg_threshold_multiplier"], (int, float)):
-    raise ValueError("'ecg_threshold_multiplier' parameter must be an integer or a float.")
-if kwargs["ecg_threshold_multiplier"] <= 0 or kwargs["ecg_threshold_multiplier"] > 1:
-    raise ValueError("'ecg_threshold_multiplier' parameter must be between 0 and 1.")
-if not isinstance(kwargs["show_calibration_data"], bool):
-    raise ValueError("'show_calibration_data' parameter must be a boolean.")
-if not isinstance(kwargs["calculate_thresholds"], bool):
-    raise ValueError("'calculate_thresholds' parameter must be a boolean.")
-if kwargs["show_calibration_data"] and kwargs["calculate_thresholds"]:
-    raise ValueError("'show_calibration_data' and 'calculate_thresholds' parameter cannot both be True at the same time.")
-if not isinstance(kwargs["threshold_dezimal_places"], int):
-    raise ValueError("'threshold_dezimal_places' parameter must be an integer.")
-if not isinstance(kwargs["time_interval_seconds"], int):
-    raise ValueError("'time_interval_seconds' parameter must be an integer.")
-if not isinstance(kwargs["min_valid_length_minutes"], int):
-    raise ValueError("'min_valid_length_minutes' parameter must be an integer.")
-if not isinstance(kwargs["allowed_invalid_region_length_seconds"], int):
-    raise ValueError("'allowed_invalid_region_length_seconds' parameter must be an integer.")
+    RETURNS:
+    --------------------------------
+    user_answer: str
+        "y" if the user wants to overwrite the file, "n" if not
+    """
+    if os.path.isfile(file_path):
+        first_try = True
+        while True:
+            if first_try:
+                user_answer = input(message + " already exist. Are you sure you want to overwrite them? (y/n)")
+            else:
+                user_answer = input("Please answer with 'y' or 'n'.")
+            if user_answer == "y":
+                os.remove(file_path)
+                break
+            elif user_answer == "n":
+                print(message + " were not overwritten. Continuing with the existing data.")
+                break
+            else:
+                first_try = False
+                print("Answer not recognized.")
+    else:
+        user_answer = "y"
+    
+    return user_answer
 
 
 def create_sub_dict(dictionary, keys):
@@ -119,9 +183,11 @@ def create_sub_dict(dictionary, keys):
 
 
 """
-In this section is the function provided to calculate the thresholds needed for various 
-other functions.
+Following functions are needed in the PREPARATION section of the project.
 
+These are used to calculate thresholds and evaluate valid regions for the ECG data.
+
+ATTENTION:
 Check that the test data and the intervals in which it is used align with the purpose.
 Also examine whether the test data used is suitable for the actual data, e.g. the physical
 units match, etc.
@@ -132,7 +198,8 @@ def calculate_thresholds(
         file_path: str, 
         ecg_threshold_multiplier: float,
         threshold_dezimal_places: int,
-        show_calibration_data = False
+        show_calibration_data: bool,
+        ecg_key: str,
     ):
     """
     This function calculates the thresholds needed in various functions.
@@ -156,29 +223,15 @@ def calculate_thresholds(
     --------------------------------
     None, but the thresholds are saved to a pickle file
     """
-
     # Load the data
     sigbufs, sigfreqs, duration = read_edf.get_edf_data(file_path)
 
+    # check if thresholds already exist and if yes: ask for permission to override
+    if not show_calibration_data:
+        user_answer = ask_for_permission_to_override(file_path = CHECK_ECG_DATA_THRESHOLDS, 
+                                        message = "Thresholds for check_data.check_ecg()")
+
     # Calculate thresholds for check_data.check_ecg()
-    if os.path.isfile(CHECK_ECG_DATA_THRESHOLDS) and not show_calibration_data:
-        first_try = True
-        while True:
-            if first_try:
-                user_answer = input("Thresholds for check_data.check_ecg() already exist. Are you sure you want to overwrite them? (y/n)")
-            else:
-                user_answer = input("Please answer with 'y' or 'n'.")
-            if user_answer == "y":
-                os.remove(CHECK_ECG_DATA_THRESHOLDS)
-                break
-            elif user_answer == "n":
-                print("Thresholds for check_data.check_ecg() were not overwritten. Continuing with the existing data.")
-                break
-            else:
-                first_try = False
-                print("Answer not recognized.")
-    if not os.path.isfile(CHECK_ECG_DATA_THRESHOLDS) and not show_calibration_data:
-        user_answer = "y"
    
     # Calibration intervals for check_data.check_ecg()
     interval_size = 2560 # 10 seconds for 256 Hz
@@ -194,7 +247,7 @@ def calculate_thresholds(
     if show_calibration_data:
         names = ["perfect_ecg", "fluctuating_ecg", "noisy_ecg", "negative_peaks_ecg"]
         for interval in detection_intervals:
-            NNPH.simple_plot(sigbufs["ECG"][interval[0]:interval[1]], np.arange(interval_size), TEMPORARY_FIGURE_DIRECTORY_PATH + names[detection_intervals.index(interval)] + "_ten_sec.png")
+            NNPH.simple_plot(sigbufs[ecg_key][interval[0]:interval[1]], np.arange(interval_size), TEMPORARY_FIGURE_DIRECTORY_PATH + names[detection_intervals.index(interval)] + "_ten_sec.png")
         return
     
     # Calculate and save the thresholds
@@ -205,7 +258,7 @@ def calculate_thresholds(
             detection_intervals,
             threshold_multiplier = ecg_threshold_multiplier,
             threshold_dezimal_places = threshold_dezimal_places,
-            relevant_key = "ECG",
+            ecg_key = ecg_key,
             )
         
         check_ecg_thresholds = dict()
@@ -216,8 +269,67 @@ def calculate_thresholds(
         save_to_pickle(check_ecg_thresholds, CHECK_ECG_DATA_THRESHOLDS)
 
 
+def determine_valid_ecg_regions(
+        data_directory: str,
+        valid_file_types: list,
+        check_ecg_std_min_threshold: float, 
+        check_ecg_std_max_threshold: float, 
+        check_ecg_distance_std_ratio_threshold: float,
+        time_interval_seconds: int, 
+        min_valid_length_minutes: int,
+        allowed_invalid_region_length_seconds: int,
+        ecg_key: str
+    ):
+    """
+    Determine the valid ECG regions for all valid file types in the given data directory.
+
+    ARGUMENTS:
+    --------------------------------
+    data_directory: str
+        directory where the data is stored
+    valid_file_types: list
+        valid file types in the data directory
+    others: see check_data.check_ecg()
+
+    RETURNS:
+    --------------------------------
+    None, but the valid regions are saved to a pickle file
+    
+    """
+    user_answer = ask_for_permission_to_override(file_path = VALID_ECG_REGIONS,
+                                                message = "Valid regions for the ECG data")
+    
+    if user_answer == "n":
+        return
+    all_files = os.listdir(data_directory)
+    valid_files = [file for file in all_files if get_file_type(file) in valid_file_types]
+    valid_regions = dict()
+    for file in valid_files:
+        sigbufs, sigfreqs, duration = read_edf.get_edf_data(data_directory + file)
+        valid_regions[file] = check_data.check_ecg(
+            sigbufs, 
+            sigfreqs, 
+            check_ecg_std_min_threshold = check_ecg_std_min_threshold, 
+            check_ecg_std_max_threshold = check_ecg_std_max_threshold, 
+            check_ecg_distance_std_ratio_threshold = check_ecg_distance_std_ratio_threshold,
+            time_interval_seconds = time_interval_seconds, 
+            min_valid_length_minutes = min_valid_length_minutes,
+            allowed_invalid_region_length_seconds = allowed_invalid_region_length_seconds,
+            ecg_key = ecg_key
+            )
+    
+    save_to_pickle(valid_regions, VALID_ECG_REGIONS)
+
+
 """
-Main Part of the code.
+--------------------------------
+PREPARATION SECTION
+--------------------------------
+
+In this section we will make preparations for the main part of the project. Depending on
+the parameters set in the kwargs dictionary, we will calculate the thresholds needed for
+various functions, evaluate the valid regions for the ECG data or just load these
+informations, if this was already done before.
 """
 
 # make sure temporary directories are empty
@@ -225,39 +337,55 @@ clear_directory(TEMPORARY_PICKLE_DIRECTORY_NAME)
 clear_directory(TEMPORARY_FIGURE_DIRECTORY_PATH)
 
 
-# calculate the thresholds or show how calibration data needed for this should look like
-calculate_thresholds_args = create_sub_dict(kwargs, ["file_path", "ecg_threshold_multiplier", "show_calibration_data"])
+# calculate/load the thresholds or show how calibration data needed for this should look like
+calculate_thresholds_args = create_sub_dict(
+    parameters, ["file_path", "ecg_threshold_multiplier", "threshold_dezimal_places", 
+             "show_calibration_data", "ecg_key"]
+    )
 
-if kwargs["show_calibration_data"]:
+if parameters["show_calibration_data"]:
     calculate_thresholds(**calculate_thresholds_args)
     raise SystemExit(0)
 
-if kwargs["calculate_thresholds"]:
+if parameters["calculate_thresholds"]:
     calculate_thresholds(**calculate_thresholds_args)
 
 del calculate_thresholds_args
 
 check_ecg_thresholds_dict = load_from_pickle(CHECK_ECG_DATA_THRESHOLDS)
-kwargs.update(check_ecg_thresholds_dict)
+parameters.update(check_ecg_thresholds_dict)
 del check_ecg_thresholds_dict
 
-# load the data
-sigbufs, sigfreqs, duration = read_edf.get_edf_data(kwargs["file_path"])
 
-# evaluate valid regions for the ECG data
-check_ecg_args = create_sub_dict(
-    kwargs, ["check_ecg_std_min_threshold", "check_ecg_std_max_threshold", 
-             "check_ecg_distance_std_ratio_threshold", "time_interval_seconds", 
-             "min_valid_length_minutes", "allowed_invalid_region_length_seconds"]
+# evaluate/load valid regions for the ECG data
+determine_ecg_region_args = create_sub_dict(
+    parameters, ["data_directory", "valid_file_types", "check_ecg_std_min_threshold", 
+                 "check_ecg_std_max_threshold", "check_ecg_distance_std_ratio_threshold", 
+                 "time_interval_seconds", "min_valid_length_minutes", 
+                 "allowed_invalid_region_length_seconds", "ecg_key"]
     )
 
+if parameters["determine_valid_ecg_regions"]:
+    determine_valid_ecg_regions(**determine_ecg_region_args)
+
+valid_regions_dict = load_from_pickle(VALID_ECG_REGIONS)
+parameters["valid_ecg_regions"] = valid_regions_dict
+
+del determine_ecg_region_args
+del valid_regions_dict
+
+print(parameters["valid_ecg_regions"])
+
+# Testing
+"""
+sigbufs, sigfreqs, duration = read_edf.get_edf_data(kwargs["file_path"])
 lower_border = 2091000
 #lower_border = 19059968
 interval_size = 153600
 interval_size += 3000
-sigbufs["ECG"] = sigbufs["ECG"][lower_border:lower_border+interval_size] # 5 minutes
+sigbufs[kwargs["ecg_key"]] = sigbufs[kwargs["ecg_key"]][lower_border:lower_border+interval_size] # 5 minutes
 print(check_data.check_ecg(sigbufs, sigfreqs, **check_ecg_args))
-
+"""
 
 #print(MAD.calc_mad(sigbufs, sigfreqs, 60))
 

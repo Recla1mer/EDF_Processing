@@ -11,7 +11,7 @@ import numpy as np
 def check_mad_conditions(
         data: dict, 
         frequency: dict, 
-        relevant_keys = ["X", "Y", "Z"]
+        wrist_acceleration_keys: list
     ):
     """
     Check if the data is valid for MAD calculation (uniform frequency and data points).
@@ -22,22 +22,22 @@ def check_mad_conditions(
         dictionary containing the data arrays
     frequency: dict
         dictionary containing the frequencies of the data arrays
-    relevant_keys: list
+    wrist_acceleration_keys: list
         list of keys of data dictionary that are relevant for MAD calculation
 
     NO RETURN VALUE: raises ValueError if conditions are not met
     """
 
     #check if frequencies are the same
-    compare_key = relevant_keys[0]
+    compare_key = wrist_acceleration_keys[0]
     uniform_frequency = frequency[compare_key]
-    for key in relevant_keys:
+    for key in wrist_acceleration_keys:
         if frequency[key] != uniform_frequency:
             raise ValueError("Frequencies are not the same. Calculation of MAD requires the same frequency for all data arrays.")
 
     #check if the data arrays are the same length
     uniform_length = len(data[compare_key])
-    for key in relevant_keys:
+    for key in wrist_acceleration_keys:
         if len(data[key]) != uniform_length:
             raise ValueError("Data arrays are not the same length. Calculation of MAD requires the same length for all data arrays.")
     del compare_key
@@ -47,7 +47,7 @@ def calc_mad_in_interval(
         data: dict, 
         start_position: int, 
         end_position: int, 
-        relevant_keys = ["X", "Y", "Z"]
+        wrist_acceleration_keys: list
     ):
     """
     Calculate MAD in a given time frame.
@@ -63,7 +63,7 @@ def calc_mad_in_interval(
         start position of the interval
     end_position: int
         end position of the interval
-    relevant_keys: list
+    wrist_acceleration_keys: list
         list of keys of data dictionary that are relevant for MAD calculation
 
     RETURNS: 
@@ -76,7 +76,7 @@ def calc_mad_in_interval(
     average_acceleration = 0
     for i in np.arange(start_position, end_position):
         current_acceleration = 0
-        for key in relevant_keys:
+        for key in wrist_acceleration_keys:
             current_acceleration += data[key][i]*2
         current_acceleration *= 0.5
         average_acceleration += current_acceleration
@@ -86,7 +86,7 @@ def calc_mad_in_interval(
     mad = 0
     for i in np.arange(start_position, end_position):
         current_acceleration = 0
-        for key in relevant_keys:
+        for key in wrist_acceleration_keys:
             current_acceleration += data[key][i]*2
         current_acceleration *= 0.5
         mad += abs(current_acceleration - average_acceleration)
@@ -99,7 +99,7 @@ def calc_mad(
         data: dict, 
         frequency: dict, 
         time_period: int, 
-        relevant_keys = ["X", "Y", "Z"]
+        wrist_acceleration_keys: list
     ):
     """
     Calculate mean amplitude deviation (MAD) of movement acceleration data.
@@ -112,7 +112,7 @@ def calc_mad(
         dictionary containing the frequencies of the data arrays
     time_period: int
         length of the time period in seconds
-    relevant_keys: list
+    wrist_acceleration_keys: list
         list of keys of data dictionary that are relevant for MAD calculation
 
     RETURNS:
@@ -121,14 +121,14 @@ def calc_mad(
         list of MAD values for each interval
     """
     #check if data is valid
-    check_mad_conditions(data, frequency, relevant_keys)
+    check_mad_conditions(data, frequency, wrist_acceleration_keys)
 
     #transform time_period to number of samples
-    number_of_samples = int(time_period * frequency[relevant_keys[0]])
+    number_of_samples = int(time_period * frequency[wrist_acceleration_keys[0]])
 
     #calculate MAD in intervals
     MAD = []
-    for i in np.arange(0, len(data[relevant_keys[0]]), number_of_samples):
-        MAD.append(calc_mad_in_interval(data, i, i + time_period, relevant_keys))
+    for i in np.arange(0, len(data[wrist_acceleration_keys[0]]), number_of_samples):
+        MAD.append(calc_mad_in_interval(data, i, i + time_period, wrist_acceleration_keys))
 
     return MAD
