@@ -75,3 +75,19 @@ def simple_plot(data_y, data_x, save_path, **kwargs):
 
     ax.plot(data_x, data_y)
     plt.savefig(save_path)
+
+
+def plot_valid_regions(data, valid_regions, xlim=None):
+    """
+    Plot the valid regions of the ECG data.
+    """
+    fig, ax = plt.subplots()
+
+    ax.plot(data, label="Invalid", color="red")
+    for region in valid_regions:
+        ax.plot(
+            np.arange(region[0], region[1]), data[region[0] : region[1]], color="green"
+        )
+    ax.legend(loc="best")
+    ax.set_xlim(xlim)
+    plt.show()

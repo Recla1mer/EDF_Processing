@@ -77,7 +77,7 @@ def eval_thresholds_for_check_ecg(
     return check_ecg_std_min_threshold, check_ecg_std_max_threshold, check_ecg_distance_std_ratio_threshold
 
 
-def check_ecg(
+def check_ecg_blocks(
         data: dict, 
         frequency: dict,
         check_ecg_std_min_threshold: float, 
@@ -90,6 +90,7 @@ def check_ecg(
     ):
     """
     Check where the ECG data is valid.
+    (Checks blocks of x minutes for validity)
 
     ARGUMENTS:
     --------------------------------
@@ -196,8 +197,175 @@ def check_ecg(
         
         # check if the last region is valid
         if upper_border == len(data[ecg_key]):
-            if current_valid_intervals / total_intervals >= valid_total_ratio:
-                # print("VALID REGION: ", lower_border, upper_border)
-                valid_regions.append((lower_border,upper_border))
+            try:
+                if current_valid_intervals / total_intervals >= valid_total_ratio:
+                    # print("VALID REGION: ", lower_border, upper_border)
+                    valid_regions.append((lower_border,upper_border))
+            except:
+                continue
+    
+    print("Valid regions ratio: ", round(len(valid_regions) / (len(data[ecg_key]) / int(min_valid_length_minutes * 60 * frequency[ecg_key])), 5)*100, "%")
     
     return valid_regions
+
+
+def check_ecg(
+        data: dict, 
+        frequency: dict,
+        check_ecg_std_min_threshold: float, 
+        check_ecg_std_max_threshold: float, 
+        check_ecg_distance_std_ratio_threshold: float,
+        time_interval_seconds: int, 
+        min_valid_length_minutes: int,
+        allowed_invalid_region_length_seconds: int,
+        ecg_key: str
+    ):
+    """
+    Check where the ECG data is valid.
+    (valid regions must be x minutes long, invalid regions can be as short as possible)
+
+    ARGUMENTS:
+    --------------------------------
+    data: dict
+        dictionary containing the ECG data among other signals
+    frequency: dict
+        dictionary containing the frequency of the signals
+    check_ecg_std_min_threshold: float
+        minimum threshold for the standard deviation
+    check_ecg_std_max_threshold: float
+        maximum threshold for the standard deviation
+    check_ecg_distance_std_ratio_threshold: float
+        threshold for the distance to standard deviation ratio
+    time_interval_seconds: int
+        time interval length to be checked for validity in seconds
+    min_valid_length_minutes: int
+        minimum length of valid data in minutes
+    allowed_invalid_region_length_seconds: int
+        allowed length of invalid data in seconds
+    ecg_key: str
+        key of the ECG data in the data dictionary
+
+    RETURNS:
+    --------------------------------
+    valid_regions: list
+        list of tuples containing the start and end indices of the valid regions
+    """
+    #check if the ECG data is in the data dictionary
+    if ecg_key not in data:
+        raise ValueError("ECG data not found in the data dictionary.")
+    
+    #check if the ECG data is a 1D numpy array
+    if not isinstance(data[ecg_key], np.ndarray):
+        raise ValueError("ECG data is not a numpy array.")
+    if len(data[ecg_key].shape) != 1:
+        raise ValueError("ECG data is not a 1D numpy array.")
+    
+    #check if the frequency is in the frequency dictionary
+    if ecg_key not in frequency:
+        raise ValueError("ECG frequency not found in the frequency dictionary.")
+    
+    #check if the frequency is a positive integer
+    if not isinstance(frequency[ecg_key], float):
+        raise ValueError("ECG frequency is not an integer.")
+    if frequency[ecg_key] <= 0:
+        raise ValueError("ECG frequency is not a positive integer.")
+
+    # calculate the number of iterations from time and frequency
+    time_interval_iterations = int(time_interval_seconds * frequency[ecg_key])
+
+    # check condition for given time intervals and add regions (multiple time intervals) to a list if number of invalid intervals is sufficiently low
+    valid_regions = []
+    current_valid_intervals = 0 # counts valid intervals
+    total_intervals = 0 # counts intervals, set to 0 when region is completed (valid or invalid)
+    lower_border = 0 # lower border of the region
+    min_length_reached = False # check if the minimum length is reached
+    min_valid_intervals = int((min_valid_length_minutes * 60 - allowed_invalid_region_length_seconds) / time_interval_seconds) # minimum number of valid intervals in a region
+    intervals_per_region = int(min_valid_length_minutes * 60 / time_interval_seconds) # number of intervals in a region
+    valid_total_ratio = min_valid_intervals / intervals_per_region # ratio of valid intervals in a region, for the last region that might be too short
+    # print("Variables: ", time_interval_iterations, min_valid_intervals, intervals_per_region)
+
+    for i in np.arange(0, len(data[ecg_key]), time_interval_iterations):
+        # if region met condition, but there are still intervals left, skip them
+        # print("NEW ITERATION: ", i)
+
+        # make sure upper border is not out of bounds
+        if i + time_interval_iterations > len(data[ecg_key]):
+            upper_border = len(data[ecg_key])
+        else:
+            upper_border = i + time_interval_iterations
+        
+        # calc std and max-min-distance ratio
+        this_std = np.std(data[ecg_key][i:upper_border])
+        this_max = np.max(data[ecg_key][i:upper_border])
+        this_min = np.min(data[ecg_key][i:upper_border])
+        max_min_distance = this_max - this_min
+        std_distance_ratio = 0.5 * max_min_distance / this_std
+
+        if min_length_reached:
+            # check if interval is valid
+            if this_std >= check_ecg_std_min_threshold and this_std <= check_ecg_std_max_threshold and std_distance_ratio >= check_ecg_distance_std_ratio_threshold:
+                valid_regions[-1][1] = upper_border
+            else:
+                min_length_reached = False
+                lower_border = upper_border
+        else:
+            # check if interval is valid
+            if this_std >= check_ecg_std_min_threshold and this_std <= check_ecg_std_max_threshold and std_distance_ratio >= check_ecg_distance_std_ratio_threshold:
+                current_valid_intervals += 1
+                # print("VALID")
+            
+            # increase total intervals
+            total_intervals += 1
+            
+            # check if the region is valid
+            if current_valid_intervals >= min_valid_intervals:
+                # print("VALID REGION: ", lower_border, lower_border + intervals_per_region*time_interval_iterations)
+                valid_regions.append([lower_border,lower_border + intervals_per_region*time_interval_iterations])
+                lower_border += intervals_per_region*time_interval_iterations
+                skip_interval = intervals_per_region - total_intervals
+                current_valid_intervals = 0
+                total_intervals = 0
+                min_length_reached = True
+                continue
+            
+            #check if region is invalid
+            if total_intervals >= intervals_per_region:
+                lower_border += intervals_per_region*time_interval_iterations
+                total_intervals = 0
+                current_valid_intervals = 0
+            
+            # check if the last region is valid
+            if upper_border == len(data[ecg_key]):
+                try:
+                    if current_valid_intervals / total_intervals >= valid_total_ratio:
+                        # print("VALID REGION: ", lower_border, upper_border)
+                        valid_regions.append((lower_border,upper_border))
+                except:
+                    continue
+    
+    return valid_regions
+
+
+def valid_total_ratio(data: dict, valid_regions: list, ecg_key: str):
+    """
+    Calculate the ratio of valid data in the ECG data.
+
+    ARGUMENTS:
+    --------------------------------
+    data: dict
+        dictionary containing the ECG data among other signals
+    valid_regions: list
+        list of tuples containing the start and end indices of the valid regions
+    ecg_key: str
+        key of the ECG data in the data dictionary
+
+    RETURNS:
+    --------------------------------
+    valid_ratio: float
+        ratio of valid data in the ECG data
+    """
+    valid_data = 0
+    for region in valid_regions:
+        valid_data += region[1] - region[0]
+    valid_ratio = valid_data / len(data[ecg_key])
+    return valid_ratio

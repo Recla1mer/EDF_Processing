@@ -33,8 +33,9 @@ TEMPORARY_FIGURE_DIRECTORY_PATH = "Temporary_Figures/"
 
 PREPARATION_DIRECTORY = "Preparation/"
 
-CHECK_ECG_DATA_THRESHOLDS = PREPARATION_DIRECTORY + "Check_ECG_Data_Thresholds.pkl"
-VALID_ECG_REGIONS = PREPARATION_DIRECTORY + "Valid_ECG_Regions.pkl"
+CHECK_ECG_DATA_THRESHOLDS_PATH = PREPARATION_DIRECTORY + "Check_ECG_Data_Thresholds.pkl"
+WFDB_TIME_THRESHOLD_PATH = PREPARATION_DIRECTORY + "WFDB_Time_Threshold.pkl"
+VALID_ECG_REGIONS_PATH = PREPARATION_DIRECTORY + "Valid_ECG_Regions.pkl"
 
 CALIBRATION_DATA_PATH = "Calibration_Data/Somnowatch_Messung.edf"
 
@@ -53,16 +54,20 @@ parameters = {
     "valid_file_types": [".edf"], # valid file types in the data directory
     "ecg_key": "ECG", # key for the ECG data in the data dictionary
     "wrist_acceleration_keys": ["X", "Y", "Z"], # keys for the wrist acceleration data in the data dictionary
-    "ecg_threshold_multiplier": 0.75, # multiplier for the thresholds in check_data.check_ecg() (between 0 and 1)
+    "ecg_threshold_multiplier": 0.5, # multiplier for the thresholds in check_data.check_ecg() (between 0 and 1)
+    "wfdb_threshold_multiplier": 0.5, # multiplier for the threshold in rpeak_detection.optimize_wfdb_detection() (between 0 and 1)
     "show_calibration_data": False, # if True, the calibration data in the manually chosen intervals will be plotted and saved to TEMPORARY_FIGURE_DIRECTORY_PATH
-    "calculate_thresholds": False, # if True, you will have the option to recalculate the thresholds for various functions
-    "threshold_dezimal_places": 2, # number of dezimal places for the thresholds in the pickle files
+    "calculate_thresholds": True, # if True, you will have the option to recalculate the thresholds for various functions
+    "check_ecg_threshold_dezimal_places": 2, # number of dezimal places for the check ecg thresholds in the pickle files
+    "wfdb_time_threshold_dezimal_places": 7, # number of dezimal places for the wfdb time threshold in the pickle files
     "time_interval_seconds": 10, # time interval considered when calculating thresholds
     "min_valid_length_minutes": 5, # minimum length of valid data in minutes
     "allowed_invalid_region_length_seconds": 30, # data region (see above) still considered valid if the invalid part is shorter than this
-    "determine_valid_ecg_regions": False, # if True, the valid regions for the ECG data will be determined
+    "determine_valid_ecg_regions": True, # if True, the valid regions for the ECG data will be determined
     "valid_ecg_regions": dict() # dictionary containing the valid regions for the ECG data, will be overwritten below (so don't bother)
 }
+
+params_to_be_calculated = {}
 
 # check the parameters
 if not isinstance(parameters["file_path"], str):
@@ -79,14 +84,20 @@ if not isinstance(parameters["ecg_threshold_multiplier"], (int, float)):
     raise ValueError("'ecg_threshold_multiplier' parameter must be an integer or a float.")
 if parameters["ecg_threshold_multiplier"] <= 0 or parameters["ecg_threshold_multiplier"] > 1:
     raise ValueError("'ecg_threshold_multiplier' parameter must be between 0 and 1.")
+if not isinstance(parameters["wfdb_threshold_multiplier"], (int, float)):
+    raise ValueError("'wfdb_threshold_multiplier' parameter must be an integer or a float.")
+if parameters["wfdb_threshold_multiplier"] <= 0 or parameters["wfdb_threshold_multiplier"] > 1:
+    raise ValueError("'wfdb_threshold_multiplier' parameter must be between 0 and 1.")
 if not isinstance(parameters["show_calibration_data"], bool):
     raise ValueError("'show_calibration_data' parameter must be a boolean.")
 if not isinstance(parameters["calculate_thresholds"], bool):
     raise ValueError("'calculate_thresholds' parameter must be a boolean.")
 if parameters["show_calibration_data"] and parameters["calculate_thresholds"]:
     raise ValueError("'show_calibration_data' and 'calculate_thresholds' parameter cannot both be True at the same time.")
-if not isinstance(parameters["threshold_dezimal_places"], int):
-    raise ValueError("'threshold_dezimal_places' parameter must be an integer.")
+if not isinstance(parameters["check_ecg_threshold_dezimal_places"], int):
+    raise ValueError("'check_ecg_threshold_dezimal_places' parameter must be an integer.")
+if not isinstance(parameters["wfdb_time_threshold_dezimal_places"], int):
+    raise ValueError("'wfdb_time_threshold_dezimal_places' parameter must be an integer.")
 if not isinstance(parameters["time_interval_seconds"], int):
     raise ValueError("'time_interval_seconds' parameter must be an integer.")
 if not isinstance(parameters["min_valid_length_minutes"], int):
@@ -197,7 +208,9 @@ units match, etc.
 def calculate_thresholds(
         file_path: str, 
         ecg_threshold_multiplier: float,
-        threshold_dezimal_places: int,
+        wfdb_threshold_multiplier: float,
+        check_ecg_threshold_dezimal_places: int,
+        wfdb_time_threshold_dezimal_places: int,
         show_calibration_data: bool,
         ecg_key: str,
     ):
@@ -213,8 +226,12 @@ def calculate_thresholds(
         path to the EDF file for threshold calibration
     ecg_threshold_multiplier: float
         multiplier for the thresholds in check_data.check_ecg()
-    threshold_dezimal_places: int
-        number of dezimal places for the thresholds in the pickle files
+    wfdb_threshold_multiplier: float
+        multiplier for the thresholds in rpeak_detection.optimize_wfdb_detection()
+    check_ecg_threshold_dezimal_places: int
+        number of dezimal places for the check ecg thresholds in the pickle files
+    wfdb_time_threshold_dezimal_places: int
+        number of dezimal places for the wfdb time threshold in the pickle files
     show_graphs: bool, default False
         if True, the data will be plotted and saved to TEMPORARY_FIGURE_DIRECTORY_PATH
         if False, the thresholds will be calculated and saved to THRESHOLD_DIRECTORY
@@ -226,12 +243,12 @@ def calculate_thresholds(
     # Load the data
     sigbufs, sigfreqs, duration = read_edf.get_edf_data(file_path)
 
-    # check if thresholds already exist and if yes: ask for permission to override
-    if not show_calibration_data:
-        user_answer = ask_for_permission_to_override(file_path = CHECK_ECG_DATA_THRESHOLDS, 
+    # check if ecg thresholds already exist and if yes: ask for permission to override
+    if show_calibration_data:
+        user_answer = "n"
+    else:
+        user_answer = ask_for_permission_to_override(file_path = CHECK_ECG_DATA_THRESHOLDS_PATH, 
                                         message = "Thresholds for check_data.check_ecg()")
-
-    # Calculate thresholds for check_data.check_ecg()
    
     # Calibration intervals for check_data.check_ecg()
     interval_size = 2560 # 10 seconds for 256 Hz
@@ -245,19 +262,18 @@ def calculate_thresholds(
 
     # Plot the data if show_graphs is True
     if show_calibration_data:
-        names = ["perfect_ecg", "fluctuating_ecg", "noisy_ecg", "negative_peaks_ecg"]
+        names = ["perfect_ecg", "fluctuating_ecg", "noisy_ecg", "negative_peaks"]
         for interval in detection_intervals:
             NNPH.simple_plot(sigbufs[ecg_key][interval[0]:interval[1]], np.arange(interval_size), TEMPORARY_FIGURE_DIRECTORY_PATH + names[detection_intervals.index(interval)] + "_ten_sec.png")
-        return
     
-    # Calculate and save the thresholds
+    # Calculate and save the thresholds for check_data.check_ecg()
     if user_answer == "y":
 
         threshold_values = check_data.eval_thresholds_for_check_ecg(
             sigbufs, 
             detection_intervals,
             threshold_multiplier = ecg_threshold_multiplier,
-            threshold_dezimal_places = threshold_dezimal_places,
+            threshold_dezimal_places = check_ecg_threshold_dezimal_places,
             ecg_key = ecg_key,
             )
         
@@ -266,7 +282,54 @@ def calculate_thresholds(
         check_ecg_thresholds["check_ecg_std_max_threshold"] = threshold_values[1]
         check_ecg_thresholds["check_ecg_distance_std_ratio_threshold"] = threshold_values[2]
         
-        save_to_pickle(check_ecg_thresholds, CHECK_ECG_DATA_THRESHOLDS)
+        save_to_pickle(check_ecg_thresholds, CHECK_ECG_DATA_THRESHOLDS_PATH)
+
+        del threshold_values
+    del detection_intervals
+    
+    #end for check_ecg threshold
+    #start of wfdb threshold
+    
+    # check if wfdb time threshold already exist and if yes: ask for permission to override
+    if not show_calibration_data:
+        user_answer = ask_for_permission_to_override(file_path = WFDB_TIME_THRESHOLD_PATH, 
+                        message = "Thresholds for rpeak_detection.optimize_wfdb_detection()")
+    
+    # Calibration intervals for rpeak_detection.optimize_wfdb_detection()
+    interval_size = 2560 # 10 seconds for 256 Hz
+    lower_borders = [
+        2091000, # 2h 17min 10sec for 256 Hz
+        6292992, # 6h 49min 41sec for 256 Hz
+        2156544, # 2h 20min 24sec for 256 Hz
+        1781760 # 1h 56min 0sec for 256 Hz
+        ]
+    detection_intervals = [(border, border + interval_size) for border in lower_borders]
+
+    # Plot the data if show_graphs is True
+    if show_calibration_data:
+        names = ["perfect_ecg_wfdb", "fluctuating_ecg_wfdb", "noisy_ecg_wfdb", "negative_peaks_ecg_wfdb"]
+        for interval in detection_intervals:
+            NNPH.simple_plot(sigbufs[ecg_key][interval[0]:interval[1]], np.arange(interval_size), TEMPORARY_FIGURE_DIRECTORY_PATH + names[detection_intervals.index(interval)] + "_ten_sec.png")
+
+    # Calculate and save the thresholds for check_data.check_ecg()
+    if user_answer == "y":
+
+        threshold_value = rpeak_detection.eval_thresholds_for_wfdb(
+            sigbufs, 
+            sigfreqs,
+            detection_intervals,
+            threshold_multiplier = wfdb_threshold_multiplier,
+            threshold_dezimal_places = wfdb_time_threshold_dezimal_places,
+            ecg_key = ecg_key,
+            )
+        
+        wfdb_time_threshold = dict()
+        wfdb_time_threshold["wfdb_time_threshold"] = threshold_value
+        
+        save_to_pickle(wfdb_time_threshold, WFDB_TIME_THRESHOLD_PATH)
+
+        del threshold_value
+    del detection_intervals
 
 
 def determine_valid_ecg_regions(
@@ -296,7 +359,7 @@ def determine_valid_ecg_regions(
     None, but the valid regions are saved to a pickle file
     
     """
-    user_answer = ask_for_permission_to_override(file_path = VALID_ECG_REGIONS,
+    user_answer = ask_for_permission_to_override(file_path = VALID_ECG_REGIONS_PATH,
                                                 message = "Valid regions for the ECG data")
     
     if user_answer == "n":
@@ -318,7 +381,7 @@ def determine_valid_ecg_regions(
             ecg_key = ecg_key
             )
     
-    save_to_pickle(valid_regions, VALID_ECG_REGIONS)
+    save_to_pickle(valid_regions, VALID_ECG_REGIONS_PATH)
 
 
 """
@@ -339,8 +402,9 @@ clear_directory(TEMPORARY_FIGURE_DIRECTORY_PATH)
 
 # calculate/load the thresholds or show how calibration data needed for this should look like
 calculate_thresholds_args = create_sub_dict(
-    parameters, ["file_path", "ecg_threshold_multiplier", "threshold_dezimal_places", 
-             "show_calibration_data", "ecg_key"]
+    parameters, ["file_path", "ecg_threshold_multiplier", "wfdb_threshold_multiplier",
+                 "check_ecg_threshold_dezimal_places", "wfdb_time_threshold_dezimal_places",
+                 "show_calibration_data", "ecg_key"]
     )
 
 if parameters["show_calibration_data"]:
@@ -352,10 +416,17 @@ if parameters["calculate_thresholds"]:
 
 del calculate_thresholds_args
 
-check_ecg_thresholds_dict = load_from_pickle(CHECK_ECG_DATA_THRESHOLDS)
+# load the thresholds to the parameters dictionary
+check_ecg_thresholds_dict = load_from_pickle(CHECK_ECG_DATA_THRESHOLDS_PATH)
 parameters.update(check_ecg_thresholds_dict)
 del check_ecg_thresholds_dict
 
+wfdb_time_threshold_dict = load_from_pickle(WFDB_TIME_THRESHOLD_PATH)
+parameters.update(wfdb_time_threshold_dict)
+del wfdb_time_threshold_dict
+
+print(parameters)
+raise SystemExit(0)
 
 # evaluate/load valid regions for the ECG data
 determine_ecg_region_args = create_sub_dict(
@@ -368,23 +439,28 @@ determine_ecg_region_args = create_sub_dict(
 if parameters["determine_valid_ecg_regions"]:
     determine_valid_ecg_regions(**determine_ecg_region_args)
 
-valid_regions_dict = load_from_pickle(VALID_ECG_REGIONS)
+valid_regions_dict = load_from_pickle(VALID_ECG_REGIONS_PATH)
 parameters["valid_ecg_regions"] = valid_regions_dict
 
 del determine_ecg_region_args
 del valid_regions_dict
 
 print(parameters["valid_ecg_regions"])
+print(len(parameters["valid_ecg_regions"]["Somnowatch_Messung.edf"]))
+sigbufs, sigfreqs, duration = read_edf.get_edf_data(parameters["file_path"])
+print(check_data.valid_total_ratio(sigbufs, parameters["valid_ecg_regions"]["Somnowatch_Messung.edf"], parameters["ecg_key"]))
+total_length = len(sigbufs[parameters["ecg_key"]])
+NNPH.plot_valid_regions(sigbufs[parameters["ecg_key"]], parameters["valid_ecg_regions"]["Somnowatch_Messung.edf"], xlim = [0, total_length])
 
 # Testing
 """
-sigbufs, sigfreqs, duration = read_edf.get_edf_data(kwargs["file_path"])
+sigbufs, sigfreqs, duration = read_edf.get_edf_data(parameters["file_path"])
 lower_border = 2091000
 #lower_border = 19059968
 interval_size = 153600
-interval_size += 3000
-sigbufs[kwargs["ecg_key"]] = sigbufs[kwargs["ecg_key"]][lower_border:lower_border+interval_size] # 5 minutes
-print(check_data.check_ecg(sigbufs, sigfreqs, **check_ecg_args))
+#interval_size += 3000
+sigbufs[parameters["ecg_key"]] = sigbufs[parameters["ecg_key"]][lower_border:lower_border+interval_size] # 5 minutes
+print(check_data.check_ecg(sigbufs, sigfreqs, parameters["check_ecg_std_min_threshold"], parameters["check_ecg_std_max_threshold"], parameters["check_ecg_distance_std_ratio_threshold"], parameters["time_interval_seconds"], parameters["min_valid_length_minutes"], parameters["allowed_invalid_region_length_seconds"], parameters["ecg_key"]))
 """
 
 #print(MAD.calc_mad(sigbufs, sigfreqs, 60))

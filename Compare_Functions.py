@@ -20,7 +20,7 @@ import rpeak_detection
 from pyedflib import EdfReader
 import old_code.mad as old_mad
 
-test_file_path = "Test_Data/Somnowatch_Messung.edf"
+test_file_path = "Calibration_Data/Somnowatch_Messung.edf"
 
 
 def MAD_compare(edf_file_path: str, time_period = 1):
@@ -84,7 +84,9 @@ def rpeak_detection_compare(
         primary_function = rpeak_detection.get_rpeaks_wfdb,
         secondary_function = rpeak_detection.get_rpeaks_neuro,
         name_primary = "WFDB",
-        name_secondary = "Neurokit2"
+        name_secondary = "Neurokit2",
+        primary_additional_args = {},
+        secondary_additional_args = {}
     ):
     """
     Compare the R-peak detection methods that are implemented in the rpeak_detection.py file.
@@ -109,6 +111,10 @@ def rpeak_detection_compare(
         name of the primary R peak detection function
     name_secondary: str, default "Neurokit2"
         name of the secondary R peak detection function
+    primary_additional_args: dict, default {}
+        additional arguments for the primary R peak detection function
+    secondary_additional_args: dict, default {}
+        additional arguments for the secondary R peak detection function
     
     RETURNS:
     --------------------------------
@@ -136,11 +142,11 @@ def rpeak_detection_compare(
 
 
     start_time = time.time()
-    rpeaks_primary = primary_function(sigbufs, sigfreqs, relevant_key, detection_interval)
+    rpeaks_primary = primary_function(data=sigbufs, frequency=sigfreqs, ecg_key=relevant_key, detection_interval=detection_interval, **primary_additional_args)
     end_time = time.time()
     primary_time = end_time - start_time
     start_time = time.time()
-    rpeaks_secondary = secondary_function(sigbufs, sigfreqs, relevant_key, detection_interval)
+    rpeaks_secondary = secondary_function(data=sigbufs, frequency=sigfreqs, ecg_key=relevant_key, detection_interval=detection_interval, **secondary_additional_args)
     end_time = time.time()
     secondary_time = end_time - start_time
     # print("%s R peaks:" % name_primary, rpeaks_primary)
@@ -148,6 +154,7 @@ def rpeak_detection_compare(
     print("%s Total Time: %f s" % (name_primary, primary_time))
     print("%s Total Time: %f s" % (name_secondary, secondary_time))
     print("Time Difference (%s - %s): %f s" % (name_primary, name_secondary, round(primary_time - secondary_time,3)))
+    print("Time Ratio (%s / %s): %f" % (name_primary, name_secondary, primary_time / secondary_time))
     if lower_border is not None:
         print("Datapoints per second (%s): %f" % (name_primary, interval_size / primary_time))
         print("Datapoints per second (%s): %f" % (name_secondary, interval_size / secondary_time))
@@ -179,4 +186,4 @@ def rpeak_detection_compare(
 
 #MAD_compare(test_file_path)
 #rpeak_detection_compare(test_file_path)
-rpeak_detection_compare(test_file_path, lower_border = 2091000, interval_size = 2500, secondary_function=rpeak_detection.get_rpeaks_old, name_secondary="Old")
+rpeak_detection_compare(test_file_path, lower_border = 209000, interval_size = 100000, secondary_function=rpeak_detection.optimize_wfdb_detection, name_secondary="optimized_wfdb", secondary_additional_args={"wfdb_time_threshold": 0.0000124, "wfdb_time_interval_seconds": 100, "wfdb_check_time_condition": 10})
