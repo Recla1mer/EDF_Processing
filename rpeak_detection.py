@@ -146,58 +146,21 @@ def get_rpeaks_wfdb(
     return rpeaks_corrected
 
 
-def eval_thresholds_for_wfdb(
-        data: dict, 
-        frequency: dict,
-        detection_intervals: list,
-        threshold_multiplier: float,
-        threshold_dezimal_places: int,
-        ecg_key: str,
-    ):
-    """
-    Calculate the time threshold for optimize_wfdb_detection function.
-
-    ARGUMENTS:
-    --------------------------------
-    data: dict
-        dictionary containing the ECG data among other signals
-    detection_intervals: list
-        list of detection intervals
-    threshold_multiplier: float between 0 and 1
-        multiplier that is either Multiplier or Divisor for the threshold values
-        (because valid data could also differ slightly from the test intervals used)
-    threshold_dezimal_places: int
-        number of decimal places for the threshold values
-    relevant_key: str
-        key of the ECG data in the data dictionary
-    
-    RETURNS:
-    --------------------------------
-    time_threshold: float
-        threshold for the detection time of R-peaks in the given intervals
-    """
-
-    #calculating time for detection (per datapoint) of R-peaks in the given intervals
-    detection_times = []
-    for interval in detection_intervals:
-        start_time = time.time()
-        get_rpeaks_wfdb(data, frequency, ecg_key, interval)
-        detection_times.append((time.time() - start_time) / (interval[1] - interval[0]))
-    
-    time_threshold = round(np.max(detection_times) / threshold_multiplier, threshold_dezimal_places)
-
-    return time_threshold
-
-
 def combined_rpeak_detection_methods(
         data: dict, 
         frequency: dict, 
-        relevant_key = "ECG", 
-        detection_interval = None
+        ecg_key: str, 
+        detection_interval: tuple,
+        rpeak_primary_function,
+        rpeak_secondary_function,
+        rpeak_distance_threshold_seconds: float,
     ):
     """
-    Detect R-peaks in ECG data using both the wfdb library and the detection function
-    that was used by the research group before me (see old_code/rpeak_detection.py).
+    Detect R-peaks in ECG data using two different libraries. 
+    This way we can compare the results and categorize the R-peaks as sure or unsure.
+
+    Suggested is the wfdb library and the detection function that was used by the research 
+    group before me (see old_code/rpeak_detection.py).
 
     ARGUMENTS:
     --------------------------------
@@ -205,24 +168,62 @@ def combined_rpeak_detection_methods(
         dictionary containing the ECG data among other signals
     frequency: dict
         dictionary containing the frequency of the signals
-    relevant_key: str
+    ecg_key: str
         key of the ECG data in the data dictionary
     detection_interval: tuple, default None
         interval in which the R-peaks should be detected
+    rpeak_primary_function: function, default get_rpeaks_wfdb
+        primary R peak detection function
+    rpeak_secondary_function: function, default get_rpeaks_old
+        secondary R peak detection function
+    rpeak_distance_threshold_seconds: float
+        threshold for the distance between two R-peaks to be considered as the same 
+        (reasonable to use highest heart rate ever recorded: 480 bpm = 0.125 spb,
+        but better results with 300 bpm = 0.2 spb)
 
     RETURNS:
     --------------------------------
-    rpeaks_corrected: 1D numpy array
-        R-peak locations
+    rpeaks_intersected: 1D numpy array
+        R-peak locations that were detected by both methods
+    rpeaks_only_primary: 1D numpy array
+        R-peak locations that were only detected by the primary method
+    rpeaks_only_secondary: 1D numpy array
+        R-peak locations that were only detected by the secondary method
     """
-    #rpeaks_neuro = get_rpeaks_neuro(data, frequency, relevant_key, detection_interval)
-    rpeaks_wfdb = get_rpeaks_wfdb(data, frequency, relevant_key, detection_interval)
+    # convert the threshold to iterations
+    distance_threshold_iterations = int(rpeak_distance_threshold_seconds * frequency[ecg_key])
 
-    if detection_interval is None:
-        rpeaks_old = old_rpeak.get_rpeaks(data[relevant_key], frequency[relevant_key])
-    else:
-        rpeaks_old = old_rpeak.get_rpeaks(data[relevant_key][detection_interval[0]:detection_interval[1]], frequency[relevant_key])
+    # get R-peaks using both methods
+    rpeaks_primary = rpeak_primary_function(data, frequency, ecg_key, detection_interval)
+    rpeaks_secondary = rpeak_secondary_function(data, frequency, ecg_key, detection_interval)
 
-    # get the intersection of the two rpeak detections
-    rpeaks_corrected = np.intersect1d(rpeaks_wfdb, rpeaks_old)
-    return rpeaks_corrected
+    # if two R-peaks are closer than the threshold, they are considered as the same
+    # both will be changed to the same value (primary R-peak)
+
+    # intersects_before = len(np.intersect1d(rpeaks_primary, rpeaks_secondary))
+
+    last_matching_rpeak = -1
+    for i in range(len(rpeaks_primary)):
+        if rpeaks_primary[i] not in rpeaks_secondary:
+            possible_matches = []
+            possible_matches_values = []
+            for j in range(last_matching_rpeak + 1, len(rpeaks_secondary)):
+                this_distance = rpeaks_secondary[j] - rpeaks_primary[i]
+                possible_matches_values.append(abs(this_distance))
+                possible_matches.append(j)
+                if this_distance > distance_threshold_iterations:
+                    break
+            if min(possible_matches_values) < distance_threshold_iterations:
+                last_matching_rpeak = possible_matches[possible_matches_values.index(min(possible_matches_values))]
+                rpeaks_secondary[last_matching_rpeak] = rpeaks_primary[i]
+    
+    # intersects_after = len(np.intersect1d(rpeaks_primary, rpeaks_secondary))
+
+    # intersect the R-peaks
+    rpeaks_intersected = np.intersect1d(rpeaks_primary, rpeaks_secondary)
+
+    # get the R-peaks that are only in one of the two methods
+    rpeaks_only_primary = np.setdiff1d(rpeaks_primary, rpeaks_secondary)
+    rpeaks_only_secondary = np.setdiff1d(rpeaks_secondary, rpeaks_primary)
+
+    return rpeaks_intersected, rpeaks_only_primary, rpeaks_only_secondary

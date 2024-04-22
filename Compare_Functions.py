@@ -186,4 +186,20 @@ def rpeak_detection_compare(
 
 #MAD_compare(test_file_path)
 #rpeak_detection_compare(test_file_path)
-rpeak_detection_compare(test_file_path, lower_border = 209000, interval_size = 100000, secondary_function=rpeak_detection.optimize_wfdb_detection, name_secondary="optimized_wfdb", secondary_additional_args={"wfdb_time_threshold": 0.0000124, "wfdb_time_interval_seconds": 100, "wfdb_check_time_condition": 10})
+lower_border = 2091000
+lower_border = 6292950
+#lower_border = 6369000
+interval_size = 2500
+#interval_size = 100000
+
+rpeak_detection_compare(test_file_path, lower_border = lower_border, interval_size = interval_size, secondary_function=rpeak_detection.get_rpeaks_old, name_secondary="old")
+
+# sigbufs, sigfreqs, duration = read_edf.get_edf_data(test_file_path)
+# stuff = rpeak_detection.combined_rpeak_detection_methods(sigbufs, sigfreqs, detection_interval=(lower_border, lower_border + interval_size))
+# print(stuff[0])
+# print(stuff[1])
+# print(stuff[2])
+
+a = np.array([1,2,3])
+b = np.array([2,3,4])
+print(np.append(a,b))

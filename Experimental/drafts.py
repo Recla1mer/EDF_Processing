@@ -75,6 +75,48 @@ Following function didnt optimize the detection time as expected. It was way slo
 and deliverd worse results. We are now relying on the detection of valid ecg regions to optimize the detection time.
 """
 
+def eval_thresholds_for_wfdb(
+        data: dict, 
+        frequency: dict,
+        detection_intervals: list,
+        threshold_multiplier: float,
+        threshold_dezimal_places: int,
+        ecg_key: str,
+    ):
+    """
+    Calculate the time threshold for optimize_wfdb_detection function.
+
+    ARGUMENTS:
+    --------------------------------
+    data: dict
+        dictionary containing the ECG data among other signals
+    detection_intervals: list
+        list of detection intervals
+    threshold_multiplier: float between 0 and 1
+        multiplier that is either Multiplier or Divisor for the threshold values
+        (because valid data could also differ slightly from the test intervals used)
+    threshold_dezimal_places: int
+        number of decimal places for the threshold values
+    relevant_key: str
+        key of the ECG data in the data dictionary
+    
+    RETURNS:
+    --------------------------------
+    time_threshold: float
+        threshold for the detection time of R-peaks in the given intervals
+    """
+
+    #calculating time for detection (per datapoint) of R-peaks in the given intervals
+    detection_times = []
+    for interval in detection_intervals:
+        start_time = time.time()
+        get_rpeaks_wfdb(data, frequency, ecg_key, interval)
+        detection_times.append((time.time() - start_time) / (interval[1] - interval[0]))
+    
+    time_threshold = round(np.max(detection_times) / threshold_multiplier, threshold_dezimal_places)
+
+    return time_threshold
+
 
 def optimize_wfdb_detection(
         data: dict, 
@@ -326,3 +368,172 @@ if parameters["wfdb_threshold_multiplier"] <= 0 or parameters["wfdb_threshold_mu
 
 if not isinstance(parameters["wfdb_time_threshold_dezimal_places"], int):
     raise ValueError("'wfdb_time_threshold_dezimal_places' parameter must be an integer.")
+
+
+def combined_rpeak_detection_methods(
+        data: dict, 
+        frequency: dict, 
+        ecg_key: str, 
+        detection_interval: tuple,
+        rpeak_primary_function,
+        rpeak_secondary_function,
+        rpeak_name_primary: str,
+        rpeak_name_secondary: str,
+        rpeak_distance_threshold_seconds: float,
+        rpeak_failsafe_threshold_min_area_length: int,
+        rpeak_failsafe_threshold_max_interruptions: int,
+        rpeak_failsafe_threshold_multiplier: float,
+    ):
+    """
+    Detect R-peaks in ECG data using two different libraries. 
+    This way we can compare the results and categorize the R-peaks as sure or unsure.
+
+    Suggested is the wfdb library and the detection function that was used by the research 
+    group before me (see old_code/rpeak_detection.py).
+
+    ARGUMENTS:
+    --------------------------------
+    data: dict
+        dictionary containing the ECG data among other signals
+    frequency: dict
+        dictionary containing the frequency of the signals
+    ecg_key: str
+        key of the ECG data in the data dictionary
+    detection_interval: tuple, default None
+        interval in which the R-peaks should be detected
+    primary_function: function, default get_rpeaks_wfdb
+        primary R peak detection function
+    secondary_function: function, default get_rpeaks_old
+        secondary R peak detection function
+    name_primary: str, default "wfdb"
+        name of the primary R peak detection function
+    name_secondary: str, default "ecgdetectors"
+        name of the secondary R peak detection function
+    distance_threshold_seconds: float
+        threshold for the distance between two R-peaks to be considered as the same 
+        (reasonable to use highest heart rate ever recorded: 480 bpm = 0.125 spb,
+        but better results with 300 bpm = 0.2 spb)
+
+    ATTENTION:
+        if the heart rate is higher than what was assumed by the distance_threshold_seconds,
+        the distance_threshold_seconds will be locally adjusted where needed. The new threshold
+        will be calculated from the mean of the distances in each area. For this 
+        instance the following parameters are needed: 
+
+    failsafe_threshold_min_area_length: int
+        minimum length of an area (in R-peaks) where the heart rate is higher than assumed
+    failsafe_threshold_max_interruptions: int
+        maximum number of interruptions (heartrate lower) in an area where the heart rate is higher than assumed
+    failsafe_threshold_multiplier: float
+        multiplier for the threshold in areas where the heart rate is higher than assumed
+
+
+    RETURNS:
+    --------------------------------
+    rpeaks_intersected: 1D numpy array
+        R-peak locations that were detected by both methods
+    rpeaks_only_primary: 1D numpy array
+        R-peak locations that were only detected by the primary method
+    rpeaks_only_secondary: 1D numpy array
+        R-peak locations that were only detected by the secondary method
+    """
+    # convert the threshold to iterations
+    distance_threshold_iterations = int(rpeak_distance_threshold_seconds * frequency[ecg_key])
+
+    # get R-peaks using both methods
+    rpeaks_primary = rpeak_primary_function(data, frequency, ecg_key, detection_interval)
+    rpeaks_secondary = rpeak_secondary_function(data, frequency, ecg_key, detection_interval)
+
+    # check if there are areas where the heart rate is higher than assumed by the distance_threshold_seconds
+    primary_distance = np.diff(rpeaks_primary)
+    secondary_distance = np.diff(rpeaks_secondary)
+
+    threshold_fails_primary = np.where(primary_distance < distance_threshold_iterations)[0]
+    threshold_fails_secondary = np.where(secondary_distance < distance_threshold_iterations)[0]
+
+    try:
+        higher_heart_rate_area_primary = []
+        this_interval = [threshold_fails_primary[0], threshold_fails_primary[0]+1]
+        for i in range(1,len(threshold_fails_primary)):
+            if (this_interval[1]+rpeak_failsafe_threshold_max_interruptions) >= threshold_fails_primary[i]:
+                this_interval[1] = threshold_fails_primary[i]
+            else:
+                if this_interval[1] - this_interval[0] >= rpeak_failsafe_threshold_min_area_length:
+                    higher_heart_rate_area_primary.append(this_interval)
+                this_interval = [threshold_fails_primary[i], threshold_fails_primary[i]+1]
+        if this_interval[1] - this_interval[0] >= rpeak_failsafe_threshold_min_area_length:
+            higher_heart_rate_area_primary.append(this_interval)
+    except:
+        higher_heart_rate_area_primary = []
+    
+    try:
+        higher_heart_rate_area_secondary = []
+        this_interval = [threshold_fails_secondary[0], threshold_fails_secondary[0]+1]
+        for i in range(1,len(threshold_fails_secondary)):
+            if (this_interval[1]+rpeak_failsafe_threshold_max_interruptions) >= threshold_fails_secondary[i]:
+                this_interval[1] = threshold_fails_secondary[i]
+            else:
+                if this_interval[1] - this_interval[0] >= rpeak_failsafe_threshold_min_area_length:
+                    higher_heart_rate_area_secondary.append(this_interval)
+                this_interval = [threshold_fails_secondary[i], threshold_fails_secondary[i]+1]
+        if this_interval[1] - this_interval[0] >= rpeak_failsafe_threshold_min_area_length:
+            higher_heart_rate_area_secondary.append(this_interval)
+    except:
+        higher_heart_rate_area_secondary = []
+
+    # if two R-peaks are closer than the threshold, they are considered as the same
+    # both will be changed to the same value (primary R-peak)
+
+    # intersects_before = len(np.intersect1d(rpeaks_primary, rpeaks_secondary))
+
+    if len(higher_heart_rate_area_primary) > 0 and len(higher_heart_rate_area_secondary) > 0:
+        altered_distance_threshold_iterations = distance_threshold_iterations
+        last_matching_rpeak = -1
+        for i in range(len(rpeaks_primary)):
+            for interval in higher_heart_rate_area_primary:
+                if interval[0] <= i <= interval[1]:
+                    altered_distance_threshold_iterations = int(np.mean(primary_distance[interval[0]:interval[1]]) * rpeak_failsafe_threshold_multiplier)
+                    break
+            if rpeaks_primary[i] not in rpeaks_secondary:
+                possible_matches = []
+                possible_matches_values = []
+                for j in range(last_matching_rpeak + 1, len(rpeaks_secondary)):
+                    for interval in higher_heart_rate_area_secondary:
+                        if interval[0] <= j <= interval[1]:
+                            altered_distance_threshold_iterations = min(int(np.mean(secondary_distance[interval[0]:interval[1]]) * rpeak_failsafe_threshold_multiplier), altered_distance_threshold_iterations)
+                            break
+                for j in range(last_matching_rpeak + 1, len(rpeaks_secondary)):
+                    this_distance = rpeaks_secondary[j] - rpeaks_primary[i]
+                    possible_matches_values.append(abs(this_distance))
+                    possible_matches.append(j)
+                    if this_distance > altered_distance_threshold_iterations:
+                        break
+                if min(possible_matches_values) < altered_distance_threshold_iterations:
+                    last_matching_rpeak = possible_matches[possible_matches_values.index(min(possible_matches_values))]
+                    rpeaks_secondary[last_matching_rpeak] = rpeaks_primary[i]
+    else:
+        last_matching_rpeak = -1
+        for i in range(len(rpeaks_primary)):
+            if rpeaks_primary[i] not in rpeaks_secondary:
+                possible_matches = []
+                possible_matches_values = []
+                for j in range(last_matching_rpeak + 1, len(rpeaks_secondary)):
+                    this_distance = rpeaks_secondary[j] - rpeaks_primary[i]
+                    possible_matches_values.append(abs(this_distance))
+                    possible_matches.append(j)
+                    if this_distance > distance_threshold_iterations:
+                        break
+                if min(possible_matches_values) < distance_threshold_iterations:
+                    last_matching_rpeak = possible_matches[possible_matches_values.index(min(possible_matches_values))]
+                    rpeaks_secondary[last_matching_rpeak] = rpeaks_primary[i]
+    
+    # intersects_after = len(np.intersect1d(rpeaks_primary, rpeaks_secondary))
+
+    # intersect the R-peaks
+    rpeaks_intersected = np.intersect1d(rpeaks_primary, rpeaks_secondary)
+
+    # get the R-peaks that are only in one of the two methods
+    rpeaks_only_primary = np.setdiff1d(rpeaks_primary, rpeaks_secondary)
+    rpeaks_only_secondary = np.setdiff1d(rpeaks_secondary, rpeaks_primary)
+
+    return rpeaks_intersected, rpeaks_only_primary, rpeaks_only_secondary

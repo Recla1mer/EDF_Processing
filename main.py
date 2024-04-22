@@ -35,6 +35,9 @@ PREPARATION_DIRECTORY = "Preparation/"
 
 CHECK_ECG_DATA_THRESHOLDS_PATH = PREPARATION_DIRECTORY + "Check_ECG_Data_Thresholds.pkl"
 VALID_ECG_REGIONS_PATH = PREPARATION_DIRECTORY + "Valid_ECG_Regions.pkl"
+CERTAIN_RPEAKS_PATH = PREPARATION_DIRECTORY + "Certain_Rpeaks.pkl"
+UNCERTAIN_PRIMARY_RPEAKS_PATH = PREPARATION_DIRECTORY + "Uncertain_Primary_Rpeaks.pkl"
+UNCERTAIN_SECONDARY_RPEAKS_PATH = PREPARATION_DIRECTORY + "Uncertain_Secondary_Rpeaks.pkl"
 
 CALIBRATION_DATA_PATH = "Calibration_Data/Somnowatch_Messung.edf"
 
@@ -47,24 +50,48 @@ if not os.path.isdir(PREPARATION_DIRECTORY):
     os.mkdir(PREPARATION_DIRECTORY)
 
 # set the parameters for the project
-parameters = {
+parameters = dict()
+
+file_params = {
     "file_path": CALIBRATION_DATA_PATH, # path to the EDF file for threshold calibration
     "data_directory": DATA_DIRECTORY, # directory where the data is stored
     "valid_file_types": [".edf"], # valid file types in the data directory
     "ecg_key": "ECG", # key for the ECG data in the data dictionary
     "wrist_acceleration_keys": ["X", "Y", "Z"], # keys for the wrist acceleration data in the data dictionary
-    "ecg_threshold_multiplier": 0.5, # multiplier for the thresholds in check_data.check_ecg() (between 0 and 1)
-    "show_calibration_data": False, # if True, the calibration data in the manually chosen intervals will be plotted and saved to TEMPORARY_FIGURE_DIRECTORY_PATH
+}
+check_ecg_params = {
+    "determine_valid_ecg_regions": True, # if True, the valid regions for the ECG data will be determined
     "calculate_thresholds": True, # if True, you will have the option to recalculate the thresholds for various functions
+    "show_calibration_data": False, # if True, the calibration data in the manually chosen intervals will be plotted and saved to TEMPORARY_FIGURE_DIRECTORY_PATH
+    "ecg_threshold_multiplier": 0.5, # multiplier for the thresholds in check_data.check_ecg() (between 0 and 1)
     "check_ecg_threshold_dezimal_places": 2, # number of dezimal places for the check ecg thresholds in the pickle files
-    "time_interval_seconds": 10, # time interval considered when calculating thresholds
+    "check_ecg_time_interval_seconds": 10, # time interval considered when determining the valid regions for the ECG data
     "min_valid_length_minutes": 5, # minimum length of valid data in minutes
     "allowed_invalid_region_length_seconds": 30, # data region (see above) still considered valid if the invalid part is shorter than this
-    "determine_valid_ecg_regions": True, # if True, the valid regions for the ECG data will be determined
-    "valid_ecg_regions": dict() # dictionary containing the valid regions for the ECG data, will be overwritten below (so don't bother)
+}
+detect_rpeaks_params = {
+    "rpeak_primary_function": rpeak_detection.get_rpeaks_wfdb, # primary R peak detection function
+    "rpeak_secondary_function": rpeak_detection.get_rpeaks_old, # secondary R peak detection function
+    "rpeak_name_primary": "wfdb", # name of the primary R peak detection function
+    "rpeak_name_secondary": "ecgdetectors", # name of the secondary R peak detection function
+    "rpeak_distance_threshold_seconds": 0.2, # max 50ms
 }
 
-params_to_be_calculated = {}
+parameters.update(file_params)
+parameters.update(check_ecg_params)
+parameters.update(detect_rpeaks_params)
+
+del file_params
+del check_ecg_params
+del detect_rpeaks_params
+
+# following parameters are calculated in the PREPARATION section. They are written here for better overview and explanation
+params_to_be_calculated = {
+    "check_ecg_std_min_threshold": 97.84, # if the standard deviation of the ECG data is below this threshold, the data is considered invalid
+    "check_ecg_std_max_threshold": 530.62, # if the standard deviation of the ECG data is above this threshold, the data is considered invalid
+    "check_ecg_distance_std_ratio_threshold": 1.99, # if the ratio of the distance between two peaks and twice the standard deviation of the ECG data is above this threshold, the data is considered invalid
+    "valid_ecg_regions": dict() # dictionary containing the valid regions for the ECG data
+}
 
 # check the parameters
 if not isinstance(parameters["file_path"], str):
@@ -89,8 +116,8 @@ if parameters["show_calibration_data"] and parameters["calculate_thresholds"]:
     raise ValueError("'show_calibration_data' and 'calculate_thresholds' parameter cannot both be True at the same time.")
 if not isinstance(parameters["check_ecg_threshold_dezimal_places"], int):
     raise ValueError("'check_ecg_threshold_dezimal_places' parameter must be an integer.")
-if not isinstance(parameters["time_interval_seconds"], int):
-    raise ValueError("'time_interval_seconds' parameter must be an integer.")
+if not isinstance(parameters["check_ecg_time_interval_seconds"], int):
+    raise ValueError("'check_ecg_time_interval_seconds' parameter must be an integer.")
 if not isinstance(parameters["min_valid_length_minutes"], int):
     raise ValueError("'min_valid_length_minutes' parameter must be an integer.")
 if not isinstance(parameters["allowed_invalid_region_length_seconds"], int):
@@ -281,7 +308,7 @@ def determine_valid_ecg_regions(
         check_ecg_std_min_threshold: float, 
         check_ecg_std_max_threshold: float, 
         check_ecg_distance_std_ratio_threshold: float,
-        time_interval_seconds: int, 
+        check_ecg_time_interval_seconds: int, 
         min_valid_length_minutes: int,
         allowed_invalid_region_length_seconds: int,
         ecg_key: str
@@ -318,13 +345,87 @@ def determine_valid_ecg_regions(
             check_ecg_std_min_threshold = check_ecg_std_min_threshold, 
             check_ecg_std_max_threshold = check_ecg_std_max_threshold, 
             check_ecg_distance_std_ratio_threshold = check_ecg_distance_std_ratio_threshold,
-            time_interval_seconds = time_interval_seconds, 
+            time_interval_seconds = check_ecg_time_interval_seconds, 
             min_valid_length_minutes = min_valid_length_minutes,
             allowed_invalid_region_length_seconds = allowed_invalid_region_length_seconds,
             ecg_key = ecg_key
             )
     
     save_to_pickle(valid_regions, VALID_ECG_REGIONS_PATH)
+
+
+def detect_rpeaks_in_ecg_data(
+        data_directory: str,
+        valid_file_types: list,
+        ecg_key: str,
+        rpeak_primary_function,
+        rpeak_secondary_function,
+        rpeak_name_primary: str,
+        rpeak_name_secondary: str,
+        rpeak_distance_threshold_seconds: float,
+    ):
+    """
+    Detect R peaks in the ECG data and compare the results of two different functions.
+
+    ARGUMENTS:
+    --------------------------------
+    data_directory: str
+        directory where the data is stored
+    valid_file_types: list
+        valid file types in the data directory
+    others: see rpeak_detection.compare_rpeak_detection_methods()
+
+    RETURNS:
+    --------------------------------
+    None, but the valid regions are saved to a pickle file
+    """
+    user_answer = ask_for_permission_to_override(file_path = CERTAIN_RPEAKS_PATH,
+                                                message = "Detected R peaks")
+    
+    if user_answer == "n":
+        return
+    all_files = os.listdir(data_directory)
+    valid_files = [file for file in all_files if get_file_type(file) in valid_file_types]
+
+    certain_rpeaks = dict()
+    uncertain_primary_rpeaks = dict()
+    uncertain_secondary_rpeaks = dict()
+
+    # load valid ecg regions
+    valid_ecg_regions = load_from_pickle(VALID_ECG_REGIONS_PATH)
+
+    for file in valid_files:
+        try:
+            detection_intervals = valid_ecg_regions[file]
+        except KeyError:
+            print("Valid regions for the ECG data in " + file + " are missing. Skipping this file.")
+            continue
+        sigbufs, sigfreqs, duration = read_edf.get_edf_data(data_directory + file)
+        this_certain_rpeaks = np.array([], dtype = int)
+        this_uncertain_primary_rpeaks = np.array([], dtype = int)
+        this_uncertain_secondary_rpeaks = np.array([], dtype = int)
+        for interval in detection_intervals:
+            this_result = rpeak_detection.combined_rpeak_detection_methods(
+                sigbufs, 
+                sigfreqs, 
+                interval, 
+                ecg_key,
+                rpeak_primary_function,
+                rpeak_secondary_function,
+                rpeak_distance_threshold_seconds,
+                )
+            this_certain_rpeaks = np.append(this_certain_rpeaks, this_result[0])
+            this_uncertain_primary_rpeaks = np.append(this_uncertain_primary_rpeaks, this_result[1])
+            this_uncertain_secondary_rpeaks = np.append(this_uncertain_secondary_rpeaks, this_result[2])
+        
+        certain_rpeaks[file] = this_certain_rpeaks
+        uncertain_primary_rpeaks[file] = this_uncertain_primary_rpeaks
+        uncertain_secondary_rpeaks[file] = this_uncertain_secondary_rpeaks
+    
+    save_to_pickle(certain_rpeaks, CERTAIN_RPEAKS_PATH)
+    save_to_pickle(uncertain_primary_rpeaks, UNCERTAIN_PRIMARY_RPEAKS_PATH)
+    save_to_pickle(uncertain_secondary_rpeaks, UNCERTAIN_SECONDARY_RPEAKS_PATH)
+        
 
 
 """
@@ -363,32 +464,30 @@ check_ecg_thresholds_dict = load_from_pickle(CHECK_ECG_DATA_THRESHOLDS_PATH)
 parameters.update(check_ecg_thresholds_dict)
 del check_ecg_thresholds_dict
 
-print(parameters)
-raise SystemExit(0)
-
 # evaluate/load valid regions for the ECG data
 determine_ecg_region_args = create_sub_dict(
     parameters, ["data_directory", "valid_file_types", "check_ecg_std_min_threshold", 
                  "check_ecg_std_max_threshold", "check_ecg_distance_std_ratio_threshold", 
-                 "time_interval_seconds", "min_valid_length_minutes", 
+                 "check_ecg_time_interval_seconds", "min_valid_length_minutes", 
                  "allowed_invalid_region_length_seconds", "ecg_key"]
     )
 
 if parameters["determine_valid_ecg_regions"]:
     determine_valid_ecg_regions(**determine_ecg_region_args)
 
-valid_regions_dict = load_from_pickle(VALID_ECG_REGIONS_PATH)
-parameters["valid_ecg_regions"] = valid_regions_dict
+# valid_regions_dict = load_from_pickle(VALID_ECG_REGIONS_PATH)
+# parameters["valid_ecg_regions"] = valid_regions_dict
 
 del determine_ecg_region_args
-del valid_regions_dict
+# del valid_regions_dict
 
-print(parameters["valid_ecg_regions"])
-print(len(parameters["valid_ecg_regions"]["Somnowatch_Messung.edf"]))
+valid_regions_dict = load_from_pickle(VALID_ECG_REGIONS_PATH)
+print(valid_regions_dict["Somnowatch_Messung.edf"])
+print(len(valid_regions_dict["Somnowatch_Messung.edf"]))
 sigbufs, sigfreqs, duration = read_edf.get_edf_data(parameters["file_path"])
-print(check_data.valid_total_ratio(sigbufs, parameters["valid_ecg_regions"]["Somnowatch_Messung.edf"], parameters["ecg_key"]))
+print(check_data.valid_total_ratio(sigbufs, valid_regions_dict["Somnowatch_Messung.edf"], parameters["ecg_key"]))
 total_length = len(sigbufs[parameters["ecg_key"]])
-NNPH.plot_valid_regions(sigbufs[parameters["ecg_key"]], parameters["valid_ecg_regions"]["Somnowatch_Messung.edf"], xlim = [0, total_length])
+NNPH.plot_valid_regions(sigbufs[parameters["ecg_key"]], valid_regions_dict["Somnowatch_Messung.edf"], xlim = [0, total_length])
 
 # Testing
 """
@@ -398,7 +497,7 @@ lower_border = 2091000
 interval_size = 153600
 #interval_size += 3000
 sigbufs[parameters["ecg_key"]] = sigbufs[parameters["ecg_key"]][lower_border:lower_border+interval_size] # 5 minutes
-print(check_data.check_ecg(sigbufs, sigfreqs, parameters["check_ecg_std_min_threshold"], parameters["check_ecg_std_max_threshold"], parameters["check_ecg_distance_std_ratio_threshold"], parameters["time_interval_seconds"], parameters["min_valid_length_minutes"], parameters["allowed_invalid_region_length_seconds"], parameters["ecg_key"]))
+print(check_data.check_ecg(sigbufs, sigfreqs, parameters["check_ecg_std_min_threshold"], parameters["check_ecg_std_max_threshold"], parameters["check_ecg_distance_std_ratio_threshold"], parameters["check_ecg_time_interval_seconds"], parameters["min_valid_length_minutes"], parameters["allowed_invalid_region_length_seconds"], parameters["ecg_key"]))
 """
 
 #print(MAD.calc_mad(sigbufs, sigfreqs, 60))
