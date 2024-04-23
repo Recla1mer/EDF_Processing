@@ -199,7 +199,3 @@ rpeak_detection_compare(test_file_path, lower_border = lower_border, interval_si
 # print(stuff[0])
 # print(stuff[1])
 # print(stuff[2])
-
-a = np.array([1,2,3])
-b = np.array([2,3,4])
-print(np.append(a,b))
