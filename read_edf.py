@@ -42,7 +42,7 @@ def library_overview(file_name):
     print("number of datarecords in the file: %i" % f.datarecords_in_file)
     print("number of annotations in the file: %i" % f.annotations_in_file)
 
-    channel = 3
+    channel = 0
     print("\nsignal parameters for the %d.channel:\n\n" % channel)
 
     print("label: %s" % f.getLabel(channel))
@@ -101,15 +101,15 @@ def get_edf_data(file_name):
 
     n = f.signals_in_file
     signal_labels = f.getSignalLabels()
-    n_min = f.getNSamples()[0]
     sigbufs = dict()
     sigfreqs = dict()
+    sigdims = dict()
 
     for i in np.arange(n):
         this_signal = f.readSignal(i)
         sigbufs[signal_labels[i]] = this_signal
         sigfreqs[signal_labels[i]] = f.getSampleFrequency(i)
-        if n_min < len(this_signal):
-            n_min = len(this_signal)
+        sigdims[signal_labels[i]] = f.getPhysicalDimension(i)
     f._close()
-    return sigbufs, sigfreqs, duration
+    
+    return sigbufs, sigfreqs, sigdims, duration

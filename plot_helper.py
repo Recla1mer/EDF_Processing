@@ -77,10 +77,11 @@ def simple_plot(data_y, data_x, save_path, **kwargs):
     plt.savefig(save_path)
 
 
-def plot_valid_regions(data: list, valid_regions: list, **kwargs):
+def plot_valid_regions(data: dict, valid_regions: list, ecg_key: str, **kwargs):
     """
     Plot the valid regions of the ECG data.
     """
+    ecg_data = data[ecg_key]
     # Set default values
     kwargs.setdefault("figsize", [3.4, 2.7])
     kwargs.setdefault("title", "ECG Data")
@@ -91,10 +92,10 @@ def plot_valid_regions(data: list, valid_regions: list, **kwargs):
     kwargs.setdefault("linewidth", 2)
     kwargs.setdefault("line_alpha", 1)
     kwargs.setdefault("linestyle", "-")
-    kwargs.setdefault("xlim", [0, len(data)])
+    kwargs.setdefault("xlim", [0, len(ecg_data)])
 
-    y_min = min(data[kwargs["xlim"][0]:kwargs["xlim"][1]])
-    y_max = max(data[kwargs["xlim"][0]:kwargs["xlim"][1]])
+    y_min = min(ecg_data[kwargs["xlim"][0]:kwargs["xlim"][1]])
+    y_max = max(ecg_data[kwargs["xlim"][0]:kwargs["xlim"][1]])
     kwargs.setdefault("ylim", [y_min-abs(0.2*y_max), y_max+abs(0.2*y_max)])
 
     local_plot_kwargs = dict()
@@ -108,8 +109,8 @@ def plot_valid_regions(data: list, valid_regions: list, **kwargs):
         invalid_regions.append([0, valid_regions[0][0]])
     for i in range(1, len(valid_regions)):
         invalid_regions.append([valid_regions[i - 1][1], valid_regions[i][0]])
-    if valid_regions[-1][1] != len(data):
-        invalid_regions.append([valid_regions[-1][1], len(data)])
+    if valid_regions[-1][1] != len(ecg_data):
+        invalid_regions.append([valid_regions[-1][1], len(ecg_data)])
     
     # crop data to fasten plotting
     cropped_valid_regions = []
@@ -149,14 +150,14 @@ def plot_valid_regions(data: list, valid_regions: list, **kwargs):
         if skip_label:
             ax.plot(
                 np.arange(region[0], region[1]), 
-                data[region[0] : region[1]], 
+                ecg_data[region[0] : region[1]], 
                 color=kwargs["color"][0],
                 **local_plot_kwargs
             )
         else:
             ax.plot(
                 np.arange(region[0], region[1]), 
-                data[region[0] : region[1]], 
+                ecg_data[region[0] : region[1]], 
                 label=kwargs["legend"][0], 
                 color=kwargs["color"][0],
                 **local_plot_kwargs
@@ -168,14 +169,14 @@ def plot_valid_regions(data: list, valid_regions: list, **kwargs):
         if skip_label:
             ax.plot(
                 np.arange(region[0], region[1]), 
-                data[region[0] : region[1]], 
+                ecg_data[region[0] : region[1]], 
                 color=kwargs["color"][1],
                 **local_plot_kwargs
             )
         else:
             ax.plot(
                 np.arange(region[0], region[1]), 
-                data[region[0] : region[1]], 
+                ecg_data[region[0] : region[1]], 
                 label=kwargs["legend"][1], 
                 color=kwargs["color"][1],
                 **local_plot_kwargs
@@ -189,7 +190,8 @@ def plot_valid_regions(data: list, valid_regions: list, **kwargs):
 
 
 def plot_rpeak_detection(
-        data: list, 
+        data: dict, 
+        ecg_key: str,
         certain_peaks: list, 
         uncertain_primary_peaks: list, 
         uncertain_secondary_peaks: list, 
@@ -200,6 +202,7 @@ def plot_rpeak_detection(
     """
     Plot the R-peak detection results.
     """
+    ecg_data = data[ecg_key]
     # Set default values
     kwargs.setdefault("figsize", [3.4, 2.7])
     kwargs.setdefault("title", "ECG Data")
@@ -209,13 +212,13 @@ def plot_rpeak_detection(
     kwargs.setdefault("linewidth", 2)
     kwargs.setdefault("line_alpha", 1)
     kwargs.setdefault("linestyle", "-")
-    kwargs.setdefault("xlim", [0, len(data)])
+    kwargs.setdefault("xlim", [0, len(ecg_data)])
     kwargs.setdefault("marker_size", 10)
     kwargs.setdefault("scatter_alpha", 1)
     kwargs.setdefault("scatter_zorder", 2)
     
-    y_min = min(data[kwargs["xlim"][0]:kwargs["xlim"][1]])
-    y_max = max(data[kwargs["xlim"][0]:kwargs["xlim"][1]])
+    y_min = min(ecg_data[kwargs["xlim"][0]:kwargs["xlim"][1]])
+    y_max = max(ecg_data[kwargs["xlim"][0]:kwargs["xlim"][1]])
     kwargs.setdefault("ylim", [y_min-abs(0.2*y_max), y_max+abs(0.2*y_max)])
 
     local_plot_kwargs = dict()
@@ -236,26 +239,26 @@ def plot_rpeak_detection(
 
     ax.plot(
         np.arange(kwargs["xlim"][0], kwargs["xlim"][1]), 
-        data[kwargs["xlim"][0]:kwargs["xlim"][1]], 
+        ecg_data[kwargs["xlim"][0]:kwargs["xlim"][1]], 
         label=kwargs["legend"][0], 
         **local_plot_kwargs
         )
     ax.scatter([],[])
     ax.scatter(
         certain_peaks, 
-        data[certain_peaks], 
+        ecg_data[certain_peaks], 
         label=kwargs["legend"][1],
         **local_scatter_kwargs
         )
     ax.scatter(
         uncertain_primary_peaks, 
-        data[uncertain_primary_peaks], 
+        ecg_data[uncertain_primary_peaks], 
         label=kwargs["legend"][2],
         **local_scatter_kwargs
         )
     ax.scatter(
         uncertain_secondary_peaks, 
-        data[uncertain_secondary_peaks], 
+        ecg_data[uncertain_secondary_peaks], 
         label=kwargs["legend"][3],
         **local_scatter_kwargs
         )
@@ -264,4 +267,124 @@ def plot_rpeak_detection(
     ax.set_ylim(kwargs["ylim"])
     ax.set_axisbelow(True)
     # ax.yaxis.grid(color='gray', linestyle='dashed')
+    plt.show()
+
+
+def plot_MAD_values(
+        data: dict,
+        frequencies: dict,
+        wrist_acceleration_keys: list,
+        MAD_values: list,
+        mad_time_period_seconds: int,
+        **kwargs
+    ):
+    """
+    Plot the MAD values.
+    """
+    # Set default values
+    kwargs.setdefault("figsize", [3.4, 2.7])
+    kwargs.setdefault("title", "ECG Data")
+    kwargs.setdefault("x_label", "time (in iterations)")
+    kwargs.setdefault("y_label", "mg")
+    kwargs.setdefault("legend", "MAD")
+    kwargs.setdefault("linewidth", 2)
+    kwargs.setdefault("line_alpha", 0.7)
+    kwargs.setdefault("linestyle", "-")
+    kwargs.setdefault("xlim", [0, len(data)])
+    kwargs.setdefault("marker_size", 10)
+    kwargs.setdefault("scatter_alpha", 1)
+    kwargs.setdefault("scatter_zorder", 2)
+    kwargs.setdefault("marker_color", "red")
+    kwargs.setdefault("errorbar_fmt", "o")
+    kwargs.setdefault("errorbar_zorder", 2)
+    kwargs.setdefault("errorbar_capsize", 4)
+    kwargs.setdefault("errorbar_capthick", 1.5)
+    kwargs.setdefault("errorbar_elinewidth", 1.5)
+
+
+    y_mins = []
+    y_maxs = []
+    for key in wrist_acceleration_keys:
+        y_mins.append(min(data[key][kwargs["xlim"][0]:kwargs["xlim"][1]]))
+        y_maxs.append(max(data[key][kwargs["xlim"][0]:kwargs["xlim"][1]]))
+    y_min = min(y_mins)
+    y_max = max(y_maxs)
+    kwargs.setdefault("ylim", [y_min-abs(0.2*y_max), y_max+abs(0.2*y_max)])
+
+    local_plot_kwargs = dict()
+    local_plot_kwargs["linewidth"] = kwargs["linewidth"]
+    local_plot_kwargs["alpha"] = kwargs["line_alpha"]
+    local_plot_kwargs["linestyle"] = kwargs["linestyle"]
+
+    local_scatter_kwargs = dict()
+    local_scatter_kwargs["s"] = kwargs["marker_size"]
+    local_scatter_kwargs["color"] = kwargs["marker_color"]
+    local_scatter_kwargs["alpha"] = kwargs["scatter_alpha"]
+    local_scatter_kwargs["zorder"] = kwargs["scatter_zorder"]
+
+    local_errorbar_kwargs = dict()
+    local_errorbar_kwargs["fmt"] = kwargs["errorbar_fmt"]
+    local_errorbar_kwargs["zorder"] = kwargs["errorbar_zorder"]
+    local_errorbar_kwargs["capsize"] = kwargs["errorbar_capsize"]
+    local_errorbar_kwargs["capthick"] = kwargs["errorbar_capthick"]
+    local_errorbar_kwargs["elinewidth"] = kwargs["errorbar_elinewidth"]
+    local_errorbar_kwargs["color"] = kwargs["marker_color"]
+
+    # calculate time period in samples
+    frequency = frequencies[wrist_acceleration_keys[0]]
+    mad_time_period_intervals = int(mad_time_period_seconds * frequency)
+    mad_x_values = np.arange(mad_time_period_intervals/2, len(data[wrist_acceleration_keys[0]]), mad_time_period_intervals)
+
+    # cut MAD values outside area of interest
+    start_interval = 0
+    end_interval = len(mad_x_values)
+    for i in range(len(mad_x_values)):
+        if mad_x_values[i] <= kwargs["xlim"][0]:
+            start_interval = i + 1
+        if mad_x_values[i] <= kwargs["xlim"][1]:
+            end_interval = i + 1
+
+    # plot the data
+    fig, ax = plt.subplots(figsize=kwargs["figsize"])
+    ax.set_xlabel(kwargs["x_label"])
+    ax.set_ylabel(kwargs["y_label"])
+    ax.set_title(kwargs["title"])
+
+    for key in wrist_acceleration_keys:
+        ax.plot(
+            np.arange(kwargs["xlim"][0], kwargs["xlim"][1]), 
+            data[key][kwargs["xlim"][0]:kwargs["xlim"][1]], 
+            label=key, 
+            **local_plot_kwargs
+            )
+    
+    # ax.scatter(
+    #     mad_x_values[start_interval:end_interval], 
+    #     MAD_values[start_interval:end_interval], 
+    #     label=kwargs["legend"],
+    #     **local_scatter_kwargs
+    #     )
+    
+    first_entry = True
+    for i in range(start_interval, end_interval):
+        if first_entry:
+            ax.errorbar(
+                mad_x_values[i], 
+                MAD_values[i], 
+                xerr=mad_time_period_intervals/2, 
+                label=kwargs["legend"],
+                **local_errorbar_kwargs
+                )
+            first_entry = False
+        else:
+            ax.errorbar(
+                mad_x_values[i], 
+                MAD_values[i], 
+                xerr=mad_time_period_intervals/2,
+                **local_errorbar_kwargs
+                )
+    
+    ax.legend(loc="best")
+    ax.set_xlim(kwargs["xlim"])
+    ax.set_ylim(kwargs["ylim"])
     plt.show()

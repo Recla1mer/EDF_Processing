@@ -2,6 +2,20 @@
 This file contains functions that were discarded during the project.
 """
 
+lower_border = 2091000 # normal
+lower_border = 6292992 # normal with fluktuations
+lower_border = 2156544 # normal but noisier
+lower_border = 1781760 # normal but negative peaks
+lower_border = 661504 # hard noise
+lower_border = 19059968 # extreme overkill
+lower_border = 18344704 # not as extreme overkill
+lower_border = 17752064 # hard noise
+#lower_border = 10756096 # small but weird spikes
+#lower_border = 10788096 # continous flat, one large spike 
+#lower_border = 10792704 # continous flat
+#lower_border = 15378176 # lots of noise
+#lower_border = 15381248 # lots of noise, one spike
+
 
 def create_calibration_data(
         file_path, 

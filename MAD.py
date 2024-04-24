@@ -131,4 +131,4 @@ def calc_mad(
     for i in np.arange(0, len(data[wrist_acceleration_keys[0]]), number_of_samples):
         MAD.append(calc_mad_in_interval(data, i, i + time_period, wrist_acceleration_keys))
 
-    return MAD
+    return np.array(MAD)

@@ -57,7 +57,7 @@ def MAD_compare(edf_file_path: str, time_period = 1):
     old_time = end_time - start_time
 
     #calculate MAD with new code
-    sigbufs, sigfreqs, duration = read_edf.get_edf_data(edf_file_path)
+    sigbufs, sigfreqs, sigdims, duration = read_edf.get_edf_data(edf_file_path)
     start_time = time.time() #start timer
     # sigbufs = {k: sigbufs[k] for k in ('X', 'Y', 'Z')}
     # sigfreqs = {k: sigfreqs[k] for k in ('X', 'Y', 'Z')}
@@ -131,7 +131,7 @@ def rpeak_detection_compare(
                                         4056800 (normal with energy jump)
                                         4046592 (normal with energy jump)
     """
-    sigbufs, sigfreqs, duration = read_edf.get_edf_data(edf_file_path)
+    sigbufs, sigfreqs, sigdims, duration = read_edf.get_edf_data(edf_file_path)
 
     if lower_border is None:
         detection_interval = None
@@ -194,7 +194,7 @@ interval_size = 2500
 
 rpeak_detection_compare(test_file_path, lower_border = lower_border, interval_size = interval_size, secondary_function=rpeak_detection.get_rpeaks_old, name_secondary="old")
 
-# sigbufs, sigfreqs, duration = read_edf.get_edf_data(test_file_path)
+# sigbufs, sigfreqs, sigdims, duration = read_edf.get_edf_data(test_file_path)
 # stuff = rpeak_detection.combined_rpeak_detection_methods(sigbufs, sigfreqs, detection_interval=(lower_border, lower_border + interval_size))
 # print(stuff[0])
 # print(stuff[1])
