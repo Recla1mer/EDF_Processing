@@ -5,8 +5,12 @@ Python implementation of mean amplitude deviation (MAD) calculation for movement
 
 Main function: calc_mad
 """
-
+# IMPORTS
 import numpy as np
+
+# LOCAL IMPORTS
+from side_functions import *
+import read_edf
 
 def check_mad_conditions(
         data: dict, 
@@ -132,3 +136,61 @@ def calc_mad(
         MAD.append(calc_mad_in_interval(data, i, i + time_period, wrist_acceleration_keys))
 
     return np.array(MAD)
+
+
+def calculate_MAD_in_acceleration_data(
+        data_directory: str,
+        valid_file_types: list,
+        wrist_acceleration_keys: list, 
+        mad_time_period_seconds: int,
+        mad_values_path: str
+    ):
+    """
+    Calculate the MAD value from the wrist acceleration data.
+
+    ARGUMENTS:
+    --------------------------------
+    data_directory: str
+        directory where the data is stored
+    valid_file_types: list
+        valid file types in the data directory
+    wrist_acceleration_keys: list
+        keys for the wrist acceleration data in the data dictionary
+    mad_time_period_seconds: int
+        time period in seconds over which the MAD will be calculated
+
+    RETURNS:
+    --------------------------------
+    None, but the MAD values are saved to a pickle file
+    """
+    user_answer = ask_for_permission_to_override(file_path = mad_values_path,
+                    message = "MAD Values for the wrist acceleration data already exist.")
+    
+    if user_answer == "n":
+        return
+
+    all_files = os.listdir(data_directory)
+    valid_files = [file for file in all_files if get_file_type(file) in valid_file_types]
+
+    total_files = len(valid_files)
+    progressed_files = 0
+
+    MAD_values = dict()
+
+    # calculate MAD in the wrist acceleration data
+    print("Calculating MAD in the wrist acceleration data in %i files:" % total_files)
+    for file in valid_files:
+        progress_bar(progressed_files, total_files)
+        sigbufs, sigfreqs, sigdims, duration = read_edf.get_edf_data(data_directory + file)
+
+        MAD_values[file] = calc_mad(
+            sigbufs, 
+            sigfreqs, 
+            mad_time_period_seconds, 
+            wrist_acceleration_keys
+            )
+        progressed_files += 1
+    
+    progress_bar(progressed_files, total_files)
+
+    save_to_pickle(MAD_values, mad_values_path)
