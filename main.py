@@ -37,6 +37,11 @@ PREPARATION_DIRECTORY = "Preparation/"
 CHECK_ECG_DATA_THRESHOLDS_PATH = PREPARATION_DIRECTORY + "Check_ECG_Data_Thresholds.pkl"
 VALID_ECG_REGIONS_PATH = PREPARATION_DIRECTORY + "Valid_ECG_Regions.pkl"
 
+RPEAK_ACCURACY_EVALUATION_PATH = PREPARATION_DIRECTORY + "RPeak_Accuracy_Evaluation.pkl"
+RPEAK_ACCURACY_PRINT_PATH = PREPARATION_DIRECTORY + "RPeak_Accuracy.txt"
+GIF_RPEAKS_DIRECTORY = "Data/GIF/Analyse_Somno_TUM/RRI/"
+GIF_DATA_DIRECTORY = "Data/GIF/SOMNOwatch/"
+
 CERTAIN_RPEAKS_PATH = PREPARATION_DIRECTORY + "Certain_Rpeaks.pkl"
 UNCERTAIN_PRIMARY_RPEAKS_PATH = PREPARATION_DIRECTORY + "Uncertain_Primary_Rpeaks.pkl"
 UNCERTAIN_SECONDARY_RPEAKS_PATH = PREPARATION_DIRECTORY + "Uncertain_Secondary_Rpeaks.pkl"
@@ -81,7 +86,7 @@ detect_rpeaks_params = {
     "rpeak_secondary_function": rpeak_detection.get_rpeaks_old, # secondary R peak detection function
     "rpeak_name_primary": "wfdb", # name of the primary R peak detection function
     "rpeak_name_secondary": "ecgdetectors", # name of the secondary R peak detection function
-    "rpeak_distance_threshold_seconds": 0.1, # max 50ms
+    "rpeak_distance_threshold_seconds": 0.05, # max 50ms
 }
 
 calculate_MAD_params = {
@@ -411,6 +416,396 @@ def determine_valid_ecg_regions(
     save_to_pickle(valid_regions, VALID_ECG_REGIONS_PATH)
 
 
+def create_rpeaks_pickle_path(rpeak_function_name):
+    """
+    Create the path for the pickle file where the rpeaks are saved for each method.
+    """
+    return PREPARATION_DIRECTORY + "RPeaks_" + rpeak_function_name + ".pkl"
+
+
+def detect_rpeaks(
+        data_directory: str,
+        valid_file_types: list,
+        ecg_key: str,
+        rpeak_function,
+        rpeak_function_name: str,
+    ):
+    """
+    Detect R peaks in the ECG data.
+
+    ARGUMENTS:
+    --------------------------------
+    data_directory: str
+        directory where the data is stored
+    valid_file_types: list
+        valid file types in the data directory
+    ecg_key: str
+        key for the ECG data in the data dictionary
+    rpeak_function: function
+        function to detect the R peaks
+    rpeak_function_name: str
+        name of the R peak detection function
+
+    RETURNS:
+    --------------------------------
+    None, but the rpeaks are saved to a pickle file
+    """
+    pickle_path = create_rpeaks_pickle_path(rpeak_function_name)
+    user_answer = ask_for_permission_to_override(file_path = pickle_path,
+                            message = "With " + rpeak_function_name + " detected R peaks")
+    
+    if user_answer == "n":
+        return
+
+    all_files = os.listdir(data_directory)
+    valid_files = [file for file in all_files if get_file_type(file) in valid_file_types]
+
+    total_files = len(valid_files)
+    progressed_files = 0
+
+    all_rpeaks = dict()
+
+    # load valid ecg regions
+    valid_ecg_regions = load_from_pickle(VALID_ECG_REGIONS_PATH)
+
+    # detect rpeaks in the valid regions of the ECG data
+    print("Detecting R peaks in the ECG data in %i files using %s:" % (total_files, rpeak_function_name))
+    for file in valid_files:
+        print_percent_done(progressed_files, total_files)
+        try:
+            detection_intervals = valid_ecg_regions[file]
+            progressed_files += 1
+        except KeyError:
+            print("Valid regions for the ECG data in " + file + " are missing. Skipping this file.")
+            continue
+        sigbufs, sigfreqs, sigdims, duration = read_edf.get_edf_data(data_directory + file)
+        this_rpeaks = np.array([], dtype = int)
+        for interval in detection_intervals:
+            this_result = rpeak_function(
+                sigbufs, 
+                sigfreqs, 
+                ecg_key,
+                interval,
+                )
+            this_rpeaks = np.append(this_rpeaks, this_result)
+        
+        all_rpeaks[file] = this_rpeaks
+    
+    print_percent_done(progressed_files, total_files)
+    
+    save_to_pickle(all_rpeaks, pickle_path)
+
+
+def evaluate_rpeak_detection_accuracy(
+        data_directory: str,
+        valid_file_types: list,
+        ecg_key: str,
+        accurate_peaks_directory: str,
+        accurate_peaks_name: str,
+        valid_accuracy_file_types: list,
+        compare_functions_names: list,
+        rpeak_distance_threshold_seconds: float,
+    ):
+    """
+    Evaluate the accuracy of the R peak detection methods.
+
+    Accurate R peaks available for GIF data: 
+    They were also detected automatically but later corrected manually, so they can be 
+    used as a reference.
+
+    ARGUMENTS:
+    --------------------------------
+    data_directory: str
+        directory where the data is stored
+    valid_file_types: list
+        valid file types in the data directory
+    ecg_key: str
+        key for the ECG data in the data dictionary
+    accurate_peaks_directory: str
+        directory where the accurate R peaks are stored
+    accurate_peaks_name: str
+        name the accurate R peaks are associated with
+    valid_accuracy_file_types: list
+        valid file types in the accurate peaks directory
+    compare_functions_names: list
+        names of the functions used for R peak detection
+        ATTENTION: The names must be the same as the ones used during the R peak detection
+    rpeak_distance_threshold_seconds: float
+        time period in seconds over which two different R peaks are still considered the same
+    
+    RETURNS:
+    --------------------------------
+    None, but the Accuracy values are saved as dictionary to a pickle file in following format:
+    {
+        "file_name": [ [function_1 values], [function_2 values], ... ],
+        ...
+    }
+    with function values being: rmse_without_same, rmse_with_same, number_of_same_values, number_of_values_considered_as_same, len_function_rpeaks, length_accurate_rpeaks
+    for rmse_without_same and rmse_with_same see rpeak_detection.compare_rpeak_detection_methods()
+    """
+    user_answer = ask_for_permission_to_override(file_path = RPEAK_ACCURACY_EVALUATION_PATH,
+                                                message = "R peak accuracy evaluation")
+    
+    if user_answer == "n":
+        return
+
+    all_data_files = os.listdir(data_directory)
+    valid_data_files = [file for file in all_data_files if get_file_type(file) in valid_file_types]
+
+    all_accurate_files = os.listdir(accurate_peaks_directory)
+    valid_accurate_files = [file for file in all_accurate_files if get_file_type(file) in valid_accuracy_file_types]
+
+    total_data_files = len(valid_data_files)
+    progressed_data_files = 0
+
+    # calculate rmse for all files
+    all_files_rpeak_accuracy = dict()
+    for file in valid_data_files:
+        this_file_rpeak_accuracy = []
+
+        this_file_name = os.path.splitext(file)[0]
+        for acc_file in valid_accurate_files:
+            if this_file_name in acc_file:
+                this_accurate_file = acc_file
+        try:
+            accurate_rpeaks = rpeak_detection.get_rpeaks_from_rri_file(accurate_peaks_directory + this_accurate_file)
+        except ValueError:
+            print("Accurate R peaks are missing for %s. Skipping this file." % file)
+            continue
+        
+        sigbufs, sigfreqs, sigdims, duration = read_edf.get_edf_data(data_directory + file)
+        frequency = sigfreqs[ecg_key]
+        
+        length_accurate = len(accurate_rpeaks["N"])
+        
+        for function_name in compare_functions_names:
+            compare_function_pickle_path = create_rpeaks_pickle_path(function_name)
+            compare_rpeaks_all_files = load_from_pickle(compare_function_pickle_path)
+
+            compare_rpeaks = compare_rpeaks_all_files[file]
+
+            len_compare_rpeaks = len(compare_rpeaks)
+
+            rmse_without_same, rmse_with_same, len_same_values, len_analog_values = rpeak_detection.compare_rpeak_detection_methods(
+                accurate_rpeaks["N"], 
+                compare_rpeaks,
+                accurate_peaks_name,
+                function_name,
+                frequency,
+                rpeak_distance_threshold_seconds,
+                False
+                )
+            
+            this_file_rpeak_accuracy.append([rmse_without_same, rmse_with_same, len_same_values, len_analog_values, len_compare_rpeaks, length_accurate])
+        
+        all_files_rpeak_accuracy[file] = this_file_rpeak_accuracy
+    
+    save_to_pickle(all_files_rpeak_accuracy, RPEAK_ACCURACY_EVALUATION_PATH)
+
+
+def print_in_middle(string, length):
+    """
+    Print the string in the middle of the total length.
+    """
+    len_string = len(string)
+    undersize = int((length - len_string) // 2)
+    return " " * undersize + string + " " * (length - len_string - undersize)
+
+
+def print_rpeak_accuracy_results(compare_functions_names: list,  accurate_peaks_name: str, round_rmse_values: int):
+    """
+    """
+    user_answer = ask_for_permission_to_override(file_path = RPEAK_ACCURACY_PRINT_PATH,
+                                                    message = "R peak accuracy file")
+
+    if user_answer == "n":
+        return
+
+    accuracy_file = open(RPEAK_ACCURACY_PRINT_PATH, "w")
+
+    # write the file header
+    message = "R PEAK ACCURACY EVALUATION"
+    accuracy_file.write(message + "\n")
+    accuracy_file.write("=" * len(message) + "\n\n\n")
+
+    RMSE_EX_CAPTION = "RMSE_exc"
+    RMSE_INC_CAPTION = "RMSE_inc"
+    FILE_CAPTION = "File"
+    TOTAL_LENGTH_CAPTION = "R peaks"
+    SAME_VALUES_CAPTION = "Same Values"
+    ANALOG_VALUES_CAPTION = "Analog Values"
+
+    # load the data
+    all_files_rpeak_accuracy = load_from_pickle(RPEAK_ACCURACY_EVALUATION_PATH)
+
+    collect_rmse_exc = []
+    collect_rmse_inc = []
+
+    # round rmse values and collect them to print the mean
+    for file in all_files_rpeak_accuracy:
+        this_rmse_exc = []
+        this_rmse_inc = []
+        for func in range(len(compare_functions_names)):
+            all_files_rpeak_accuracy[file][func][0] = round(all_files_rpeak_accuracy[file][func][0], round_rmse_values)
+            all_files_rpeak_accuracy[file][func][1] = round(all_files_rpeak_accuracy[file][func][1], round_rmse_values)
+
+            this_rmse_exc.append(all_files_rpeak_accuracy[file][func][0])
+            this_rmse_inc.append(all_files_rpeak_accuracy[file][func][1])
+        
+        collect_rmse_exc.append(this_rmse_exc)
+        collect_rmse_inc.append(this_rmse_inc)
+    
+    # calculate mean rmse values
+    mean_rmse_exc = np.mean(collect_rmse_exc, axis = 0)
+    mean_rmse_inc = np.mean(collect_rmse_inc, axis = 0)
+
+    # calculate mean distance of number of detected R peaks to accurate R peaks
+    collect_rpeaks_distance = []
+
+    for file in all_files_rpeak_accuracy:
+        this_rpeaks_distance = []
+        for func in range(len(compare_functions_names)):
+            this_rpeaks_distance.append(abs(all_files_rpeak_accuracy[file][func][4] - all_files_rpeak_accuracy[file][func][5]))
+        collect_rpeaks_distance.append(this_rpeaks_distance)
+    
+    mean_rpeaks_distance = np.mean(collect_rpeaks_distance, axis = 0)
+
+    # calculate ratio of analog values to accurate R peaks
+    collect_analogue_values_ratio = []
+
+    for file in all_files_rpeak_accuracy:
+        this_same_values_ratio = []
+        for func in range(len(compare_functions_names)):
+            this_same_values_ratio.append(all_files_rpeak_accuracy[file][func][3] / all_files_rpeak_accuracy[file][func][5])
+        collect_analogue_values_ratio.append(this_same_values_ratio)
+
+    mean_same_values_ratio = np.mean(collect_analogue_values_ratio, axis = 0)
+
+    # write the mean values to file
+    message = "Mean values to compare used functions:"
+    accuracy_file.write(message + "\n")
+    accuracy_file.write("-" * len(message) + "\n\n")
+    captions = ["Mean RMSE_exc", "Mean RMSE_inc", "Mean R peaks difference", "Mean Analogue Values"]
+    caption_values = [mean_rmse_exc, mean_rmse_inc, mean_rpeaks_distance, mean_same_values_ratio]
+    for i in range(len(captions)):
+        message = captions[i] + " | "
+        first = True
+        for func in range(len(compare_functions_names)):
+            if first:
+                accuracy_file.write(message)
+                first = False
+            else:
+                accuracy_file.write(" " * (len(message)-2) + "| ")
+            accuracy_file.write(compare_functions_names[func] + ": " + str(caption_values[i][func]))
+            accuracy_file.write("\n")
+        accuracy_file.write("\n")
+    
+    accuracy_file.write("\n")
+            
+    # calcualte max lengths of table columns
+    max_func_name = max([len(name) for name in compare_functions_names])
+
+    all_file_lengths = [len(key) for key in all_files_rpeak_accuracy]
+    max_file_length = max(len(FILE_CAPTION), max(all_file_lengths)) + 3
+
+    all_rmse_ex_lengths = []
+    for file in all_files_rpeak_accuracy:
+        for func in range(len(compare_functions_names)):
+            all_rmse_ex_lengths.append(len(str(all_files_rpeak_accuracy[file][func][0])))
+    all_rmse_ex_lengths = np.array(all_rmse_ex_lengths)
+    all_rmse_ex_lengths += max_func_name
+    max_rmse_ex_length = max(len(RMSE_EX_CAPTION), max(all_rmse_ex_lengths)) + 3
+
+    all_rmse_inc_lengths = []
+    for file in all_files_rpeak_accuracy:
+        for func in range(len(compare_functions_names)):
+            all_rmse_inc_lengths.append(len(str(all_files_rpeak_accuracy[file][func][1])))
+    all_rmse_inc_lengths = np.array(all_rmse_inc_lengths)
+    all_rmse_inc_lengths += max_func_name
+    max_rmse_inc_length = max(len(RMSE_INC_CAPTION), max(all_rmse_inc_lengths)) + 3
+
+    all_same_values_lengths = []
+    for file in all_files_rpeak_accuracy:
+        for func in range(len(compare_functions_names)):
+            all_same_values_lengths.append(len(str(all_files_rpeak_accuracy[file][func][2])))
+    all_same_values_lengths = np.array(all_same_values_lengths)
+    all_same_values_lengths += max_func_name
+    max_same_values_length = max(len(SAME_VALUES_CAPTION), max(all_same_values_lengths)) + 3
+
+    all_analog_values_lengths = []
+    for file in all_files_rpeak_accuracy:
+        for func in range(len(compare_functions_names)):
+            all_analog_values_lengths.append(len(str(all_files_rpeak_accuracy[file][func][3])))
+    all_analog_values_lengths = np.array(all_analog_values_lengths)
+    all_analog_values_lengths += max_func_name
+    max_analog_values_length = max(len(ANALOG_VALUES_CAPTION), max(all_analog_values_lengths)) + 3
+
+    max_func_name = max(max_func_name, len(accurate_peaks_name)) + 3
+
+    all_rpeaks_lengths = []
+    for file in all_files_rpeak_accuracy:
+        for func in range(len(compare_functions_names)):
+            all_rpeaks_lengths.append(len(str(all_files_rpeak_accuracy[file][func][4])))
+
+    for file in all_files_rpeak_accuracy:
+        for func in range(len(compare_functions_names)):
+            all_rpeaks_lengths.append(len(str(all_files_rpeak_accuracy[file][func][5])))
+    all_rpeaks_lengths = np.array(all_rpeaks_lengths)
+
+    all_rpeaks_lengths += max_func_name
+    max_rpeaks_length = max(len(TOTAL_LENGTH_CAPTION), max(all_rpeaks_lengths)) + 3
+
+    # write the legend for the table
+    message = "Legend:"
+    accuracy_file.write(message + "\n")
+    accuracy_file.write("-" * len(message) + "\n\n")
+    accuracy_file.write("RMSE_exc... RMSE excluding same R peaks\n")
+    accuracy_file.write("RMSE_inc... RMSE including same R peaks\n")
+    accuracy_file.write("R peaks... Total number of R peaks\n")
+    accuracy_file.write("Same Values... Number of R peaks that are the same\n")
+    accuracy_file.write("Analogue Values... Number of R peaks that are considered as the same (difference < threshold)\n\n\n")
+
+    message = "Table with Accuracy Values for each file:"
+    accuracy_file.write(message + "\n")
+    accuracy_file.write("-" * len(message) + "\n\n")
+
+    # create table header
+    accuracy_file.write(print_in_middle(FILE_CAPTION, max_file_length) + " | ")
+    accuracy_file.write(print_in_middle(RMSE_EX_CAPTION, max_rmse_ex_length) + " | ")
+    accuracy_file.write(print_in_middle(RMSE_INC_CAPTION, max_rmse_inc_length) + " | ")
+    accuracy_file.write(print_in_middle(TOTAL_LENGTH_CAPTION, max_rpeaks_length) + " | ")
+    accuracy_file.write(print_in_middle(SAME_VALUES_CAPTION, max_same_values_length) + " | ")
+    accuracy_file.write(print_in_middle(ANALOG_VALUES_CAPTION, max_analog_values_length) + " | ")
+    accuracy_file.write("\n")
+    accuracy_file.write("-" * (max_file_length + max_rmse_ex_length + max_rmse_inc_length + max_rpeaks_length + max_same_values_length + max_analog_values_length + 17) + "\n")
+
+    # write the data
+    for file in all_files_rpeak_accuracy:
+        accuracy_file.write(print_in_middle(file, max_file_length) + " | ")
+        first = True
+        for func in range(len(compare_functions_names)):
+            if first:
+                first = False
+            else:
+                accuracy_file.write(print_in_middle("", max_file_length) + " | ")
+            accuracy_file.write(print_in_middle(compare_functions_names[func] + ": " + str(all_files_rpeak_accuracy[file][func][0]), max_rmse_ex_length) + " | ")
+            accuracy_file.write(print_in_middle(compare_functions_names[func] + ": " + str(all_files_rpeak_accuracy[file][func][1]), max_rmse_inc_length) + " | ")
+            accuracy_file.write(print_in_middle(compare_functions_names[func] + ": " + str(all_files_rpeak_accuracy[file][func][4]), max_rpeaks_length) + " | ")
+            accuracy_file.write(print_in_middle(compare_functions_names[func] + ": " + str(all_files_rpeak_accuracy[file][func][2]), max_same_values_length) + " | ")
+            accuracy_file.write(print_in_middle(compare_functions_names[func] + ": " + str(all_files_rpeak_accuracy[file][func][3]), max_analog_values_length) + " | ")
+            accuracy_file.write("\n")
+        accuracy_file.write(print_in_middle("", max_file_length) + " | ")
+        accuracy_file.write(print_in_middle("", max_rmse_ex_length) + " | ")
+        accuracy_file.write(print_in_middle("", max_rmse_inc_length) + " | ")
+        accuracy_file.write(print_in_middle(accurate_peaks_name + ": " + str(all_files_rpeak_accuracy[file][func][5]), max_rpeaks_length) + " | ")
+        accuracy_file.write(print_in_middle("", max_same_values_length) + " | ")
+        accuracy_file.write(print_in_middle("", max_analog_values_length) + " | ")
+        accuracy_file.write("\n")
+        accuracy_file.write("-" * (max_file_length + max_rmse_ex_length + max_rmse_inc_length + max_rpeaks_length + max_same_values_length + max_analog_values_length + 17) + "\n")
+
+    accuracy_file.close()
+
+
 def detect_rpeaks_in_ecg_data(
         data_directory: str,
         valid_file_types: list,
@@ -494,12 +889,31 @@ def detect_rpeaks_in_ecg_data(
     save_to_pickle(uncertain_primary_rpeaks, UNCERTAIN_PRIMARY_RPEAKS_PATH)
     save_to_pickle(uncertain_secondary_rpeaks, UNCERTAIN_SECONDARY_RPEAKS_PATH)
 
+
 def calculate_MAD_in_acceleration_data(
         data_directory: str,
         valid_file_types: list,
         wrist_acceleration_keys: list, 
         mad_time_period_seconds: int,
     ):
+    """
+    Calculate the MAD value from the wrist acceleration data.
+
+    ARGUMENTS:
+    --------------------------------
+    data_directory: str
+        directory where the data is stored
+    valid_file_types: list
+        valid file types in the data directory
+    wrist_acceleration_keys: list
+        keys for the wrist acceleration data in the data dictionary
+    mad_time_period_seconds: int
+        time period in seconds over which the MAD will be calculated
+
+    RETURNS:
+    --------------------------------
+    None, but the MAD values are saved to a pickle file
+    """
     user_answer = ask_for_permission_to_override(file_path = MAD_VALUES_PATH,
                                     message = "MAD Values for the wrist acceleration data")
     
@@ -609,7 +1023,32 @@ In this section we will run the functions we have created until now.
 """
 
 def main():
-    preparation_section()
+    # preparation_section()
+
+    # detect_rpeaks_args = create_sub_dict(
+    #         parameters, ["data_directory", "valid_file_types", "ecg_key", "rpeak_primary_function",
+    #                     "rpeak_name_primary"]
+    #         )
+    # check_ecg_thresholds_dict = load_from_pickle(CHECK_ECG_DATA_THRESHOLDS_PATH)
+    # parameters.update(check_ecg_thresholds_dict)
+    # del check_ecg_thresholds_dict
+    # determine_ecg_region_args = create_sub_dict(
+    #         parameters, ["valid_file_types", "check_ecg_std_min_threshold", 
+    #                     "check_ecg_std_max_threshold", "check_ecg_distance_std_ratio_threshold", 
+    #                     "check_ecg_time_interval_seconds", "min_valid_length_minutes", 
+    #                     "allowed_invalid_region_length_seconds", "ecg_key"]
+    #         )
+    # determine_valid_ecg_regions(data_directory=GIF_DATA_DIRECTORY, **determine_ecg_region_args)
+    
+    # detect_rpeaks(GIF_DATA_DIRECTORY, parameters["valid_file_types"], parameters["ecg_key"], parameters["rpeak_primary_function"], parameters["rpeak_name_primary"])
+    # detect_rpeaks(GIF_DATA_DIRECTORY, parameters["valid_file_types"], parameters["ecg_key"], parameters["rpeak_secondary_function"], parameters["rpeak_name_secondary"])
+    # evaluate_rpeak_detection_accuracy(GIF_DATA_DIRECTORY, parameters["valid_file_types"], parameters["ecg_key"], GIF_RPEAKS_DIRECTORY, "Accurate", [".rri"], [parameters["rpeak_name_primary"], parameters["rpeak_name_secondary"]], parameters["rpeak_distance_threshold_seconds"])
+    print_rpeak_accuracy_results([parameters["rpeak_name_primary"], parameters["rpeak_name_secondary"]], "Accurate", 4)
+
+
+
+    # rpeaks = load_from_pickle(PREPARATION_DIRECTORY + "RPeaks_wfdb.pkl")
+    # print(rpeaks)
 
 if __name__ == "__main__":
     main()

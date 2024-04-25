@@ -227,3 +227,189 @@ def combined_rpeak_detection_methods(
     rpeaks_only_secondary = np.setdiff1d(rpeaks_secondary, rpeaks_primary)
 
     return rpeaks_intersected, rpeaks_only_primary, rpeaks_only_secondary
+
+
+"""
+Following code won't be used for the final implementation, but is useful for testing and
+comparing the results of different R-peak detection methods, as accurate R peaks
+(calculated automatically but later checked manually) are available for the GIF data.
+"""
+
+
+def compare_rpeak_detection_methods(
+        first_rpeaks: list,
+        second_rpeaks: list,
+        first_name: str,
+        second_name: str,
+        frequency: int,
+        rpeak_distance_threshold_seconds: float,
+        print_results: bool
+    ):
+    """
+    Compare the results of two different R-peak detection methods.
+
+    ARGUMENTS:
+    --------------------------------
+    first_rpeaks: list
+        R-peak locations detected by the first method
+    second_rpeaks: list
+        R-peak locations detected by the second method
+    rpeak_distance_threshold_seconds: float
+        threshold for the distance between two R-peaks to be considered as the same
+    print_results: bool
+        if True, the results will be printed
+
+    RETURNS:
+    --------------------------------
+    None
+    """
+    # convert the threshold to iterations
+    distance_threshold_iterations = int(rpeak_distance_threshold_seconds * frequency)
+
+    # lists to store the r peaks that are considered as the same (distance < threshold, distance != 0)
+    analog_value_in_first = []
+    analog_value_in_second = []
+
+    same_values = []
+
+    # if two R-peaks are closer than the threshold, they are considered as the same
+    last_matching_rpeak = -1
+    for i in range(len(first_rpeaks)):
+        if first_rpeaks[i] not in second_rpeaks:
+            possible_matches = []
+            possible_matches_values = []
+            for j in range(last_matching_rpeak + 1, len(second_rpeaks)):
+                this_distance = second_rpeaks[j] - first_rpeaks[i]
+                possible_matches_values.append(abs(this_distance))
+                possible_matches.append(j)
+                if this_distance > distance_threshold_iterations:
+                    break
+            if len(possible_matches_values) > 0:
+                if min(possible_matches_values) < distance_threshold_iterations:
+                    last_matching_rpeak = possible_matches[possible_matches_values.index(min(possible_matches_values))]
+                    analog_value_in_first.append(first_rpeaks[i])
+                    analog_value_in_second.append(second_rpeaks[last_matching_rpeak])
+        else:
+            same_values.append(first_rpeaks[i])
+    
+    # mean squared error and root mean squared error
+    analog_value_in_first = np.array(analog_value_in_first)
+    analog_value_in_second = np.array(analog_value_in_second)
+    same_values = np.array(same_values)
+    if print_results:
+        print("Number of same values: ", len(same_values))
+        print("Number of values considered as equal (distance < %f s): %i" % (rpeak_distance_threshold_seconds, len(analog_value_in_first)))
+
+    mse_without_same = np.mean((analog_value_in_first - analog_value_in_second)**2)
+    rmse_without_same = np.sqrt(mse_without_same)
+
+    analog_value_in_first = np.append(analog_value_in_first, same_values)
+    analog_value_in_second = np.append(analog_value_in_second, same_values)
+
+    mse_with_same = np.mean((analog_value_in_first - analog_value_in_second)**2)
+    rmse_with_same = np.sqrt(mse_with_same)
+
+    remaining_in_first = np.setdiff1d(first_rpeaks, analog_value_in_first)
+    remaining_in_second = np.setdiff1d(second_rpeaks, analog_value_in_second)
+
+    if print_results:
+        print("")
+        print("Number of remaining values in %s: %i" % (first_name, len(remaining_in_first)))
+        print("Number of remaining values in %s: %i" % (second_name, len(remaining_in_second)))
+        print("Ratio of remaining values in %s: %f %%" % (first_name, round(100*len(remaining_in_first)/len(first_rpeaks), 2)))
+        print("Ratio of remaining values in %s: %f %%" % (second_name, round(100*len(remaining_in_second)/len(second_rpeaks), 2)))
+        print("")
+        #print("Mean squared error without same values: ", mse_without_same)
+        print("Root mean squared error without same values: %f = %f s" % (rmse_without_same, rmse_without_same/frequency))
+        #print("Mean squared error with same values: ", mse_with_same)
+        print("Root mean squared error with same values:%f = %f s" % (rmse_with_same, rmse_with_same/frequency))
+    
+    return rmse_without_same, rmse_with_same, len(same_values), len(analog_value_in_second)
+
+
+def get_value_from_string(string):
+    """
+    Appearance of string entrys in the .rri file: "integer letter".
+    The integer shows the R peak position and the letter classifies the R peak.
+
+    This functions returns the first integer and letter in the string. If either the letter
+    or the integer does not exist, they are set to " ".
+
+    ARGUMENTS:
+    --------------------------------
+    string: str
+        string entry in the .rri file
+    
+    RETURNS:
+    --------------------------------
+    rpeak: int
+        R peak position
+    letter: str
+        classification of the R peak
+
+    """
+    rpeak = " "
+    letter = " "
+
+    was_number = False
+    for i in range(len(string)):
+        if string[i].isdigit():
+            if not was_number:
+                start = i
+            was_number = True
+        else:
+            if was_number:
+                rpeak = int(string[start:i])
+            was_number = False
+
+            if string[i].isalpha():
+                letter = string[i]
+                break
+    try:
+        return rpeak, letter
+    except:
+        return rpeak, "N"
+
+
+def get_rpeaks_from_rri_file(
+    file_path: str    
+    ):
+    """
+    Get R-peaks from an .rri file. Only available for GIF data: 
+    They were also detected automatically but later corrected manually, so they should be
+    very accurate and can be used as a reference.
+
+    RETURNS:
+    --------------------------------
+    rpeaks: 1D numpy array
+        R-peak locations
+    """
+    # read the RRI file
+    rri_file = open(file_path, "r")
+    rri = rri_file.readlines() #.split("\n")
+    rri_file.close()
+    
+    # start of rpeaks are separated by a line of "-" from the other informations in the 
+    # .rri files.
+    for i in range(len(rri)):
+        count_dash = 0
+        for j in range(len(rri[i])):
+            if rri[i][j] == "-":
+                count_dash += 1
+        if count_dash/len(rri[i]) > 0.9:
+            start = i + 1
+            break
+
+    # get the R-peaks from the RRI file
+    rpeaks = dict()
+    for i in range(start, len(rri)):
+        this_rpeak, letter = get_value_from_string(rri[i])
+        if isinstance(this_rpeak, int) and letter.isalpha():
+            if letter in rpeaks:
+                rpeaks[letter].append(this_rpeak)
+            else:
+                rpeaks[letter] = [this_rpeak]
+    for key in rpeaks:
+        rpeaks[key] = np.array(rpeaks[key])
+
+    return rpeaks
