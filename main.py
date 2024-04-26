@@ -33,18 +33,14 @@ DATA_DIRECTORY = "Data/"
 TEMPORARY_PICKLE_DIRECTORY = "Temporary_Pickles/"
 TEMPORARY_FIGURE_DIRECTORY = "Temporary_Figures/"
 
+# PREPARATION SECTION
+# -------------------
 PREPARATION_DIRECTORY = "Preparation/"
 
 # ECG Validation
 ECG_CALIBRATION_DATA_PATH = "Calibration_Data/Somnowatch_Messung.edf"
 ECG_VALIDATION_THRESHOLDS_PATH = PREPARATION_DIRECTORY + "ECG_Validation_Thresholds.pkl"
 VALID_ECG_REGIONS_PATH = PREPARATION_DIRECTORY + "Valid_ECG_Regions.pkl"
-
-# R peak accuracy evaluation
-RPEAK_ACCURACY_EVALUATION_PATH = PREPARATION_DIRECTORY + "RPeak_Accuracy_Evaluation.pkl"
-RPEAK_ACCURACY_REPORT_PATH = PREPARATION_DIRECTORY + "RPeak_Accuracy.txt"
-GIF_RPEAKS_DIRECTORY = "Data/GIF/Analyse_Somno_TUM/RRI/"
-GIF_DATA_DIRECTORY = "Data/GIF/SOMNOwatch/"
 
 # R peak detection
 CERTAIN_RPEAKS_PATH = PREPARATION_DIRECTORY + "Certain_Rpeaks.pkl"
@@ -54,6 +50,18 @@ UNCERTAIN_SECONDARY_RPEAKS_PATH = PREPARATION_DIRECTORY + "Uncertain_Secondary_R
 # MAD calculation
 MAD_VALUES_PATH = PREPARATION_DIRECTORY + "MAD_Values.pkl"
 
+# ADDITIONALS SECTION
+# -------------------
+ADDITIONALS_DIRECTORY = "Additions/"
+
+# R peak accuracy evaluation
+RPEAK_ACCURACY_DIRECTORY = ADDITIONALS_DIRECTORY + "RPeak_Accuracy/"
+RPEAK_ACCURACY_EVALUATION_PATH = RPEAK_ACCURACY_DIRECTORY + "RPeak_Accuracy_Evaluation.pkl"
+RPEAK_ACCURACY_REPORT_PATH = RPEAK_ACCURACY_DIRECTORY + "RPeak_Accuracy.txt"
+GIF_RPEAKS_DIRECTORY = "Data/GIF/Analyse_Somno_TUM/RRI/"
+GIF_DATA_DIRECTORY = "Data/GIF/SOMNOwatch/"
+
+
 # create directories if they do not exist
 if not os.path.isdir(TEMPORARY_PICKLE_DIRECTORY):
     os.mkdir(TEMPORARY_PICKLE_DIRECTORY)
@@ -61,9 +69,27 @@ if not os.path.isdir(TEMPORARY_FIGURE_DIRECTORY):
     os.mkdir(TEMPORARY_FIGURE_DIRECTORY)
 if not os.path.isdir(PREPARATION_DIRECTORY):
     os.mkdir(PREPARATION_DIRECTORY)
+if not os.path.isdir(ADDITIONALS_DIRECTORY):
+    os.mkdir(ADDITIONALS_DIRECTORY)
+if not os.path.isdir(RPEAK_ACCURACY_DIRECTORY):
+    os.mkdir(RPEAK_ACCURACY_DIRECTORY)
 
 # set the parameters for the project
 parameters = dict()
+
+settings_params = {
+    # set what sections should be executed
+    "run_additionals_section": False, # if True, the ADDITIONALS SECTION will be executed
+    "run_preparation_section": True, # if True, the PREPARATION SECTION will be executed
+    # set what parts of the ADDITIONALS SECTION should be executed
+    "show_calibration_data": True, # if True, the calibration data in the manually chosen intervals will be plotted and saved to TEMPORARY_FIGURE_DIRECTORY_PATH
+    "determine_rpeak_accuracy": True, # if True, the accuracy of the R peak detection functions will be evaluated
+    # set what parts of the PREPARATION SECTION should be executed
+    "calculate_ecg_thresholds": True, # if True, you will have the option to recalculate the thresholds for the ecg validation
+    "determine_valid_ecg_regions": True, # if True, you will have the option to recalculate the valid regions for the ECG data
+    "detect_rpeaks": True, # if True, the R peaks will be detected in the ECG data
+    "calculate_MAD": True, # if True, the MAD will be calculated for the wrist acceleration data
+}
 
 file_params = {
     "data_directory": DATA_DIRECTORY, # directory where the data is stored
@@ -73,13 +99,10 @@ file_params = {
 }
 
 valid_ecg_regions_params = {
-    "determine_valid_ecg_regions": True, # if True, you will have the option to recalculate the valid regions for the ECG data
-    "calculate_ecg_thresholds": True, # if True, you will have the option to recalculate the thresholds for various functions
-    "show_calibration_data": False, # if True, the calibration data in the manually chosen intervals will be plotted and saved to TEMPORARY_FIGURE_DIRECTORY_PATH
     "ecg_calibration_file_path": ECG_CALIBRATION_DATA_PATH, # path to the EDF file for threshold calibration
-    "ecg_threshold_multiplier": 0.5, # multiplier for the thresholds in check_data.check_ecg() (between 0 and 1)
-    "ecg_threshold_dezimal_places": 2, # number of dezimal places for the check ecg thresholds in the pickle files
-    "ecg_threshold_save_path": ECG_VALIDATION_THRESHOLDS_PATH, # path to the pickle file where the thresholds are saved
+    "ecg_thresholds_multiplier": 0.5, # multiplier for the thresholds in check_data.check_ecg() (between 0 and 1)
+    "ecg_thresholds_dezimal_places": 2, # number of dezimal places for the check ecg thresholds in the pickle files
+    "ecg_thresholds_save_path": ECG_VALIDATION_THRESHOLDS_PATH, # path to the pickle file where the thresholds are saved
     "check_ecg_time_interval_seconds": 10, # time interval considered when determining the valid regions for the ECG data
     "check_ecg_min_valid_length_minutes": 5, # minimum length of valid data in minutes
     "check_ecg_allowed_invalid_region_length_seconds": 30, # data region (see above) still considered valid if the invalid part is shorter than this
@@ -87,7 +110,6 @@ valid_ecg_regions_params = {
 }
 
 rpeak_accuracy_params = {
-    "determine_rpeak_accuracy": True, # if True, the accuracy of the R peak detection functions will be evaluated
     "rpeak_accuracy_functions": [rpeak_detection.get_rpeaks_wfdb, rpeak_detection.get_rpeaks_old], # names of the R peak detection functions
     "rpeak_accuracy_function_names": ["wfdb", "ecgdetectors"], # names of the R peak detection functions
     "accurate_peaks_name": "Accurate", # name of the accurate R peaks
@@ -100,7 +122,6 @@ rpeak_accuracy_params = {
 }
 
 detect_rpeaks_params = {
-    "detect_rpeaks": True, # if True, the R peaks will be detected in the ECG data
     "rpeak_primary_function": rpeak_detection.get_rpeaks_wfdb, # primary R peak detection function
     "rpeak_secondary_function": rpeak_detection.get_rpeaks_old, # secondary R peak detection function
     "rpeak_name_primary": "wfdb", # name of the primary R peak detection function
@@ -112,18 +133,19 @@ detect_rpeaks_params = {
 }
 
 calculate_MAD_params = {
-    "calculate_MAD": True, # if True, the MAD will be calculated for the wrist acceleration data
     "mad_time_period_seconds": 10, # time period in seconds over which the MAD will be calculated
     "mad_values_path": MAD_VALUES_PATH, # path to the pickle file where the MAD values are saved
 }
 
+parameters.update(settings_params)
 parameters.update(file_params)
 parameters.update(valid_ecg_regions_params)
-if rpeak_accuracy_params["determine_rpeak_accuracy"]:
+if settings_params["determine_rpeak_accuracy"] and settings_params["run_additionals_section"]:
     parameters.update(rpeak_accuracy_params)
 parameters.update(detect_rpeaks_params)
 parameters.update(calculate_MAD_params)
 
+del settings_params
 del file_params
 del valid_ecg_regions_params
 del rpeak_accuracy_params
@@ -139,8 +161,6 @@ params_to_be_calculated = {
 }
 
 # check the parameters
-if not isinstance(parameters["file_path"], str):
-    raise ValueError("'file_path' parameter must be a string.")
 if not isinstance(parameters["data_directory"], str):
     raise ValueError("'data_directory' parameter must be a string.")
 if not isinstance(parameters["valid_file_types"], list):
@@ -152,24 +172,12 @@ if not isinstance(parameters["wrist_acceleration_keys"], list):
 
 if not isinstance(parameters["determine_valid_ecg_regions"], bool):
     raise ValueError("'determine_valid_ecg_regions' parameter must be a boolean.")
-if not isinstance(parameters["calculate_thresholds"], bool):
-    raise ValueError("'calculate_thresholds' parameter must be a boolean.")
-if not isinstance(parameters["show_calibration_data"], bool):
-    raise ValueError("'show_calibration_data' parameter must be a boolean.")
-if parameters["show_calibration_data"] and parameters["calculate_thresholds"]:
-    raise ValueError("'show_calibration_data' and 'calculate_thresholds' parameter cannot both be True at the same time.")
-if not isinstance(parameters["ecg_threshold_multiplier"], (int, float)):
-    raise ValueError("'ecg_threshold_multiplier' parameter must be an integer or a float.")
-if parameters["ecg_threshold_multiplier"] <= 0 or parameters["ecg_threshold_multiplier"] > 1:
-    raise ValueError("'ecg_threshold_multiplier' parameter must be between 0 and 1.")
-if not isinstance(parameters["check_ecg_threshold_dezimal_places"], int):
-    raise ValueError("'check_ecg_threshold_dezimal_places' parameter must be an integer.")
+if not isinstance(parameters["ecg_thresholds_multiplier"], (int, float)):
+    raise ValueError("'ecg_thresholds_multiplier' parameter must be an integer or a float.")
+if parameters["ecg_thresholds_multiplier"] <= 0 or parameters["ecg_thresholds_multiplier"] > 1:
+    raise ValueError("'ecg_thresholds_multiplier' parameter must be between 0 and 1.")
 if not isinstance(parameters["check_ecg_time_interval_seconds"], int):
     raise ValueError("'check_ecg_time_interval_seconds' parameter must be an integer.")
-if not isinstance(parameters["min_valid_length_minutes"], int):
-    raise ValueError("'min_valid_length_minutes' parameter must be an integer.")
-if not isinstance(parameters["allowed_invalid_region_length_seconds"], int):
-    raise ValueError("'allowed_invalid_region_length_seconds' parameter must be an integer.")
 
 if not isinstance(parameters["detect_rpeaks"], bool):
     raise ValueError("'detect_rpeaks' parameter must be a boolean.")
@@ -183,6 +191,31 @@ if not isinstance(parameters["rpeak_name_secondary"], str):
     raise ValueError("'rpeak_name_secondary' parameter must be a string.")
 if not isinstance(parameters["rpeak_distance_threshold_seconds"], float):
     raise ValueError("'rpeak_distance_threshold_seconds' parameter must be a float.")
+
+ecg_thresholds_variables = ["ecg_calibration_file_path", "ecg_thresholds_multiplier", 
+                            "ecg_thresholds_dezimal_places", "ecg_key", "ecg_thresholds_save_path"]
+
+determine_ecg_region_variables = ["data_directory", "valid_file_types", "check_ecg_std_min_threshold", 
+            "check_ecg_std_max_threshold", "check_ecg_distance_std_ratio_threshold", 
+            "check_ecg_time_interval_seconds", "check_ecg_min_valid_length_minutes", 
+            "check_ecg_allowed_invalid_region_length_seconds", "ecg_key", "valid_ecg_regions_path"]
+
+detect_rpeaks_variables = ["data_directory", "valid_file_types", "ecg_key", "valid_ecg_regions_path"]
+
+combine_detected_rpeaks_variables = ["data_directory", "valid_file_types", "ecg_key",
+                        "rpeak_distance_threshold_seconds", "certain_rpeaks_path", 
+                        "uncertain_primary_rpeaks_path", "uncertain_secondary_rpeaks_path"]
+
+calculate_MAD_variables = ["data_directory", "valid_file_types", "wrist_acceleration_keys", 
+                        "mad_time_period_seconds", "mad_values_path"]
+
+evaluate_rpeak_detection_accuracy_variables = ["accurate_rpeaks_raw_data_directory", "valid_file_types",
+                    "accurate_rpeaks_values_directory", "valid_accurate_rpeak_file_types",
+                    "rpeak_distance_threshold_seconds","rpeak_accuracy_evaluation_path", "ecg_key"]
+
+rpeak_accuracy_report_variables = ["rpeak_accuracy_function_names", "accurate_peaks_name", 
+                        "rpeak_accuracy_rmse_dezimal_places", "rpeak_accuracy_report_path",
+                        "rpeak_accuracy_evaluation_path"]
 
 
 """
@@ -206,24 +239,109 @@ Also examine whether the test data used is suitable for the actual data, e.g. th
 units match, etc.
 """
 
-def create_rpeaks_pickle_path(rpeak_function_name):
+"""
+--------------------------------
+CALIBRATION DATA
+--------------------------------
+"""
+
+def ecg_threshold_calibration_intervals():
     """
-    Create the path for the pickle file where the rpeaks are saved for each method.
+    Manually chosen calibration intervals for the ECG Validation.
     """
-    return PREPARATION_DIRECTORY + "RPeaks_" + rpeak_function_name + ".pkl"
+    manual_interval_size = 2560 # 10 seconds for 256 Hz
+    manual_lower_borders = [
+        2091000, # 2h 17min 10sec for 256 Hz
+        6292992, # 6h 49min 41sec for 256 Hz
+        2156544, # 2h 20min 24sec for 256 Hz
+        1781760 # 1h 56min 0sec for 256 Hz
+        ]
+    return [(border, border + manual_interval_size) for border in manual_lower_borders], manual_interval_size
 
 
 """
 --------------------------------
 ADDITIONALS SECTION
 --------------------------------
+
+In this section we will provide additional calculations that are not relevant for the
+main part of the project.
 """
 
-def additional_section():
+def additional_section(run_section: bool):
+    if not run_section:
+        return
+
     """
-    In this section we will provide additional functions that are needed for the project.
+    --------------------------------
+    SHOW CALIBRATION DATA
+    --------------------------------
     """
-    # rpeak accuracy and show cal data
+    # manually chosen calibration intervals for the ECG Validation:
+    manual_calibration_intervals, manual_interval_size = ecg_threshold_calibration_intervals()
+
+    # show calibration data if user requested it, terminate the script afterwards
+    if parameters["show_calibration_data"]:
+        names = ["perfect_ecg", "fluctuating_ecg", "noisy_ecg", "negative_peaks"]
+        sigbufs, sigfreqs, sigdims, duration = read_edf.get_edf_data(ECG_CALIBRATION_DATA_PATH)
+        ecg_data = sigbufs[parameters["ecg_key"]]
+        for interval in manual_calibration_intervals:
+            plot_helper.simple_plot(
+                ecg_data[interval[0]:interval[1]], 
+                np.arange(manual_interval_size),
+                TEMPORARY_FIGURE_DIRECTORY + names[manual_calibration_intervals.index(interval)] + ".png"
+                )
+    
+    """
+    --------------------------------
+    DETERMINE R PEAK ACCURACY
+    --------------------------------
+    """
+
+    if parameters["determine_rpeak_accuracy"]:
+        # change the paths where the data is usually stored
+        parameters["data_directory"] = parameters["accurate_rpeaks_raw_data_directory"]
+        parameters["ecg_thresholds_save_path"] = RPEAK_ACCURACY_DIRECTORY + get_file_name_from_path(parameters["ecg_thresholds_save_path"])
+        parameters["valid_ecg_regions_path"] = RPEAK_ACCURACY_DIRECTORY + get_file_name_from_path(parameters["valid_ecg_regions_path"])
+
+        ecg_thresholds_args = create_sub_dict(parameters, ecg_thresholds_variables)
+        ecg_thresholds_args["ecg_calibration_intervals"] = manual_calibration_intervals
+        check_data.create_ecg_thresholds(**ecg_thresholds_args)
+        del ecg_thresholds_args
+        del manual_calibration_intervals
+
+        # load the ecg thresholds to the parameters dictionary
+        ecg_validation_thresholds_dict = load_from_pickle(parameters["ecg_thresholds_save_path"])
+        parameters.update(ecg_validation_thresholds_dict)
+        del ecg_validation_thresholds_dict
+
+        determine_ecg_region_args = create_sub_dict(parameters, determine_ecg_region_variables)
+        check_data.determine_valid_ecg_regions(**determine_ecg_region_args)
+        del determine_ecg_region_args
+
+        detect_rpeaks_args = create_sub_dict(parameters, detect_rpeaks_variables)
+
+        compare_rpeaks_paths = []
+        for i in range(len(parameters["rpeak_accuracy_function_names"])):
+            compare_rpeaks_paths.append(create_rpeaks_pickle_path(RPEAK_ACCURACY_DIRECTORY, parameters["rpeak_accuracy_function_names"][i]))
+
+        for i in range(len(parameters["rpeak_accuracy_functions"])):
+            detect_rpeaks_args["rpeak_function"] = parameters["rpeak_accuracy_functions"][i]
+            detect_rpeaks_args["rpeak_function_name"] = parameters["rpeak_accuracy_function_names"][i]
+            detect_rpeaks_args["rpeak_path"] = compare_rpeaks_paths[i]
+            rpeak_detection.detect_rpeaks(**detect_rpeaks_args)
+
+        del detect_rpeaks_args
+
+        evaluate_rpeak_detection_accuracy_args = create_sub_dict(parameters, evaluate_rpeak_detection_accuracy_variables)
+        evaluate_rpeak_detection_accuracy_args["compare_rpeaks_paths"] = compare_rpeaks_paths
+        rpeak_detection.evaluate_rpeak_detection_accuracy(**evaluate_rpeak_detection_accuracy_args)
+        del evaluate_rpeak_detection_accuracy_args
+
+        rpeak_accuracy_report_args = create_sub_dict(parameters, rpeak_accuracy_report_variables)
+        rpeak_detection.print_rpeak_accuracy_results(**rpeak_accuracy_report_args)
+    
+    raise SystemExit("\nIt is not intended to run the ADDTIONAL SECTION and afterwards the MAIN project. As a matter of assuring the correct execution of the script, the script will be TERMINATED. If you want to execute the MAIN project, please set the 'run_additionals_section' parameter to False in the settings section of the script\n")
         
 
 """
@@ -237,7 +355,9 @@ various functions, evaluate the valid regions for the ECG data or just load thes
 informations, if this was already done before.
 """
 
-def preparation_section():
+def preparation_section(run_section: bool):
+    if not run_section:
+        return
             
     # make sure temporary directories are empty
     clear_directory(TEMPORARY_PICKLE_DIRECTORY)
@@ -248,39 +368,15 @@ def preparation_section():
     ECG REGION VALIDATION
     --------------------------------
     """
-    # manually chosen calibration intervals for the ECG Validation:
-    if parameters["show_calibration_data"] or parameters["calculate_ecg_thresholds"]:
-        manual_interval_size = 2560 # 10 seconds for 256 Hz
-        manual_lower_borders = [
-            2091000, # 2h 17min 10sec for 256 Hz
-            6292992, # 6h 49min 41sec for 256 Hz
-            2156544, # 2h 20min 24sec for 256 Hz
-            1781760 # 1h 56min 0sec for 256 Hz
-            ]
-        manual_calibration_intervals = [(border, border + manual_interval_size) for border in manual_lower_borders]
-
-    # show calibration data if user requested it, terminate the script afterwards
-    if parameters["show_calibration_data"]:
-        names = ["perfect_ecg", "fluctuating_ecg", "noisy_ecg", "negative_peaks"]
-        sigbufs, sigfreqs, sigdims, duration = read_edf.get_edf_data(ECG_CALIBRATION_DATA_PATH)
-        ecg_data = sigbufs[parameters["ecg_key"]]
-        for interval in manual_calibration_intervals:
-            plot_helper.simple_plot(
-                ecg_data[interval[0]:interval[1]], 
-                np.arange(manual_interval_size),
-                TEMPORARY_FIGURE_DIRECTORY + names[manual_calibration_intervals.index(interval)] + ".png"
-                )
-        raise SystemExit("Calibration data was saved to " + TEMPORARY_FIGURE_DIRECTORY + ". Because you chose this option, no further calculations will be made. Please check the calibration data and make adjustments if necessary. If everything fits, you can run the script again with \"show_calibration_data\" set to \"False\".")
-
-    # calculate the thresholds for the ECG Validation
     if parameters["calculate_ecg_thresholds"]:
-        ecg_thresholds_args = create_sub_dict(
-            parameters, ["ecg_calibration_file_path", "ecg_threshold_multiplier", "ecg_threshold_dezimal_places",
-                        "ecg_key", "ecg_thresholds_save_path"]
-            )
+        # manually chosen calibration intervals for the ECG Validation:
+        manual_calibration_intervals, manual_interval_size = ecg_threshold_calibration_intervals()
+
+        # calculate the thresholds for the ECG Validation
+        ecg_thresholds_args = create_sub_dict(parameters, ecg_thresholds_variables)
         ecg_thresholds_args["ecg_calibration_intervals"] = manual_calibration_intervals
         check_data.create_ecg_thresholds(**ecg_thresholds_args)
-        del calculate_thresholds_args
+        del ecg_thresholds_args
         del manual_calibration_intervals
 
     # load the ecg thresholds to the parameters dictionary
@@ -290,12 +386,7 @@ def preparation_section():
 
     # evaluate valid regions for the ECG data
     if parameters["determine_valid_ecg_regions"]:
-        determine_ecg_region_args = create_sub_dict(
-            parameters, ["data_directory", "valid_file_types", "check_ecg_std_min_threshold", 
-                        "check_ecg_std_max_threshold", "check_ecg_distance_std_ratio_threshold", 
-                        "check_ecg_time_interval_seconds", "check_ecg_min_valid_length_minutes", 
-                        "check_ecg_allowed_invalid_region_length_seconds", "ecg_key", "valid_ecg_regions_path"]
-            )
+        determine_ecg_region_args = create_sub_dict(parameters, determine_ecg_region_variables)
         check_data.determine_valid_ecg_regions(**determine_ecg_region_args)
         del determine_ecg_region_args
     
@@ -305,77 +396,37 @@ def preparation_section():
     --------------------------------
     """
 
-    # Determine R peak accuracy
-    if parameters["determine_rpeak_accuracy"]:
-
-        detect_rpeaks_args = create_sub_dict(
-            parameters, ["valid_file_types", "ecg_key", "valid_ecg_regions_path"])
-        detect_rpeaks_args["data_directory"] = parameters["accurate_rpeaks_raw_data_directory"]
-
-        for i in range(len(parameters["rpeak_functions"])):
-            detect_rpeaks_args["rpeak_function"] = parameters["rpeak_functions"][i]
-            detect_rpeaks_args["rpeak_function_name"] = parameters["rpeak_function_names"][i]
-            detect_rpeaks_args["rpeak_path"] = create_rpeaks_pickle_path(parameters["rpeak_function_names"][i])
-            rpeak_detection.detect_rpeaks(**detect_rpeaks_args)
-
-        del detect_rpeaks_args
-
-        evaluate_rpeak_detection_accuracy_args = create_sub_dict(
-            parameters, ["accurate_rpeaks_raw_data_directory", "valid_file_types", "ecg_key",
-                        "accurate_rpeaks_values_directory", "valid_accurate_rpeak_file_types",
-                        "compare_rpeaks_paths", "rpeak_distance_threshold_seconds",
-                        "rpeak_accuracy_evaluation_path"]
-            )
-        rpeak_detection.evaluate_rpeak_detection_accuracy(**evaluate_rpeak_detection_accuracy_args)
-
-        del evaluate_rpeak_detection_accuracy_args
-
-        rpeak_accuracy_report_args = create_sub_dict(
-            parameters, ["rpeak_accuracy_function_names", "accurate_peaks_name", 
-                        "rpeak_accuracy_rmse_dezimal_places", "rpeak_accuracy_report_path",
-                        "rpeak_accuracy_evaluation_path"]
-            )
-
-        rpeak_detection.print_rpeak_accuracy_results(**rpeak_accuracy_report_args)
-
-
     # detect R peaks in the valid regions of the ECG data
     if parameters["detect_rpeaks"]:
-        detect_rpeaks_args = create_sub_dict(
-            parameters, ["data_directory", "valid_file_types", "ecg_key", "valid_ecg_regions_path"])
+        detect_rpeaks_args = create_sub_dict(parameters, detect_rpeaks_variables)
         
         detect_rpeaks_args["rpeak_function"] = parameters["rpeak_primary_function"]
         detect_rpeaks_args["rpeak_function_name"] = parameters["rpeak_name_primary"]
-        rpeak_primary_path = create_rpeaks_pickle_path(parameters["rpeak_name_primary"])
+        rpeak_primary_path = create_rpeaks_pickle_path(PREPARATION_DIRECTORY, parameters["rpeak_name_primary"])
         detect_rpeaks_args["rpeak_path"] = rpeak_primary_path
         rpeak_detection.detect_rpeaks(**detect_rpeaks_args)
 
         detect_rpeaks_args["rpeak_function"] = parameters["rpeak_secondary_function"]
         detect_rpeaks_args["rpeak_function_name"] = parameters["rpeak_name_secondary"]
-        rpeak_secondary_path = create_rpeaks_pickle_path(parameters["rpeak_name_secondary"])
+        rpeak_secondary_path = create_rpeaks_pickle_path(PREPARATION_DIRECTORY, parameters["rpeak_name_secondary"])
         detect_rpeaks_args["rpeak_path"] = rpeak_secondary_path
         rpeak_detection.detect_rpeaks(**detect_rpeaks_args)
 
-        combine_detected_rpeaks_args = create_sub_dict(
-            parameters, ["data_directory", "valid_file_types", "ecg_key", "rpeak_distance_threshold_seconds",
-                        "certain_rpeaks_path", "uncertain_primary_rpeaks_path", "uncertain_secondary_rpeaks_path"]
-            )
+        combine_detected_rpeaks_args = create_sub_dict(parameters, combine_detected_rpeaks_variables)
         combine_detected_rpeaks_args["rpeak_primary_path"] = rpeak_primary_path
         combine_detected_rpeaks_args["rpeak_secondary_path"] = rpeak_secondary_path
-
         rpeak_detection.combine_detected_rpeaks(**combine_detected_rpeaks_args)
-        del detect_rpeaks_args
-        del combine_detected_rpeaks_args
-        del rpeak_primary_path
-        del rpeak_secondary_path
+
+        del detect_rpeaks_args, combine_detected_rpeaks_args, rpeak_primary_path, rpeak_secondary_path
     
-    
+    """
+    --------------------------------
+    MAD CALCULATION
+    --------------------------------
+    """
     # calculate MAD in the wrist acceleration data
     if parameters["calculate_MAD"]:
-        calculate_MAD_args = create_sub_dict(
-            parameters, ["data_directory", "valid_file_types", "wrist_acceleration_keys", 
-                        "mad_time_period_seconds", "mad_values_path"]
-            )
+        calculate_MAD_args = create_sub_dict(parameters, calculate_MAD_variables)
         MAD.calculate_MAD_in_acceleration_data(**calculate_MAD_args)
         del calculate_MAD_args
 
@@ -389,7 +440,8 @@ In this section we will run the functions we have created until now.
 """
 
 def main():
-    preparation_section()
+    additional_section(parameters["run_additionals_section"])
+    preparation_section(parameters["run_preparation_section"])
 
     # rpeaks = load_from_pickle(PREPARATION_DIRECTORY + "RPeaks_wfdb.pkl")
     # print(rpeaks)

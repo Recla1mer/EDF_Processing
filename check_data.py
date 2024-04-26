@@ -84,8 +84,8 @@ def eval_std_thresholds(
 def create_ecg_thresholds(
         ecg_calibration_file_path: str, 
         ecg_calibration_intervals: list,
-        ecg_threshold_multiplier: float,
-        ecg_threshold_dezimal_places: int,
+        ecg_thresholds_multiplier: float,
+        ecg_thresholds_dezimal_places: int,
         ecg_key: str,
         ecg_thresholds_save_path: str
     ):
@@ -115,7 +115,7 @@ def create_ecg_thresholds(
 
     # check if ecg thresholds already exist and if yes: ask for permission to override
     user_answer = ask_for_permission_to_override(file_path = ecg_thresholds_save_path, 
-        message = "Thresholds for ECG validation (see check_data.check_ecg()) already exist.")
+        message = "\nThresholds for ECG validation (see check_data.check_ecg()) already exist in " + ecg_thresholds_save_path + ".")
     
     # cancel if user does not want to override
     if user_answer == "n":
@@ -125,8 +125,8 @@ def create_ecg_thresholds(
     threshold_values = eval_std_thresholds(
         sigbufs, 
         ecg_calibration_intervals,
-        threshold_multiplier = ecg_threshold_multiplier,
-        threshold_dezimal_places = ecg_threshold_dezimal_places,
+        threshold_multiplier = ecg_thresholds_multiplier,
+        threshold_dezimal_places = ecg_thresholds_dezimal_places,
         ecg_key = ecg_key,
         )
     
@@ -402,7 +402,7 @@ def determine_valid_ecg_regions(
 
     # check if valid regions already exist and if yes: ask for permission to override
     user_answer = ask_for_permission_to_override(file_path = valid_ecg_regions_path,
-                            message = "Valid regions for the ECG data already exist.")
+                            message = "\nValid regions for the ECG data already exist in " + valid_ecg_regions_path + ".")
     
     # cancel if user does not want to override
     if user_answer == "n":
@@ -419,7 +419,7 @@ def determine_valid_ecg_regions(
     # create dictionary to save the valid regions
     valid_regions = dict()
 
-    print("Calculating valid regions for the ECG data in %i files:" % total_files)
+    print("\nCalculating valid regions for the ECG data in %i files:" % total_files)
 
     for file in valid_files:
         # show progress

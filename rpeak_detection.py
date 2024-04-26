@@ -186,7 +186,7 @@ def detect_rpeaks(
 
     # check if R peaks already exist and if yes: ask for permission to override
     user_answer = ask_for_permission_to_override(file_path = rpeak_path,
-                            message = "Detected R peaks already exist in: " + rpeak_path)
+                            message = "\nDetected R peaks already exist in: " + rpeak_path)
     
      # cancel if user does not want to override
     if user_answer == "n":
@@ -207,7 +207,7 @@ def detect_rpeaks(
     valid_ecg_regions = load_from_pickle(valid_ecg_regions_path)
 
     # detect rpeaks in the valid regions of the ECG data
-    print("Detecting R peaks in the ECG data in %i files using %s:" % (total_files, rpeak_function_name))
+    print("\nDetecting R peaks in the ECG data in %i files using %s:" % (total_files, rpeak_function_name))
     for file in valid_files:
         # show progress
         progress_bar(progressed_files, total_files)
@@ -344,13 +344,16 @@ def combine_detected_rpeaks(
     None, but the valid regions are saved to a pickle file
     """
     user_answer = ask_for_permission_to_override(file_path = certain_rpeaks_path,
-                                    message = "Detected R peaks were already combined.")
+                                    message = "\nDetected R peaks were already combined.")
     
     if user_answer == "n":
         return
     
-    os.remove(uncertain_primary_rpeaks_path)
-    os.remove(uncertain_secondary_rpeaks_path)
+    try:
+        os.remove(uncertain_primary_rpeaks_path)
+        os.remove(uncertain_secondary_rpeaks_path)
+    except FileNotFoundError:
+        pass
 
     all_files = os.listdir(data_directory)
     valid_files = [file for file in all_files if get_file_type(file) in valid_file_types]
@@ -367,9 +370,10 @@ def combine_detected_rpeaks(
     all_rpeaks_secondary = load_from_pickle(rpeak_secondary_path)
 
     # combine detected R peaks
-    print("Combining detected R peaks for %i files:" % total_files)
+    print("\nCombining detected R peaks for %i files:" % total_files)
     for file in valid_files:
         progress_bar(progressed_files, total_files)
+        progressed_files += 1
         
         sigfreqs = read_edf.get_edf_data(data_directory + file)[1]
 
@@ -626,7 +630,7 @@ def evaluate_rpeak_detection_accuracy(
     for rmse_without_same and rmse_with_same see rpeak_detection.compare_rpeak_detection_methods()
     """
     user_answer = ask_for_permission_to_override(file_path = rpeak_accuracy_evaluation_path,
-                        message = "Evaluation of R peak detection accuracy already exists.")
+                        message = "\nEvaluation of R peak detection accuracy already exists in " + rpeak_accuracy_evaluation_path + ".")
     
     if user_answer == "n":
         return
@@ -641,8 +645,12 @@ def evaluate_rpeak_detection_accuracy(
     progressed_data_files = 0
 
     # calculate rmse for all files
+    print("Calculating R peak accuracy values for %i files:" % total_data_files)
     all_files_rpeak_accuracy = dict()
     for file in valid_data_files:
+        progress_bar(progressed_data_files, total_data_files)
+        progressed_data_files += 1
+
         this_file_rpeak_accuracy = []
 
         this_file_name = os.path.splitext(file)[0]
@@ -678,6 +686,8 @@ def evaluate_rpeak_detection_accuracy(
         
         all_files_rpeak_accuracy[file] = this_file_rpeak_accuracy
     
+    progress_bar(progressed_data_files, total_data_files)
+    
     save_to_pickle(all_files_rpeak_accuracy, rpeak_accuracy_evaluation_path)
 
 
@@ -700,7 +710,7 @@ def print_rpeak_accuracy_results(
     """
     """
     user_answer = ask_for_permission_to_override(file_path = rpeak_accuracy_report_path,
-                                        message = "R peak accuracy report already exists.")
+            message = "\nR peak accuracy report already exists in " + rpeak_accuracy_report_path + ".")
 
     if user_answer == "n":
         return

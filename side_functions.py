@@ -53,6 +53,15 @@ def get_file_type(file_name):
     return os.path.splitext(file_name)[1]
 
 
+def get_file_name_from_path(file_path):
+    """
+    Separate the file name and the extension of a file.
+    """
+    for i in range(len(file_path)-1, -1, -1):
+        if file_path[i] == "/":
+            return file_path[i+1:]
+
+
 def save_to_pickle(data, file_name):
     """
     Save data to a pickle file.
@@ -106,3 +115,10 @@ def create_sub_dict(dictionary, keys):
     Create a sub dictionary of the main one.
     """
     return {key: dictionary[key] for key in keys}
+
+
+def create_rpeaks_pickle_path(Directory, rpeak_function_name):
+    """
+    Create the path for the pickle file where the rpeaks are saved for each method.
+    """
+    return Directory + "RPeaks_" + rpeak_function_name + ".pkl"

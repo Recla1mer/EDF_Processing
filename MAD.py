@@ -164,7 +164,7 @@ def calculate_MAD_in_acceleration_data(
     None, but the MAD values are saved to a pickle file
     """
     user_answer = ask_for_permission_to_override(file_path = mad_values_path,
-                    message = "MAD Values for the wrist acceleration data already exist.")
+                    message = "\nMAD Values for the wrist acceleration data already exist in " + mad_values_path + ".")
     
     if user_answer == "n":
         return
