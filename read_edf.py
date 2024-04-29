@@ -14,6 +14,15 @@ def library_overview(file_name):
     """
     This function won't be used in the project. It is just a demonstration of available
     commands in the pyedflib library.
+
+    ARGUMENTS:
+    --------------------------------
+    file_name: str
+        path to the EDF file
+    
+    RETURNS:
+    --------------------------------
+    None
     """
     f = pyedflib.EdfReader(file_name)
     #f = pyedflib.data.test_generator()
@@ -87,14 +96,19 @@ def get_edf_data(file_name):
         dictionary containing the signals
     sigfreqs: dict
         dictionary containing the frequencies of the signals
+    sigdims: dict
+        dictionary containing the physical dimensions of the signals
     duration: float
         duration of the EDF file in seconds
+
+    The keys of the dictionaries are the signal labels.
 
     ATTENTION: 
     --------------------------------
     In the actual EDF file, the signals are shown in blocks over time. This was 
     previously not considered in the pyedflib library. Now it seems to be fixed.
     """
+
     f = pyedflib.EdfReader(file_name)
 
     duration = f.file_duration

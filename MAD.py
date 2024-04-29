@@ -2,15 +2,15 @@
 Author: Johannes Peter Knoll
 
 Python implementation of mean amplitude deviation (MAD) calculation for movement acceleration data.
-
-Main function: calc_mad
 """
+
 # IMPORTS
 import numpy as np
 
 # LOCAL IMPORTS
 from side_functions import *
 import read_edf
+
 
 def check_mad_conditions(
         data: dict, 
@@ -115,14 +115,14 @@ def calc_mad(
     frequency: dict
         dictionary containing the frequencies of the data arrays
     time_period: int
-        length of the time period in seconds
+        length of the time period in seconds over which the MAD will be calculated
     wrist_acceleration_keys: list
         list of keys of data dictionary that are relevant for MAD calculation
 
     RETURNS:
     --------------------------------
     MAD: list
-        list of MAD values for each interval
+        list of MAD values for each interval: MAD[i] = MAD in interval i
     """
     #check if data is valid
     check_mad_conditions(data, frequency, wrist_acceleration_keys)
@@ -146,7 +146,8 @@ def calculate_MAD_in_acceleration_data(
         mad_values_path: str
     ):
     """
-    Calculate the MAD value from the wrist acceleration data.
+    Calculate the MAD values for the wrist acceleration data for all valid files in the
+    data directory and save them to a pickle file.
 
     ARGUMENTS:
     --------------------------------
@@ -158,39 +159,58 @@ def calculate_MAD_in_acceleration_data(
         keys for the wrist acceleration data in the data dictionary
     mad_time_period_seconds: int
         time period in seconds over which the MAD will be calculated
+    mad_values_path: str
+        path where the MAD values will be saved
 
     RETURNS:
     --------------------------------
-    None, but the MAD values are saved to a pickle file
+    None, but the MAD values are saved to a pickle file as a dictionary in the following
+    format:
+        {
+            "file_name_1": MAD_values_1,
+            "file_name_2": MAD_values_2,
+            ...
+        }
     """
+
+    # check if MAD values already exist and if yes ask for permission to override
     user_answer = ask_for_permission_to_override(file_path = mad_values_path,
                     message = "\nMAD Values for the wrist acceleration data already exist in " + mad_values_path + ".")
     
+    # cancel if user does not want to override
     if user_answer == "n":
         return
 
+    # get all valid files
     all_files = os.listdir(data_directory)
     valid_files = [file for file in all_files if get_file_type(file) in valid_file_types]
 
+    # create variables to track progress
     total_files = len(valid_files)
     progressed_files = 0
 
+    # create dictionary to save the MAD values
     MAD_values = dict()
 
     # calculate MAD in the wrist acceleration data
     print("Calculating MAD in the wrist acceleration data in %i files:" % total_files)
     for file in valid_files:
+        # show progress
         progress_bar(progressed_files, total_files)
+
+        # read the data
         sigbufs, sigfreqs, sigdims, duration = read_edf.get_edf_data(data_directory + file)
 
+        # caculate MAD values
         MAD_values[file] = calc_mad(
-            sigbufs, 
-            sigfreqs, 
-            mad_time_period_seconds, 
-            wrist_acceleration_keys
+            data = sigbufs, 
+            frequency = sigfreqs, 
+            time_period = mad_time_period_seconds, 
+            wrist_acceleration_keys = wrist_acceleration_keys
             )
         progressed_files += 1
     
     progress_bar(progressed_files, total_files)
 
+    # save MAD values
     save_to_pickle(MAD_values, mad_values_path)

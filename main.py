@@ -21,10 +21,10 @@ from side_functions import *
 
 """
 --------------------------------
-PARAMETERS AND FILE SECTION
+FILE SECTION
 --------------------------------
 
-In this section we set the parameters for the project and define the file/directory names.
+In this section we define the file/directory names.
 """
 
 # define directory and file names (will always be written in capital letters)
@@ -33,8 +33,8 @@ DATA_DIRECTORY = "Data/"
 TEMPORARY_PICKLE_DIRECTORY = "Temporary_Pickles/"
 TEMPORARY_FIGURE_DIRECTORY = "Temporary_Figures/"
 
-# PREPARATION SECTION
-# -------------------
+# paths for PREPARATION SECTION
+# ------------------------------
 PREPARATION_DIRECTORY = "Preparation/"
 
 # ECG Validation
@@ -50,9 +50,12 @@ UNCERTAIN_SECONDARY_RPEAKS_PATH = PREPARATION_DIRECTORY + "Uncertain_Secondary_R
 # MAD calculation
 MAD_VALUES_PATH = PREPARATION_DIRECTORY + "MAD_Values.pkl"
 
-# ADDITIONALS SECTION
-# -------------------
+# paths for ADDITIONALS SECTION
+# ------------------------------
 ADDITIONALS_DIRECTORY = "Additions/"
+
+# Show Calibration Data
+SHOW_CALIBRATION_DATA_DIRECTORY = ADDITIONALS_DIRECTORY + "Show_Calibration_Data/"
 
 # R peak accuracy evaluation
 RPEAK_ACCURACY_DIRECTORY = ADDITIONALS_DIRECTORY + "RPeak_Accuracy/"
@@ -74,9 +77,23 @@ if not os.path.isdir(ADDITIONALS_DIRECTORY):
 if not os.path.isdir(RPEAK_ACCURACY_DIRECTORY):
     os.mkdir(RPEAK_ACCURACY_DIRECTORY)
 
-# set the parameters for the project
+
+"""
+--------------------------------
+PARAMETERS SECTION
+--------------------------------
+
+In this section we set the parameters for the project.
+
+ATTENTION: 
+If you choose to run the ADDITIONALS SECTION, nothing else will be executed.
+This is because it should usually be run only once, while you might want to run other 
+sections multiple times.
+"""
+
 parameters = dict()
 
+# main parameters: control which sections of the project will be executed
 settings_params = {
     # set what sections should be executed
     "run_additionals_section": False, # if True, the ADDITIONALS SECTION will be executed
@@ -91,6 +108,7 @@ settings_params = {
     "calculate_MAD": True, # if True, the MAD will be calculated for the wrist acceleration data
 }
 
+# file parameters:
 file_params = {
     "data_directory": DATA_DIRECTORY, # directory where the data is stored
     "valid_file_types": [".edf"], # valid file types in the data directory
@@ -98,6 +116,10 @@ file_params = {
     "wrist_acceleration_keys": ["X", "Y", "Z"], # keys for the wrist acceleration data in the data dictionary
 }
 
+# parameters for the PREPARATION SECTION
+# --------------------------------------
+
+# parameters for the ECG Validation
 valid_ecg_regions_params = {
     "ecg_calibration_file_path": ECG_CALIBRATION_DATA_PATH, # path to the EDF file for threshold calibration
     "ecg_thresholds_multiplier": 0.5, # multiplier for the thresholds in check_data.check_ecg() (between 0 and 1)
@@ -109,6 +131,28 @@ valid_ecg_regions_params = {
     "valid_ecg_regions_path": VALID_ECG_REGIONS_PATH, # path to the pickle file where the valid regions for the ECG data are saved
 }
 
+# parameters for the R peak detection
+detect_rpeaks_params = {
+    "rpeak_primary_function": rpeak_detection.get_rpeaks_wfdb, # primary R peak detection function
+    "rpeak_secondary_function": rpeak_detection.get_rpeaks_old, # secondary R peak detection function
+    "rpeak_name_primary": "wfdb", # name of the primary R peak detection function
+    "rpeak_name_secondary": "ecgdetectors", # name of the secondary R peak detection function
+    "rpeak_distance_threshold_seconds": 0.05, # max 50ms
+    "certain_rpeaks_path": CERTAIN_RPEAKS_PATH, # path to the pickle file where the certain R peaks are saved (detected by both methods)
+    "uncertain_primary_rpeaks_path": UNCERTAIN_PRIMARY_RPEAKS_PATH, # path to the pickle file where the uncertain primary R peaks are saved (remaining R peaks from the primary method)
+    "uncertain_secondary_rpeaks_path": UNCERTAIN_SECONDARY_RPEAKS_PATH, # path to the pickle file where the uncertain secondary R peaks are saved (remaining R peaks from the secondary method)
+}
+
+# parameters for the MAD calculation
+calculate_MAD_params = {
+    "mad_time_period_seconds": 10, # time period in seconds over which the MAD will be calculated
+    "mad_values_path": MAD_VALUES_PATH, # path to the pickle file where the MAD values are saved
+}
+
+# parameters for the ADDITIONALS SECTION
+# --------------------------------------
+
+# parameters for the R peak accuracy evaluation
 rpeak_accuracy_params = {
     "rpeak_accuracy_functions": [rpeak_detection.get_rpeaks_wfdb, rpeak_detection.get_rpeaks_old], # names of the R peak detection functions
     "rpeak_accuracy_function_names": ["wfdb", "ecgdetectors"], # names of the R peak detection functions
@@ -121,77 +165,30 @@ rpeak_accuracy_params = {
     "rpeak_accuracy_report_path": RPEAK_ACCURACY_REPORT_PATH, # path to the text file where the evaluation results are printed
 }
 
-detect_rpeaks_params = {
-    "rpeak_primary_function": rpeak_detection.get_rpeaks_wfdb, # primary R peak detection function
-    "rpeak_secondary_function": rpeak_detection.get_rpeaks_old, # secondary R peak detection function
-    "rpeak_name_primary": "wfdb", # name of the primary R peak detection function
-    "rpeak_name_secondary": "ecgdetectors", # name of the secondary R peak detection function
-    "rpeak_distance_threshold_seconds": 0.05, # max 50ms
-    "certain_rpeaks_path": CERTAIN_RPEAKS_PATH, # path to the pickle file where the certain R peaks are saved (detected by both methods)
-    "uncertain_primary_rpeaks_path": UNCERTAIN_PRIMARY_RPEAKS_PATH, # path to the pickle file where the uncertain primary R peaks are saved (remaining R peaks from the primary method)
-    "uncertain_secondary_rpeaks_path": UNCERTAIN_SECONDARY_RPEAKS_PATH, # path to the pickle file where the uncertain secondary R peaks are saved (remaining R peaks from the secondary method)
-}
-
-calculate_MAD_params = {
-    "mad_time_period_seconds": 10, # time period in seconds over which the MAD will be calculated
-    "mad_values_path": MAD_VALUES_PATH, # path to the pickle file where the MAD values are saved
-}
-
+# add all parameters to the parameters dictionary, so we can access them later more easily
+if settings_params["determine_rpeak_accuracy"] and settings_params["run_additionals_section"]:
+    parameters.update(rpeak_accuracy_params)
 parameters.update(settings_params)
 parameters.update(file_params)
 parameters.update(valid_ecg_regions_params)
-if settings_params["determine_rpeak_accuracy"] and settings_params["run_additionals_section"]:
-    parameters.update(rpeak_accuracy_params)
 parameters.update(detect_rpeaks_params)
 parameters.update(calculate_MAD_params)
 
-del settings_params
-del file_params
-del valid_ecg_regions_params
-del rpeak_accuracy_params
-del detect_rpeaks_params
-del calculate_MAD_params
+# delete the dictionaries as they are saved in the parameters dictionary now
+del settings_params, file_params, valid_ecg_regions_params, detect_rpeaks_params, calculate_MAD_params, rpeak_accuracy_params
 
-# following parameters are calculated in the PREPARATION section. They are written here for better overview and explanation
+# following parameters are calculated in the PREPARATION section. They are written here for explanation
 params_to_be_calculated = {
     "check_ecg_std_min_threshold": 97.84, # if the standard deviation of the ECG data is below this threshold, the data is considered invalid
     "check_ecg_std_max_threshold": 530.62, # if the standard deviation of the ECG data is above this threshold, the data is considered invalid
     "check_ecg_distance_std_ratio_threshold": 1.99, # if the ratio of the distance between two peaks and twice the standard deviation of the ECG data is above this threshold, the data is considered invalid
-    "valid_ecg_regions": dict() # dictionary containing the valid regions for the ECG data
 }
 
-# check the parameters
-if not isinstance(parameters["data_directory"], str):
-    raise ValueError("'data_directory' parameter must be a string.")
-if not isinstance(parameters["valid_file_types"], list):
-    raise ValueError("'valid_file_types' parameter must be a list.")
-if not isinstance(parameters["ecg_key"], str):
-    raise ValueError("'ecg_key' parameter must be a string.")
-if not isinstance(parameters["wrist_acceleration_keys"], list):
-    raise ValueError("'wrist_acceleration_keys' parameter must be a list.")
+# check the parameters:
+# ----------------------
+validate_parameter_settings(parameters)
 
-if not isinstance(parameters["determine_valid_ecg_regions"], bool):
-    raise ValueError("'determine_valid_ecg_regions' parameter must be a boolean.")
-if not isinstance(parameters["ecg_thresholds_multiplier"], (int, float)):
-    raise ValueError("'ecg_thresholds_multiplier' parameter must be an integer or a float.")
-if parameters["ecg_thresholds_multiplier"] <= 0 or parameters["ecg_thresholds_multiplier"] > 1:
-    raise ValueError("'ecg_thresholds_multiplier' parameter must be between 0 and 1.")
-if not isinstance(parameters["check_ecg_time_interval_seconds"], int):
-    raise ValueError("'check_ecg_time_interval_seconds' parameter must be an integer.")
-
-if not isinstance(parameters["detect_rpeaks"], bool):
-    raise ValueError("'detect_rpeaks' parameter must be a boolean.")
-if not callable(parameters["rpeak_primary_function"]):
-    raise ValueError("'rpeak_primary_function' parameter must be a function.")
-if not callable(parameters["rpeak_secondary_function"]):
-    raise ValueError("'rpeak_secondary_function' parameter must be a function.")
-if not isinstance(parameters["rpeak_name_primary"], str):
-    raise ValueError("'rpeak_name_primary' parameter must be a string.")
-if not isinstance(parameters["rpeak_name_secondary"], str):
-    raise ValueError("'rpeak_name_secondary' parameter must be a string.")
-if not isinstance(parameters["rpeak_distance_threshold_seconds"], float):
-    raise ValueError("'rpeak_distance_threshold_seconds' parameter must be a float.")
-
+# create lists of parameters relevant for the following functions (to make the code more readable)
 ecg_thresholds_variables = ["ecg_calibration_file_path", "ecg_thresholds_multiplier", 
                             "ecg_thresholds_dezimal_places", "ecg_key", "ecg_thresholds_save_path"]
 
@@ -220,29 +217,15 @@ rpeak_accuracy_report_variables = ["rpeak_accuracy_function_names", "accurate_pe
 
 """
 --------------------------------
-HELPER FUNCTIONS SECTION
+CALIBRATION DATA
 --------------------------------
 
-In this section we provide small functions to keep the code a little cleaner.
-"""
-
-
-"""
-Following functions are needed in the PREPARATION section of the project.
-
-These are used to calculate thresholds and evaluate valid regions for the ECG data.
-They also detect R peaks in the ECG data and calculate the MAD value.
+In this section we will provide manually chosen calibration intervals for the ECG Validation.
 
 ATTENTION:
 Check that the test data and the intervals in which it is used align with the purpose.
 Also examine whether the test data used is suitable for the actual data, e.g. the physical
 units match, etc.
-"""
-
-"""
---------------------------------
-CALIBRATION DATA
---------------------------------
 """
 
 def ecg_threshold_calibration_intervals():
@@ -269,6 +252,12 @@ main part of the project.
 """
 
 def additional_section(run_section: bool):
+    """
+    Section that is not relevant for the main part of the project. It shows calibration data
+    and determines the accuracy of the R peak detection functions.
+    """
+
+    # check if the section should be run
     if not run_section:
         return
 
@@ -277,19 +266,25 @@ def additional_section(run_section: bool):
     SHOW CALIBRATION DATA
     --------------------------------
     """
-    # manually chosen calibration intervals for the ECG Validation:
+    # get manually chosen calibration intervals for the ECG Validation:
     manual_calibration_intervals, manual_interval_size = ecg_threshold_calibration_intervals()
 
-    # show calibration data if user requested it, terminate the script afterwards
+    # show calibration data if user requested it
     if parameters["show_calibration_data"]:
+        # create directory to save plots if it does not exist and make sure it is empty
+        if not os.path.isdir(SHOW_CALIBRATION_DATA_DIRECTORY):
+            os.mkdir(SHOW_CALIBRATION_DATA_DIRECTORY)
+        clear_directory(SHOW_CALIBRATION_DATA_DIRECTORY)
+
+        # plot the calibration data in the manually chosen calibration intervals
         names = ["perfect_ecg", "fluctuating_ecg", "noisy_ecg", "negative_peaks"]
         sigbufs, sigfreqs, sigdims, duration = read_edf.get_edf_data(ECG_CALIBRATION_DATA_PATH)
         ecg_data = sigbufs[parameters["ecg_key"]]
         for interval in manual_calibration_intervals:
-            plot_helper.simple_plot(
+            plot_helper.plot_calibration_data(
                 ecg_data[interval[0]:interval[1]], 
                 np.arange(manual_interval_size),
-                TEMPORARY_FIGURE_DIRECTORY + names[manual_calibration_intervals.index(interval)] + ".png"
+                SHOW_CALIBRATION_DATA_DIRECTORY + names[manual_calibration_intervals.index(interval)] + ".png"
                 )
     
     """
@@ -298,12 +293,14 @@ def additional_section(run_section: bool):
     --------------------------------
     """
 
+    # determine the accuracy of the R peak detection functions if user requested it
     if parameters["determine_rpeak_accuracy"]:
-        # change the paths where the data is usually stored
+        # change the data paths to where the accurate R peaks are stored
         parameters["data_directory"] = parameters["accurate_rpeaks_raw_data_directory"]
         parameters["ecg_thresholds_save_path"] = RPEAK_ACCURACY_DIRECTORY + get_file_name_from_path(parameters["ecg_thresholds_save_path"])
         parameters["valid_ecg_regions_path"] = RPEAK_ACCURACY_DIRECTORY + get_file_name_from_path(parameters["valid_ecg_regions_path"])
 
+        # create arguments for ecg thresholds evaluation and calculate them
         ecg_thresholds_args = create_sub_dict(parameters, ecg_thresholds_variables)
         ecg_thresholds_args["ecg_calibration_intervals"] = manual_calibration_intervals
         check_data.create_ecg_thresholds(**ecg_thresholds_args)
@@ -315,6 +312,7 @@ def additional_section(run_section: bool):
         parameters.update(ecg_validation_thresholds_dict)
         del ecg_validation_thresholds_dict
 
+        # create arguments for the valid ecg regions evaluation and calculate them
         determine_ecg_region_args = create_sub_dict(parameters, determine_ecg_region_variables)
         check_data.determine_valid_ecg_regions(**determine_ecg_region_args)
         del determine_ecg_region_args
@@ -351,8 +349,8 @@ PREPARATION SECTION
 
 In this section we will make preparations for the main part of the project. Depending on
 the parameters set in the kwargs dictionary, we will calculate the thresholds needed for
-various functions, evaluate the valid regions for the ECG data or just load these
-informations, if this was already done before.
+various functions, evaluate the valid regions for the ECG data, perform R peak detection
+and calculate the MAD in the wrist acceleration data.
 """
 
 def preparation_section(run_section: bool):

@@ -1,8 +1,9 @@
 """
 Author: Johannes Peter Knoll
 
-This file contains functions that are used to check if the data used in the project is valid.
+Python implementation of ECG data validation
 """
+
 # IMPORTS
 import numpy as np
 
@@ -19,32 +20,31 @@ def eval_std_thresholds(
         ecg_key: str,
     ):
     """
-    Evaluate useful thresholds (std_threshold, distance_to_std_threshold) for the 
-    check_ecg function.
+    Evaluate useful thresholds (check_ecg_std_min_threshold, check_ecg_std_max_threshold,
+    check_ecg_distance_std_ratio_threshold) for the check_ecg function from given data.
 
-    We usually have a large standard deviation when the signal is good. Therefore, we will
-    estimate the standard deviation for different valuable signals. From this we can create
-    an interval for the standard deviation that is considered good.
-    Of course when the signal is bad, and all we have is noise, the standard deviation will
-    be high too and can be similar to that of a good signal. 
+    We will estimate the standard deviation for different valuable signals. From this we
+    can create an interval for the standard deviation that is considered good.
+    Of course when the signal is bad, and all we have is noise, the standard deviation can
+    be similar to that of a good signal. 
     However, the distance between the maximum and minimum value will in this case
-    be about the same as the standard deviation. Therefore, we will also calculate the distance
-    between the maximum and minimum value and divide it by the standard deviation, to see
-    what this ratio looks like for valuable signals. Anything less will be considered as 
-    invalid.
+    be about the same as twice the standard deviation. Therefore, we will also calculate
+    the distance between the maximum and minimum value and divide it by twice the standard
+    deviation, to see what this ratio looks like for valuable signals. 
+    Anything less will be considered as invalid.
 
     ARGUMENTS:
     --------------------------------
     data: dict
-        dictionary containing the ECG data among other signals
+        dictionary containing the data arrays
     detection_intervals: list
-        list of detection intervals
+        list of detection intervals, in which the data is considered valid
     threshold_multiplier: float between 0 and 1
         multiplier that is either Multiplier or Divisor for the threshold values
-        (because valid data could also differ slightly from the test intervals used)
+        (because valid data could also differ slightly from the detection intervals used)
     threshold_dezimal_places: int
         number of decimal places for the threshold values
-    relevant_key: str
+    ecg_key: str
         key of the ECG data in the data dictionary
     
     RETURNS:
@@ -54,26 +54,27 @@ def eval_std_thresholds(
     check_ecg_std_max_threshold: float
         maximum threshold for the standard deviation
     check_ecg_distance_std_ratio_threshold: float
-        threshold for the distance to standard deviation ratio
+        threshold for the max-min distance to (2 * standard deviation) ratio
     """
-    if threshold_multiplier <= 0 or threshold_multiplier > 1:
-        raise ValueError("threshold_multiplier must be between 0 and 1.")
 
-    # calculate the standard deviation and std max-min-distance ratio for each detection interval
+    # create lists to save the standard deviation and the max-min distance values
     std_values = []
     max_min_distance_values = []
     
+    # calculate the standard deviation and std max-min distance for the detection intervals
     for interval in detection_intervals:
         std_values.append(np.std(data[ecg_key][interval[0]:interval[1]]))
         max_min_distance_values.append(np.max(data[ecg_key][interval[0]:interval[1]]) - np.min(data[ecg_key][interval[0]:interval[1]]))
     
+    # calculate the ratios
     std_to_max_min_distance_ratios = 0.5 * np.array(max_min_distance_values) / np.array(std_values)
     
-    # calculate the thresholds
+    # calculate the thresholds (take values that will include most datapoints)
     max_std = np.max(std_values)
     min_std = np.min(std_values)
     min_std_distance_ratio = np.min(std_to_max_min_distance_ratios)
     
+    # apply the threshold multiplier and round the values
     check_ecg_std_min_threshold = round(min_std*threshold_multiplier,threshold_dezimal_places)
     check_ecg_std_max_threshold = round(max_std/threshold_multiplier,threshold_dezimal_places)
     check_ecg_distance_std_ratio_threshold = round(min_std_distance_ratio*threshold_multiplier,threshold_dezimal_places)
@@ -90,38 +91,51 @@ def create_ecg_thresholds(
         ecg_thresholds_save_path: str
     ):
     """
-    This function calculates the thresholds needed in various functions.
-    Please note that the intervals are chosen manually and might need to be adjusted, if 
-    you can't use the test data. In this case, you can use this function to plot the data 
-    in the given intervals to see what the test data should look like (see ARGUMENTS).
+    This function provides the data and calculates the thresholds for ecg data validation.
+
+    Please note that the intervals will be chosen manually and might need to be adjusted,
+    if you can't use the calibration data. In this case, you can use the option:
+    'show_calibration_data' in the main.py file to show what the calibration data should 
+    look like.
 
     ARGUMENTS:
     --------------------------------
-    calibration_file_path: str
-        path to the EDF file for threshold calibration
-    calibration_intervals: list
+    ecg_calibration_file_path: str
+        path to the EDF file for ecg threshold calibration
+     ecg_calibration_intervals: list
         list of tuples containing the start and end indices of the calibration intervals
-    ecg_threshold_multiplier: float
-        multiplier for the thresholds in check_data.check_ecg()
-    check_ecg_threshold_dezimal_places: int
-        number of dezimal places for the check ecg thresholds in the pickle files
+    ecg_thresholds_multiplier: float
+        multiplier for the thresholds (see 'eval_std_thresholds()')
+    ecg_thresholds_dezimal_places: int
+        number of dezimal places for the ecg thresholds (see 'eval_std_thresholds()')
+    ecg_key: str
+        key of the ECG data in the data dictionary
+    ecg_thresholds_save_path: str
+        path to the pickle file where the thresholds are saved
 
     RETURNS:
     --------------------------------
-    None, but the thresholds are saved as dictionary to a pickle file
+    None, but the thresholds are saved as dictionary to a pickle file with the following
+    format:
+        {
+            "check_ecg_std_min_threshold": check_ecg_std_min_threshold,
+            "check_ecg_std_max_threshold": check_ecg_std_max_threshold,
+            "check_ecg_distance_std_ratio_threshold": check_ecg_distance_std_ratio_threshold
+        }
     """
-    # Load the data
-    sigbufs, sigfreqs, sigdims, duration = read_edf.get_edf_data(ecg_calibration_file_path)
 
     # check if ecg thresholds already exist and if yes: ask for permission to override
     user_answer = ask_for_permission_to_override(file_path = ecg_thresholds_save_path, 
         message = "\nThresholds for ECG validation (see check_data.check_ecg()) already exist in " + ecg_thresholds_save_path + ".")
     
+    # Load the data
+    sigbufs, sigfreqs, sigdims, duration = read_edf.get_edf_data(ecg_calibration_file_path)
+
     # cancel if user does not want to override
     if user_answer == "n":
         return
 
-    # Calculate and save the thresholds for check_data.check_ecg()
+    # Calculate and save the thresholds for check_ecg() function
     threshold_values = eval_std_thresholds(
         sigbufs, 
         ecg_calibration_intervals,
@@ -130,6 +144,7 @@ def create_ecg_thresholds(
         ecg_key = ecg_key,
         )
     
+    # write the thresholds to a dictionary and save them
     check_ecg_thresholds = dict()
     check_ecg_thresholds["check_ecg_std_min_threshold"] = threshold_values[0]
     check_ecg_thresholds["check_ecg_std_max_threshold"] = threshold_values[1]
@@ -272,7 +287,7 @@ def check_ecg(
     ARGUMENTS:
     --------------------------------
     data: dict
-        dictionary containing the ECG data among other signals
+        dictionary containing the data arrays
     frequency: dict
         dictionary containing the frequency of the signals
     check_ecg_std_min_threshold: float
@@ -280,20 +295,20 @@ def check_ecg(
     check_ecg_std_max_threshold: float
         maximum threshold for the standard deviation
     check_ecg_distance_std_ratio_threshold: float
-        threshold for the distance to standard deviation ratio
+        threshold for the max-min distance to twice the standard deviation ratio
     time_interval_seconds: int
-        time interval length to be checked for validity in seconds
+        time interval length in seconds to be checked for validity
     min_valid_length_minutes: int
         minimum length of valid data in minutes
     allowed_invalid_region_length_seconds: int
-        allowed length of invalid data in seconds
+        length of data in seconds that is allowed to be invalid in a valid region of size min_valid_length_minutes
     ecg_key: str
         key of the ECG data in the data dictionary
 
     RETURNS:
     --------------------------------
     valid_regions: list
-        list of tuples containing the start and end indices of the valid regions
+        list of lists containing the start and end indices of the valid regions: valid_regions[i] = [start, end] of region i
     """
 
     # calculate the number of iterations from time and frequency
@@ -388,16 +403,20 @@ def determine_valid_ecg_regions(
         directory where the data is stored
     valid_file_types: list
         valid file types in the data directory
-    save_path: str
+    valid_ecg_regions_path: str
         path to the pickle file where the valid regions are saved
     others: see check_ecg()
 
     RETURNS:
     --------------------------------
-    None, but the valid regions are saved as dictionary to a pickle file
-    The dictionary has the file names as keys and the valid regions as values, while the 
-    valid regions are lists of lists containing the start and end indices of the valid regions
-    
+    None, but the valid regions are saved as dictionary to a pickle file in the following
+    format:
+        {
+            "file_name_1": valid_regions_1,
+            "file_name_2": valid_regions_2,
+            ...
+        }
+    See check_ecg() for the format of the valid_regions.
     """
 
     # check if valid regions already exist and if yes: ask for permission to override
@@ -425,7 +444,7 @@ def determine_valid_ecg_regions(
         # show progress
         progress_bar(progressed_files, total_files)
 
-        # get the ECG data
+        # load the data
         sigbufs, sigfreqs, sigdims, duration = read_edf.get_edf_data(data_directory + file)
 
         # calculate the valid regions
@@ -450,21 +469,21 @@ def determine_valid_ecg_regions(
 
 def valid_total_ratio(data: dict, valid_regions: list, ecg_key: str):
     """
-    Calculate the ratio of valid data in the ECG data.
+    Calculate the ratio of valid to total ecg data.
 
     ARGUMENTS:
     --------------------------------
     data: dict
-        dictionary containing the ECG data among other signals
+        dictionary containing the data arrays
     valid_regions: list
-        list of tuples containing the start and end indices of the valid regions
+        list of lists containing the start and end indices of the valid regions
     ecg_key: str
         key of the ECG data in the data dictionary
 
     RETURNS:
     --------------------------------
     valid_ratio: float
-        ratio of valid data in the ECG data
+        ratio of valid to total ecg data
     """
     valid_data = 0
     for region in valid_regions:

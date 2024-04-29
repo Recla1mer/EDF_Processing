@@ -38,38 +38,22 @@ matplotlib.rcParams["figure.dpi"] = 200
 matplotlib.rcParams["axes.facecolor"] = (1.0, 0.0, 0.0, 0.0)
 
 
-def seperate_plots_from_bib(file_name, save_path):
-    """
-    Read a pickle file containing a dictionary of plots and save them as individual figures.
-    """
-    with open(file_name, "rb") as f:
-        plots = pickle.load(f)
-
-    for key, value in plots.items():
-        plt.figure()
-        plt.imshow(value)
-        plt.axis("off")
-        plt.savefig(save_path + key + ".png", bbox_inches="tight", pad_inches=0)
-        plt.close()
-
-
-def seperate_plots(data, time, signal, save_path, **kwargs):
-    """
-    Save the plots in the dictionary as individual figures.
-    """
-    kwargs.setdefault("xlim", [2700,2720])
-    
-    fig, ax = plt.subplots()
-
-    ax.plot(time, data, label=signal)
-    ax.legend(loc="best")
-    plt.xlim(kwargs["xlim"])
-    plt.savefig(save_path + "_" + signal + ".png")
-
-
-def simple_plot(data_y, data_x, save_path, **kwargs):
+def plot_calibration_data(data_y, data_x, save_path, **kwargs):
     """
     Create plot and save it.
+
+    ARGUMENTS:
+    --------------------------------
+    data_y: list
+        list of y-values
+    data_x: list
+        list of x-values
+    save_path: str
+        path to save the plot
+
+    RETURNS:
+    --------------------------------
+    None, but the plot is saved
     """
     fig, ax = plt.subplots()
 
@@ -80,8 +64,24 @@ def simple_plot(data_y, data_x, save_path, **kwargs):
 def plot_valid_regions(data: dict, valid_regions: list, ecg_key: str, **kwargs):
     """
     Plot the valid regions of the ECG data.
+
+    ARGUMENTS:
+    --------------------------------
+    data: dict
+        dictionary containing the data arrays
+    valid_regions: list
+        list of valid regions: valid_regions[i] = [start, end]
+    ecg_key: str
+        key of the ECG data in the data dictionary
+    
+    RETURNS:
+    --------------------------------
+    None, but the plot is shown
     """
+
+    # get the ECG data
     ecg_data = data[ecg_key]
+
     # Set default values
     kwargs.setdefault("figsize", [3.4, 2.7])
     kwargs.setdefault("title", "ECG Data")
@@ -98,6 +98,7 @@ def plot_valid_regions(data: dict, valid_regions: list, ecg_key: str, **kwargs):
     y_max = max(ecg_data[kwargs["xlim"][0]:kwargs["xlim"][1]])
     kwargs.setdefault("ylim", [y_min-abs(0.2*y_max), y_max+abs(0.2*y_max)])
 
+    # create arguments for plotting
     local_plot_kwargs = dict()
     local_plot_kwargs["linewidth"] = kwargs["linewidth"]
     local_plot_kwargs["alpha"] = kwargs["line_alpha"]
@@ -201,8 +202,32 @@ def plot_rpeak_detection(
     ):
     """
     Plot the R-peak detection results.
+
+    ARGUMENTS:
+    --------------------------------
+    data: dict
+        dictionary containing the data arrays
+    ecg_key: str
+        key of the ECG data in the data dictionary
+    certain_peaks: list
+        list of indices of the certain peaks
+    uncertain_primary_peaks: list
+        list of indices of the uncertain primary peaks
+    uncertain_secondary_peaks: list
+        list of indices of the uncertain secondary peaks
+    name_primary: str
+        name of the primary peak
+    name_secondary: str
+        name of the secondary peak
+
+    RETURNS:
+    --------------------------------
+    None, but the plot is shown
     """
+
+    # get the ECG data
     ecg_data = data[ecg_key]
+
     # Set default values
     kwargs.setdefault("figsize", [3.4, 2.7])
     kwargs.setdefault("title", "ECG Data")
@@ -221,11 +246,13 @@ def plot_rpeak_detection(
     y_max = max(ecg_data[kwargs["xlim"][0]:kwargs["xlim"][1]])
     kwargs.setdefault("ylim", [y_min-abs(0.2*y_max), y_max+abs(0.2*y_max)])
 
+    # create arguments for line plotting
     local_plot_kwargs = dict()
     local_plot_kwargs["linewidth"] = kwargs["linewidth"]
     local_plot_kwargs["alpha"] = kwargs["line_alpha"]
     local_plot_kwargs["linestyle"] = kwargs["linestyle"]
 
+    # create arguments for scatter plotting
     local_scatter_kwargs = dict()
     local_scatter_kwargs["s"] = kwargs["marker_size"]
     local_scatter_kwargs["alpha"] = kwargs["scatter_alpha"]
@@ -280,6 +307,23 @@ def plot_MAD_values(
     ):
     """
     Plot the MAD values.
+
+    ARGUMENTS:
+    --------------------------------
+    data: dict
+        dictionary containing the data arrays
+    frequencies: dict
+        dictionary containing the frequencies of the data arrays
+    wrist_acceleration_keys: list
+        list of keys of data dictionary that are relevant for MAD calculation
+    MAD_values: list
+        list of MAD values for each interval: MAD[i] = MAD in interval i
+    mad_time_period_seconds: int
+        length of the time period in seconds over which the MAD will be calculated
+    
+    RETURNS:
+    --------------------------------
+    None, but the plot is shown
     """
     # Set default values
     kwargs.setdefault("figsize", [3.4, 2.7])
@@ -311,17 +355,20 @@ def plot_MAD_values(
     y_max = max(y_maxs)
     kwargs.setdefault("ylim", [y_min-abs(0.2*y_max), y_max+abs(0.2*y_max)])
 
+    # create arguments for line plotting
     local_plot_kwargs = dict()
     local_plot_kwargs["linewidth"] = kwargs["linewidth"]
     local_plot_kwargs["alpha"] = kwargs["line_alpha"]
     local_plot_kwargs["linestyle"] = kwargs["linestyle"]
 
+    # create arguments for scatter plotting
     local_scatter_kwargs = dict()
     local_scatter_kwargs["s"] = kwargs["marker_size"]
     local_scatter_kwargs["color"] = kwargs["marker_color"]
     local_scatter_kwargs["alpha"] = kwargs["scatter_alpha"]
     local_scatter_kwargs["zorder"] = kwargs["scatter_zorder"]
 
+    # create arguments for errorbar plotting
     local_errorbar_kwargs = dict()
     local_errorbar_kwargs["fmt"] = kwargs["errorbar_fmt"]
     local_errorbar_kwargs["zorder"] = kwargs["errorbar_zorder"]

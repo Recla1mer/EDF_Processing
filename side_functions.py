@@ -1,16 +1,100 @@
 """
 Author: Johannes Peter Knoll
 
---------------------------------
-SIDE FUNCTIONS 
---------------------------------
-
 In this file we provide functions to keep the other files a little cleaner and more intuitive.
 """
 
 # IMPORTS
 import os
 import pickle
+
+
+def validate_parameter_settings(parameters):
+    """
+    In the main file, we have a dictionary with all the parameters. 
+    This function checks if the parameters are valid.
+
+    ARGUMENTS:
+    --------------------------------
+    parameters: dict
+        dictionary containing all parameters
+    
+    RETURNS:
+    --------------------------------
+    None, but raises an error if a parameter is invalid
+    """
+    # file parameters:
+    if not isinstance(parameters["data_directory"], str):
+        raise ValueError("'data_directory' parameter must be a string.")
+    if not isinstance(parameters["valid_file_types"], list):
+        raise ValueError("'valid_file_types' parameter must be a list.")
+    if not isinstance(parameters["ecg_key"], str):
+        raise ValueError("'ecg_key' parameter must be a string.")
+    if not isinstance(parameters["wrist_acceleration_keys"], list):
+        raise ValueError("'wrist_acceleration_keys' parameter must be a list.")
+
+    # parameters for the ECG Validation
+    if not isinstance(parameters["ecg_calibration_file_path"], str):
+        raise ValueError("'ecg_calibration_file_path' parameter must be a string.")
+    if not isinstance(parameters["ecg_thresholds_multiplier"], (int, float)):
+        raise ValueError("'ecg_thresholds_multiplier' parameter must be an integer or a float.")
+    if parameters["ecg_thresholds_multiplier"] <= 0 or parameters["ecg_thresholds_multiplier"] > 1:
+        raise ValueError("'ecg_thresholds_multiplier' parameter must be within (0,1].")
+    if not isinstance(parameters["ecg_thresholds_dezimal_places"], int):
+        raise ValueError("'ecg_thresholds_dezimal_places' parameter must be an integer.")
+    if not isinstance(parameters["ecg_thresholds_save_path"], str):
+        raise ValueError("'ecg_thresholds_save_path' parameter must be a string.")
+    if not isinstance(parameters["check_ecg_time_interval_seconds"], int):
+        raise ValueError("'check_ecg_time_interval_seconds' parameter must be an integer.")
+    if not isinstance(parameters["check_ecg_min_valid_length_minutes"], int):
+        raise ValueError("'check_ecg_min_valid_length_minutes' parameter must be an integer.")
+    if not isinstance(parameters["check_ecg_allowed_invalid_region_length_seconds"], int):
+        raise ValueError("'check_ecg_allowed_invalid_region_length_seconds' parameter must be an integer.")
+    if not isinstance(parameters["valid_ecg_regions_path"], str):
+        raise ValueError("'valid_ecg_regions_path' parameter must be a string.")
+
+    # parameters for the R peak detection
+    if not callable(parameters["rpeak_primary_function"]):
+        raise ValueError("'rpeak_primary_function' parameter must be a function.")
+    if not callable(parameters["rpeak_secondary_function"]):
+        raise ValueError("'rpeak_secondary_function' parameter must be a function.")
+    if not isinstance(parameters["rpeak_name_primary"], str):
+        raise ValueError("'rpeak_name_primary' parameter must be a string.")
+    if not isinstance(parameters["rpeak_name_secondary"], str):
+        raise ValueError("'rpeak_name_secondary' parameter must be a string.")
+    if not isinstance(parameters["rpeak_distance_threshold_seconds"], float):
+        raise ValueError("'rpeak_distance_threshold_seconds' parameter must be a float.")
+    if not isinstance(parameters["certain_rpeaks_path"], str):
+        raise ValueError("'certain_rpeaks_path' parameter must be a string.")
+    if not isinstance(parameters["uncertain_primary_rpeaks_path"], str):
+        raise ValueError("'uncertain_primary_rpeaks_path' parameter must be a string.")
+    if not isinstance(parameters["uncertain_secondary_rpeaks_path"], str):
+        raise ValueError("'uncertain_secondary_rpeaks_path' parameter must be a string.")
+
+    # parameters for the MAD calculation
+    if not isinstance(parameters["mad_time_period_seconds"], int):
+        raise ValueError("'mad_time_period_seconds' parameter must be an integer.")
+    if not isinstance(parameters["mad_values_path"], str):
+        raise ValueError("'mad_values_path' parameter must be a string.")
+
+    # parameters for the R peak accuracy evaluation
+    if not isinstance(parameters["rpeak_accuracy_functions"], list):
+        raise ValueError("'rpeak_accuracy_functions' parameter must be a list.")
+    if not isinstance(parameters["rpeak_accuracy_function_names"], list):
+        raise ValueError("'rpeak_accuracy_function_names' parameter must be a list.")
+    if not isinstance(parameters["accurate_peaks_name"], str):
+        raise ValueError("'accurate_peaks_name' parameter must be a string.")
+    if not isinstance(parameters["accurate_rpeaks_raw_data_directory"], str):
+        raise ValueError("'accurate_rpeaks_raw_data_directory' parameter must be a string.")
+    if not isinstance(parameters["accurate_rpeaks_values_directory"], str):
+        raise ValueError("'accurate_rpeaks_values_directory' parameter must be a string.")
+    if not isinstance(parameters["valid_accurate_rpeak_file_types"], list):
+        raise ValueError("'valid_accurate_rpeak_file_types' parameter must be a list.")
+    if not isinstance(parameters["rpeak_accuracy_evaluation_path"], str):
+        raise ValueError("'rpeak_accuracy_evaluation_path' parameter must be a string.")
+    if not isinstance(parameters["rpeak_accuracy_rmse_dezimal_places"], int):
+        raise ValueError("'rpeak_accuracy_rmse_dezimal_places' parameter must be an integer.")
+
 
 def progress_bar(index, total, bar_len=50, title='Please wait'):
     '''
@@ -33,7 +117,16 @@ def progress_bar(index, total, bar_len=50, title='Please wait'):
 
 def clear_directory(directory):
     """
-    Clear the directory of everything
+    Clear the given directory of all files and subdirectories.
+
+    ARGUMENTS:
+    --------------------------------
+    directory: str
+        path to the directory to be cleared
+    
+    RETURNS:
+    --------------------------------
+    None
     """
     for file in os.listdir(directory):
         file_path = os.path.join(directory, file)
@@ -48,14 +141,34 @@ def clear_directory(directory):
 
 def get_file_type(file_name):
     """
-    Get the file type of a file.
+    Get the file type/extension of a file.
+
+    ARGUMENTS:
+    --------------------------------
+    file_name: str
+        name of the file
+    
+    RETURNS:
+    --------------------------------
+    str
+        file type/extension
     """
     return os.path.splitext(file_name)[1]
 
 
 def get_file_name_from_path(file_path):
     """
-    Separate the file name and the extension of a file.
+    Separate the file name (including the type/extension) from the file path.
+
+    ARGUMENTS:
+    --------------------------------
+    file_path: str
+        path to the file
+    
+    RETURNS:
+    --------------------------------
+    str
+        file name (including the type/extension)
     """
     for i in range(len(file_path)-1, -1, -1):
         if file_path[i] == "/":
@@ -65,6 +178,17 @@ def get_file_name_from_path(file_path):
 def save_to_pickle(data, file_name):
     """
     Save data to a pickle file.
+
+    ARGUMENTS:
+    --------------------------------
+    data: any
+        data to be saved
+    file_name: str
+        path to the pickle file
+    
+    RETURNS:
+    --------------------------------
+    None
     """
     with open(file_name, "wb") as f:
         pickle.dump(data, f)
@@ -73,6 +197,16 @@ def save_to_pickle(data, file_name):
 def load_from_pickle(file_name):
     """
     Load data from a pickle file.
+
+    ARGUMENTS:
+    --------------------------------
+    file_name: str
+        path to the pickle file
+    
+    RETURNS:
+    --------------------------------
+    any
+        data from the pickle file
     """
     with open(file_name, "rb") as f:
         data = pickle.load(f)
@@ -82,6 +216,14 @@ def load_from_pickle(file_name):
 def ask_for_permission_to_override(file_path: str, message: str):
     """
     If a file already exists, ask the user if they want to overwrite it.
+    If the file does not exist, return "y". If the user wants to overwrite the file, delete it.
+
+    ARGUMENTS:
+    --------------------------------
+    file_path: str
+        path to the file
+    message: str
+        message to be shown to the user
 
     RETURNS:
     --------------------------------
@@ -112,7 +254,19 @@ def ask_for_permission_to_override(file_path: str, message: str):
 
 def create_sub_dict(dictionary, keys):
     """
-    Create a sub dictionary of the main one.
+    Create a sub dictionary of the main one with the given keys.
+
+    ARGUMENTS:
+    --------------------------------
+    dictionary: dict
+        main dictionary
+    keys: list
+        keys for the sub dictionary
+    
+    RETURNS:
+    --------------------------------
+    dict
+        sub dictionary containing only the given keys
     """
     return {key: dictionary[key] for key in keys}
 
@@ -120,5 +274,17 @@ def create_sub_dict(dictionary, keys):
 def create_rpeaks_pickle_path(Directory, rpeak_function_name):
     """
     Create the path for the pickle file where the rpeaks are saved for each method.
+
+    ARGUMENTS:
+    --------------------------------
+    Directory: str
+        directory where the pickle file will be saved
+    rpeak_function_name: str
+        name of the rpeak detection method
+    
+    RETURNS:
+    --------------------------------
+    str
+        path to the pickle file
     """
     return Directory + "RPeaks_" + rpeak_function_name + ".pkl"

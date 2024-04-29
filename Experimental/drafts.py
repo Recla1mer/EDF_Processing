@@ -17,6 +17,35 @@ lower_border = 17752064 # hard noise
 #lower_border = 15381248 # lots of noise, one spike
 
 
+def seperate_plots_from_bib(file_name, save_path):
+    """
+    Read a pickle file containing a dictionary of plots and save them as individual figures.
+    """
+    with open(file_name, "rb") as f:
+        plots = pickle.load(f)
+
+    for key, value in plots.items():
+        plt.figure()
+        plt.imshow(value)
+        plt.axis("off")
+        plt.savefig(save_path + key + ".png", bbox_inches="tight", pad_inches=0)
+        plt.close()
+
+
+def seperate_plots(data, time, signal, save_path, **kwargs):
+    """
+    Save the plots in the dictionary as individual figures.
+    """
+    kwargs.setdefault("xlim", [2700,2720])
+    
+    fig, ax = plt.subplots()
+
+    ax.plot(time, data, label=signal)
+    ax.legend(loc="best")
+    plt.xlim(kwargs["xlim"])
+    plt.savefig(save_path + "_" + signal + ".png")
+
+
 def create_calibration_data(
         file_path, 
         show_graphs = False
