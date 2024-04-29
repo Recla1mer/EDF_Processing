@@ -317,12 +317,15 @@ def additional_section(run_section: bool):
         check_data.determine_valid_ecg_regions(**determine_ecg_region_args)
         del determine_ecg_region_args
 
+        # create arguments for the R peak detection evaluation
         detect_rpeaks_args = create_sub_dict(parameters, detect_rpeaks_variables)
 
+        # create paths to where the detected R peaks will be saved
         compare_rpeaks_paths = []
         for i in range(len(parameters["rpeak_accuracy_function_names"])):
             compare_rpeaks_paths.append(create_rpeaks_pickle_path(RPEAK_ACCURACY_DIRECTORY, parameters["rpeak_accuracy_function_names"][i]))
 
+        # detect R peaks in the valid regions of the ECG data
         for i in range(len(parameters["rpeak_accuracy_functions"])):
             detect_rpeaks_args["rpeak_function"] = parameters["rpeak_accuracy_functions"][i]
             detect_rpeaks_args["rpeak_function_name"] = parameters["rpeak_accuracy_function_names"][i]
@@ -331,14 +334,17 @@ def additional_section(run_section: bool):
 
         del detect_rpeaks_args
 
+        # create arguments for the R peak accuracy evaluation and perform it
         evaluate_rpeak_detection_accuracy_args = create_sub_dict(parameters, evaluate_rpeak_detection_accuracy_variables)
         evaluate_rpeak_detection_accuracy_args["compare_rpeaks_paths"] = compare_rpeaks_paths
         rpeak_detection.evaluate_rpeak_detection_accuracy(**evaluate_rpeak_detection_accuracy_args)
         del evaluate_rpeak_detection_accuracy_args
 
+        # create arguments for printing the R peak accuracy report and print it
         rpeak_accuracy_report_args = create_sub_dict(parameters, rpeak_accuracy_report_variables)
         rpeak_detection.print_rpeak_accuracy_results(**rpeak_accuracy_report_args)
     
+    # terminate the script after the ADDITIONALS SECTION
     raise SystemExit("\nIt is not intended to run the ADDTIONAL SECTION and afterwards the MAIN project. As a matter of assuring the correct execution of the script, the script will be TERMINATED. If you want to execute the MAIN project, please set the 'run_additionals_section' parameter to False in the settings section of the script\n")
         
 
@@ -354,6 +360,8 @@ and calculate the MAD in the wrist acceleration data.
 """
 
 def preparation_section(run_section: bool):
+
+    # check if the section should be run
     if not run_section:
         return
             
@@ -367,7 +375,7 @@ def preparation_section(run_section: bool):
     --------------------------------
     """
     if parameters["calculate_ecg_thresholds"]:
-        # manually chosen calibration intervals for the ECG Validation:
+        # get manually chosen calibration intervals for the ECG Validation:
         manual_calibration_intervals, manual_interval_size = ecg_threshold_calibration_intervals()
 
         # calculate the thresholds for the ECG Validation
@@ -396,20 +404,24 @@ def preparation_section(run_section: bool):
 
     # detect R peaks in the valid regions of the ECG data
     if parameters["detect_rpeaks"]:
+        # create arguments for the R peak detection
         detect_rpeaks_args = create_sub_dict(parameters, detect_rpeaks_variables)
         
+        # detect R peaks using the primary function
         detect_rpeaks_args["rpeak_function"] = parameters["rpeak_primary_function"]
         detect_rpeaks_args["rpeak_function_name"] = parameters["rpeak_name_primary"]
         rpeak_primary_path = create_rpeaks_pickle_path(PREPARATION_DIRECTORY, parameters["rpeak_name_primary"])
         detect_rpeaks_args["rpeak_path"] = rpeak_primary_path
         rpeak_detection.detect_rpeaks(**detect_rpeaks_args)
 
+        # detect R peaks using the secondary function
         detect_rpeaks_args["rpeak_function"] = parameters["rpeak_secondary_function"]
         detect_rpeaks_args["rpeak_function_name"] = parameters["rpeak_name_secondary"]
         rpeak_secondary_path = create_rpeaks_pickle_path(PREPARATION_DIRECTORY, parameters["rpeak_name_secondary"])
         detect_rpeaks_args["rpeak_path"] = rpeak_secondary_path
         rpeak_detection.detect_rpeaks(**detect_rpeaks_args)
 
+        # combine the detected R peaks into certain and uncertain R peaks
         combine_detected_rpeaks_args = create_sub_dict(parameters, combine_detected_rpeaks_variables)
         combine_detected_rpeaks_args["rpeak_primary_path"] = rpeak_primary_path
         combine_detected_rpeaks_args["rpeak_secondary_path"] = rpeak_secondary_path
