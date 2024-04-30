@@ -490,3 +490,179 @@ def valid_total_ratio(data: dict, valid_regions: list, ecg_key: str):
         valid_data += region[1] - region[0]
     valid_ratio = valid_data / len(data[ecg_key])
     return valid_ratio
+
+
+"""
+Following code won't be used for the final implementation, but is useful for testing and
+comparing the results of the ECG validation, as accurate intervals (calculated automatically 
+but later checked manually) are available for the GIF data.
+
+They are stored in .txt files and can be used as a reference for the ECG Validation.
+Therefore we need to implement functions to compare the results of the validation
+and to read the accurate intervals from the .txt files.
+They are stored in the following format: "integer integer" after a file header containing
+various information separated by a line of "-".
+
+The first integer is the index in the ECG data and the second integer is the classification
+of the data point (0: valid, 1: invalid).
+"""
+
+
+def accurate_ecg_txt_string_evaluation(string):
+    """
+    """
+    # set default values if the integer or the letter do not exist
+    datapoint = " "
+    classification = " "
+
+    was_number = False
+    for i in range(len(string)):
+        if string[i].isdigit():
+            if datapoint != " ":
+                classification = string[i]
+                break
+            if not was_number:
+                start = i
+            was_number = True
+        else:
+            if was_number:
+                datapoint = int(string[start:i])
+            was_number = False
+    
+    return datapoint, classification
+
+
+def get_accurate_ecg_classification_from_txt_file(file_path: str):
+    """
+    """
+    # read the txt file
+    with open(file_path, 'r') as file:
+        txt_lines = file.readlines()
+    
+    # start of ecg validation is separated by a line of "-" from the file header in the .txt files
+    # retrieve the start of the R-peaks in the file
+    for i in range(len(txt_lines)):
+        count_dash = 0
+        for j in range(len(txt_lines[i])):
+            if txt_lines[i][j] == "-":
+                count_dash += 1
+        if count_dash/len(txt_lines[i]) > 0.9:
+            start = i + 1
+            break
+    
+    # create dictionary to save the accurate classification
+    accurate_ecg_classification = dict()
+
+    # determine valid datapoints from the txt file
+    for i in range(start, len(txt_lines)):
+        datapoint, classification = accurate_ecg_txt_string_evaluation(txt_lines[i])
+        
+        if isinstance(datapoint, int) and classification.isdigit():
+            if classification in accurate_ecg_classification:
+                accurate_ecg_classification[classification].append(datapoint)
+            else:
+                accurate_ecg_classification[classification] = [datapoint]
+    
+    return accurate_ecg_classification
+
+
+def compare_ecg_validation(
+        validated_intervals: list, 
+        accurate_classification: dict,
+    ):
+    """
+    """
+    accurate_invalid_points = accurate_classification["1"]
+    accurate_valid_points = accurate_classification["0"]
+
+    intersecting_invalid_points = []
+    intersecting_valid_points = []
+
+    wrong_invalid_points = []
+    wrong_valid_points = []
+
+    for point in accurate_valid_points:
+        if point in validated_intervals:
+            intersecting_valid_points.append(point)
+        else:
+            wrong_valid_points.append(point)
+    
+    for point in accurate_invalid_points:
+        if point in validated_intervals:
+            wrong_invalid_points.append(point)
+        else:
+            intersecting_invalid_points.append(point)
+
+    correct_valid_ratio = len(intersecting_valid_points) / len(accurate_valid_points)
+    correct_invalid_ratio = len(intersecting_invalid_points) / len(accurate_invalid_points)
+
+    wrong_as_valid_ratio = len(wrong_valid_points) / len(accurate_valid_points)
+    wrong_as_invalid_ratio = len(wrong_invalid_points) / len(accurate_invalid_points)
+
+    return correct_valid_ratio, correct_invalid_ratio, wrong_as_valid_ratio, wrong_as_invalid_ratio
+
+
+def evaluate_ecg_validation_accuracy(
+        accurate_ecg_validation_values_directory: str,
+        valid_accurate_ecg_validation_file_types: list,
+        ecg_validation_accuracy_evaluation_path: str,
+        valid_ecg_regions_path: str
+    ):
+    """
+    """
+    
+    # check if the evaluation already exists and if yes: ask for permission to override
+    user_answer = ask_for_permission_to_override(file_path = ecg_validation_accuracy_evaluation_path,
+                        message = "\nEvaluation of ECG Validation accuracy already exists in " + ecg_validation_accuracy_evaluation_path + ".")
+    
+    # cancel if user does not want to override
+    if user_answer == "n":
+        return
+
+    # get all determined ECG Validation files
+    determined_ecg_validation_dictionary = load_from_pickle(valid_ecg_regions_path)
+
+    # get all valid accurate ECG Validation files
+    all_accurate_files = os.listdir(accurate_ecg_validation_values_directory)
+    valid_accurate_files = [file for file in all_accurate_files if get_file_type(file) in valid_accurate_ecg_validation_file_types]
+
+    # create variables to track progress
+    total_data_files = len(determined_ecg_validation_dictionary)
+    progressed_data_files = 0
+
+    # create dictionary to store the ECG Validation accuracy values for all files
+    all_files_ecg_validation_accuracy = dict()
+    
+    # calculate the R peak accuracy values
+    print("Calculating ECG Validation accuracy values for %i files:" % total_data_files)
+    for file_key in determined_ecg_validation_dictionary:
+        # show progress
+        progress_bar(progressed_data_files, total_data_files)
+        progressed_data_files += 1
+
+        # get the file name without the file type
+        this_file_name = os.path.splitext(file_key)[0]
+
+        # get corresponding accurate ECG Validation file name for this file
+        for acc_file in valid_accurate_files:
+            if this_file_name in acc_file:
+                this_accurate_file = acc_file
+        try:
+            accurate_ecg_validation_dictionary = get_accurate_ecg_classification_from_txt_file(accurate_ecg_validation_values_directory + this_accurate_file)
+        except ValueError:
+            print("Accurate R peaks are missing for %s. Skipping this file." % file_key)
+            continue
+        
+        # compare the differnt ECG validations
+        this_file_accuracy_values = compare_ecg_validation(
+            validated_intervals = determined_ecg_validation_dictionary[file_key],
+            accurate_classification = accurate_ecg_validation_dictionary
+            )
+        
+        # save the R peak accuracy values for this file to the dictionary
+        all_files_ecg_validation_accuracy[file_key] = [accuracy_value for accuracy_value in this_file_accuracy_values]
+    
+    progress_bar(progressed_data_files, total_data_files)
+    
+    # save the R peak accuracy values to a pickle file
+    save_to_pickle(all_files_ecg_validation_accuracy, ecg_validation_accuracy_evaluation_path)
