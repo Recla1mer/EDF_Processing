@@ -485,7 +485,7 @@ various information separated by a line of "-".
 """
 
 
-def compare_rpeak_detection_methods(
+def compare_rpeak_detections(
         first_rpeaks: list,
         second_rpeaks: list,
         frequency: int,
@@ -653,7 +653,7 @@ def rri_string_evaluation(string):
     return rpeak, letter
 
 
-def get_rpeaks_from_rri_file(file_path: str):
+def get_rpeaks_classification_from_rri_file(file_path: str):
     """
     Get R-peaks from an .rri file.
 
@@ -702,15 +702,73 @@ def get_rpeaks_from_rri_file(file_path: str):
     return rpeaks
 
 
-def evaluate_rpeak_detection_accuracy(
-        accurate_rpeaks_raw_data_directory: str,
+def read_rpeaks_from_rri_files(
+        data_directory: str, 
+        valid_file_types: list, 
+        rpeaks_values_directory: str,
+        valid_rpeak_values_file_types: list,
+        include_rpeak_value_classifications: list,
+        rpeak_path: str
+    ):
+    """
+    """
+
+    # get all valid files
+    all_data_files = os.listdir(data_directory)
+    valid_data_files = [file for file in all_data_files if get_file_type(file) in valid_file_types]
+
+    # get all valid files that contain rpeaks for previous directory
+    all_values_files = os.listdir(rpeaks_values_directory)
+    valid_values_files = [file for file in all_values_files if get_file_type(file) in valid_rpeak_values_file_types]
+
+    # create variables to track progress
+    total_data_files = len(valid_data_files)
+    progressed_data_files = 0
+
+    # create dictionary to store the R peak values for all files
+    all_rpeaks = dict()
+    
+    # read the R peaks from the files
+    print("\nReading R peak values from %i files:" % total_data_files)
+    for file in valid_data_files:
+        # show progress
+        progress_bar(progressed_data_files, total_data_files)
+        progressed_data_files += 1
+
+        # get the file name without the file type
+        this_file_name = os.path.splitext(file)[0]
+
+        # get corresponding R peak value file name for this file
+        for value_file in valid_values_files:
+            if this_file_name in value_file:
+                this_value_file = value_file
+        try:
+            rpeaks_values = get_rpeaks_classification_from_rri_file(rpeaks_values_directory + this_value_file)
+        except ValueError:
+            print("Accurate R peaks are missing for %s. Skipping this file." % file)
+            continue
+
+        # save R peak values with wanted classification to the dictionary
+        all_rpeaks[file] = np.array([], dtype = int)
+        for classification in include_rpeak_value_classifications:
+            try:
+                all_rpeaks[file] = np.append(all_rpeaks[file], rpeaks_values[classification])
+            except KeyError:
+                print("Classification %s is missing in %s. Skipping this classification." % (classification, file))
+    
+    progress_bar(progressed_data_files, total_data_files)
+
+    # save the R peak values to a pickle file
+    save_to_pickle(all_rpeaks, rpeak_path)
+
+
+def rpeak_detection_comparison(
+        data_directory: str,
         valid_file_types: list,
         ecg_key: str,
-        accurate_rpeaks_values_directory: str,
-        valid_accurate_rpeak_file_types: list,
         compare_rpeaks_paths: list,
         rpeak_distance_threshold_seconds: float,
-        rpeak_accuracy_evaluation_path: str
+        rpeak_comparison_evaluation_path: str
     ):
     """
     Evaluate the accuracy of the R peak detection methods.
@@ -752,91 +810,74 @@ def evaluate_rpeak_detection_accuracy(
     """
 
     # check if the evaluation already exists and if yes: ask for permission to override
-    user_answer = ask_for_permission_to_override(file_path = rpeak_accuracy_evaluation_path,
-                        message = "\nEvaluation of R peak detection accuracy already exists in " + rpeak_accuracy_evaluation_path + ".")
+    user_answer = ask_for_permission_to_override(file_path = rpeak_comparison_evaluation_path,
+                        message = "\nEvaluation of R peak detection accuracy already exists in " + rpeak_comparison_evaluation_path + ".")
     
     # cancel if user does not want to override
     if user_answer == "n":
         return
 
     # get all valid files
-    all_data_files = os.listdir(accurate_rpeaks_raw_data_directory)
+    all_data_files = os.listdir(data_directory)
     valid_data_files = [file for file in all_data_files if get_file_type(file) in valid_file_types]
-
-    # get all valid accurate R peak files
-    all_accurate_files = os.listdir(accurate_rpeaks_values_directory)
-    valid_accurate_files = [file for file in all_accurate_files if get_file_type(file) in valid_accurate_rpeak_file_types]
 
     # create variables to track progress
     total_data_files = len(valid_data_files)
     progressed_data_files = 0
 
     # create dictionary to store the R peak accuracy values of all detection methods for all files
-    all_files_rpeak_accuracy = dict()
+    all_files_rpeak_comparison = dict()
     
     # calculate the R peak accuracy values
-    print("\nCalculating R peak accuracy values for %i files:" % total_data_files)
+    print("\nCalculating R peak comparison values for %i files:" % total_data_files)
     for file in valid_data_files:
         # show progress
         progress_bar(progressed_data_files, total_data_files)
         progressed_data_files += 1
 
-        # create list to store the R peak accuracy values for all detection methods as list
-        this_file_rpeak_accuracy = []
-
-        # get the file name without the file type
-        this_file_name = os.path.splitext(file)[0]
-
-        # get corresponding accurate R peaks for this file
-        for acc_file in valid_accurate_files:
-            if this_file_name in acc_file:
-                this_accurate_file = acc_file
-        try:
-            accurate_rpeaks = get_rpeaks_from_rri_file(accurate_rpeaks_values_directory + this_accurate_file)
-        except ValueError:
-            print("Accurate R peaks are missing for %s. Skipping this file." % file)
-            continue
+        # create list to store the R peak comparison values for all detection methods as list
+        this_file_rpeak_comparison = []
         
         # get the frequency of the ECG data
-        sigfreqs = read_edf.get_edf_data(accurate_rpeaks_raw_data_directory + file)[1]
+        sigfreqs = read_edf.get_edf_data(data_directory + file)[1]
         frequency = sigfreqs[ecg_key]
         
-        # get the number of accurate R peaks
-        length_accurate = len(accurate_rpeaks["N"])
-        
-        # compare the R peaks of the different detection methods to the accurate R peaks
-        for path in compare_rpeaks_paths:
-            # load dictionary with detected R peaks (contains R peaks of all files)
-            compare_rpeaks_all_files = load_from_pickle(path)
+        # compare the R peaks of the different detection methods
+        for path_index in range(len(compare_rpeaks_paths)):
+            # load dictionaries with detected R peaks (contains R peaks of all files)
+            first_rpeaks_all_files = load_from_pickle(compare_rpeaks_paths[path_index])
+            second_rpeaks_all_files = load_from_pickle(compare_rpeaks_paths[path_index-1])
 
             # get the R peaks of the current file
-            compare_rpeaks = compare_rpeaks_all_files[file]
+            first_rpeaks = first_rpeaks_all_files[file]
+            second_rpeaks = second_rpeaks_all_files[file]
 
             # get the number of detected R peaks
-            len_compare_rpeaks = len(compare_rpeaks)
+            number_first_rpeaks = len(first_rpeaks)
+            number_second_rpeaks = len(second_rpeaks)
 
-            # calculate the R peak accuracy values
-            rmse_without_same, rmse_with_same, len_same_values, len_analog_values = compare_rpeak_detection_methods(
-                first_rpeaks = accurate_rpeaks["N"], 
-                second_rpeaks = compare_rpeaks,
+            # calculate the R peak comparison values
+            rmse_without_same, rmse_with_same, len_same_values, len_analog_values = compare_rpeak_detections(
+                first_rpeaks = first_rpeaks, 
+                second_rpeaks = second_rpeaks,
                 frequency = frequency,
                 rpeak_distance_threshold_seconds = rpeak_distance_threshold_seconds,
                 )
             
-            # append list of R peak accuracy values for this detection method to the list
-            this_file_rpeak_accuracy.append([rmse_without_same, rmse_with_same, len_same_values, len_analog_values, len_compare_rpeaks, length_accurate])
+            # append list of R peak comparison values for these two detection methods to the list
+            this_file_rpeak_comparison.append([rmse_without_same, rmse_with_same, len_same_values, len_analog_values, number_first_rpeaks, number_second_rpeaks])
         
-        # save the R peak accuracy values for this file to the dictionary
-        all_files_rpeak_accuracy[file] = this_file_rpeak_accuracy
+        # save the R peak comparison values for this file to the dictionary
+        all_files_rpeak_comparison[file] = this_file_rpeak_comparison
     
     progress_bar(progressed_data_files, total_data_files)
     
     # save the R peak accuracy values to a pickle file
-    save_to_pickle(all_files_rpeak_accuracy, rpeak_accuracy_evaluation_path)
+    save_to_pickle(all_files_rpeak_comparison, rpeak_comparison_evaluation_path)
 
 
-def print_rpeak_accuracy_results(
-        rpeak_accuracy_function_names: list,  
+def rpeak_detection_comparison_report(
+        rpeak_comparison_function_names: list,  
         accurate_peaks_name: str, 
         rpeak_accuracy_rmse_dezimal_places: int,
         rpeak_accuracy_report_path: str,

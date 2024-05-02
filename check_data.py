@@ -508,7 +508,7 @@ of the data point (0: valid, 1: invalid).
 """
 
 
-def accurate_ecg_txt_string_evaluation(string):
+def ecg_validation_txt_string_evaluation(string: str):
     """
     """
     # set default values if the integer or the letter do not exist
@@ -532,7 +532,7 @@ def accurate_ecg_txt_string_evaluation(string):
     return datapoint, classification
 
 
-def get_accurate_ecg_classification_from_txt_file(file_path: str):
+def get_ecg_classification_from_txt_file(file_path: str):
     """
     """
     # read the txt file
@@ -551,37 +551,37 @@ def get_accurate_ecg_classification_from_txt_file(file_path: str):
             break
     
     # create dictionary to save the accurate classification
-    accurate_ecg_classification = dict()
+    ecg_classification = dict()
 
     # determine valid datapoints from the txt file
     for i in range(start, len(txt_lines)):
-        datapoint, classification = accurate_ecg_txt_string_evaluation(txt_lines[i])
+        datapoint, classification = ecg_validation_txt_string_evaluation(txt_lines[i])
         
         if isinstance(datapoint, int) and classification.isdigit():
-            if classification in accurate_ecg_classification:
-                accurate_ecg_classification[classification].append(datapoint)
+            if classification in ecg_classification:
+                ecg_classification[classification].append(datapoint)
             else:
-                accurate_ecg_classification[classification] = [datapoint]
+                ecg_classification[classification] = [datapoint]
     
-    return accurate_ecg_classification
+    return ecg_classification
 
 
-def compare_ecg_validation(
+def compare_ecg_validations(
         validated_intervals: list, 
-        accurate_classification: dict,
+        ecg_classification: dict,
     ):
     """
     """
-    accurate_invalid_points = accurate_classification["1"]
-    accurate_valid_points = accurate_classification["0"]
+    classification_invalid_points = ecg_classification["1"]
+    classification_valid_points = ecg_classification["0"]
 
     intersecting_invalid_points = []
     intersecting_valid_points = []
 
-    wrong_invalid_points = []
-    wrong_valid_points = []
+    invalid_points_wrong = []
+    valid_points_wrong = []
 
-    for point in accurate_valid_points:
+    for point in classification_valid_points:
         appended = False
         for interval in validated_intervals:
             if point >= interval[0] and point <= interval[1]:
@@ -589,39 +589,39 @@ def compare_ecg_validation(
                 appended = True
                 break
         if not appended:
-            wrong_valid_points.append(point)
+            valid_points_wrong.append(point)
     
-    for point in accurate_invalid_points:
+    for point in classification_invalid_points:
         appended = False
         for interval in validated_intervals:
             if point >= interval[0] and point <= interval[1]:
-                wrong_invalid_points.append(point)
+                invalid_points_wrong.append(point)
                 appended = True
                 break
         if not appended:
             intersecting_invalid_points.append(point)
 
-    correct_valid_ratio = len(intersecting_valid_points) / len(accurate_valid_points)
-    correct_invalid_ratio = len(intersecting_invalid_points) / len(accurate_invalid_points)
+    correct_valid_ratio = len(intersecting_valid_points) / len(classification_valid_points)
+    correct_invalid_ratio = len(intersecting_invalid_points) / len(classification_invalid_points)
 
-    wrong_as_valid_ratio = len(wrong_valid_points) / len(accurate_valid_points)
-    wrong_as_invalid_ratio = len(wrong_invalid_points) / len(accurate_invalid_points)
+    valid_wrong_ratio = len(valid_points_wrong) / len(classification_valid_points)
+    invalid_wrong_ratio = len(invalid_points_wrong) / len(classification_invalid_points)
 
-    return correct_valid_ratio, correct_invalid_ratio, wrong_as_valid_ratio, wrong_as_invalid_ratio
+    return correct_valid_ratio, correct_invalid_ratio, valid_wrong_ratio, invalid_wrong_ratio
 
 
-def evaluate_ecg_validation_accuracy(
-        accurate_ecg_validation_values_directory: str,
-        valid_accurate_ecg_validation_file_types: list,
-        ecg_validation_accuracy_evaluation_path: str,
+def ecg_validation_comparison(
+        ecg_classification_values_directory: str,
+        ecg_classification_file_types: list,
+        ecg_validation_comparison_evaluation_path: str,
         valid_ecg_regions_path: str
     ):
     """
     """
     
     # check if the evaluation already exists and if yes: ask for permission to override
-    user_answer = ask_for_permission_to_override(file_path = ecg_validation_accuracy_evaluation_path,
-                        message = "\nEvaluation of ECG Validation accuracy already exists in " + ecg_validation_accuracy_evaluation_path + ".")
+    user_answer = ask_for_permission_to_override(file_path = ecg_validation_comparison_evaluation_path,
+                        message = "\nEvaluation of ECG Validation accuracy already exists in " + ecg_validation_comparison_evaluation_path + ".")
     
     # cancel if user does not want to override
     if user_answer == "n":
@@ -631,8 +631,8 @@ def evaluate_ecg_validation_accuracy(
     determined_ecg_validation_dictionary = load_from_pickle(valid_ecg_regions_path)
 
     # get all valid accurate ECG Validation files
-    all_accurate_files = os.listdir(accurate_ecg_validation_values_directory)
-    valid_accurate_files = [file for file in all_accurate_files if get_file_type(file) in valid_accurate_ecg_validation_file_types]
+    all_accurate_files = os.listdir(ecg_classification_values_directory)
+    valid_accurate_files = [file for file in all_accurate_files if get_file_type(file) in ecg_classification_file_types]
 
     # create variables to track progress
     total_data_files = len(determined_ecg_validation_dictionary)
@@ -656,13 +656,13 @@ def evaluate_ecg_validation_accuracy(
             if this_file_name in acc_file:
                 this_accurate_file = acc_file
         try:
-            accurate_ecg_validation_dictionary = get_accurate_ecg_classification_from_txt_file(accurate_ecg_validation_values_directory + this_accurate_file)
+            accurate_ecg_validation_dictionary = get_ecg_classification_from_txt_file(ecg_classification_values_directory + this_accurate_file)
         except ValueError:
             print("Accurate R peaks are missing for %s. Skipping this file." % file_key)
             continue
         
         # compare the differnt ECG validations
-        this_file_accuracy_values = compare_ecg_validation(
+        this_file_accuracy_values = compare_ecg_validations(
             validated_intervals = determined_ecg_validation_dictionary[file_key],
             accurate_classification = accurate_ecg_validation_dictionary
             )
@@ -673,32 +673,32 @@ def evaluate_ecg_validation_accuracy(
     progress_bar(progressed_data_files, total_data_files)
     
     # save the R peak accuracy values to a pickle file
-    save_to_pickle(all_files_ecg_validation_accuracy, ecg_validation_accuracy_evaluation_path)
+    save_to_pickle(all_files_ecg_validation_accuracy, ecg_validation_comparison_evaluation_path)
 
 
-def print_ecg_validation_accuracy_results(
-        ecg_validation_accuracy_report_path: str,
-        ecg_validation_accuracy_evaluation_path: str,
-        ecg_valdidation_accuracy_dezimal_places: int,
+def ecg_validation_comparison_report(
+        ecg_validation_comparison_report_path: str,
+        ecg_validation_comparison_evaluation_path: str,
+        ecg_validation_comparison_report_dezimal_places: int,
     ):
     """
     """
     # check if the report already exists and if yes: ask for permission to override
-    user_answer = ask_for_permission_to_override(file_path = ecg_validation_accuracy_report_path,
-                        message = "\nECG Validation accuracy report already exists in " + ecg_validation_accuracy_report_path + ".")
+    user_answer = ask_for_permission_to_override(file_path = ecg_validation_comparison_report_path,
+                        message = "\nECG Validation accuracy report already exists in " + ecg_validation_comparison_report_path + ".")
 
     # cancel if user does not want to override
     if user_answer == "n":
         return
 
     # open the file to write the report to
-    accuracy_file = open(ecg_validation_accuracy_report_path, "w")
+    accuracy_file = open(ecg_validation_comparison_report_path, "w")
 
     # load the data
-    all_files_ecg_validation_accuracy = load_from_pickle(ecg_validation_accuracy_evaluation_path)
+    all_files_ecg_validation_accuracy = load_from_pickle(ecg_validation_comparison_evaluation_path)
 
     # write the file header
-    message = "ECG VALIDATION ACCURACY EVALUATION"
+    message = "ECG VALIDATION COMPARISON REPORT"
     accuracy_file.write(message + "\n")
     accuracy_file.write("=" * len(message) + "\n\n\n")
 
@@ -719,10 +719,10 @@ def print_ecg_validation_accuracy_results(
 
     # collect all accuracy values
     for file in all_files_ecg_validation_accuracy:
-        all_files_ecg_validation_accuracy[file][0] = round(all_files_ecg_validation_accuracy[file][0], ecg_valdidation_accuracy_dezimal_places)
-        all_files_ecg_validation_accuracy[file][1] = round(all_files_ecg_validation_accuracy[file][1], ecg_valdidation_accuracy_dezimal_places)
-        all_files_ecg_validation_accuracy[file][2] = round(all_files_ecg_validation_accuracy[file][2], ecg_valdidation_accuracy_dezimal_places)
-        all_files_ecg_validation_accuracy[file][3] = round(all_files_ecg_validation_accuracy[file][3], ecg_valdidation_accuracy_dezimal_places)
+        all_files_ecg_validation_accuracy[file][0] = round(all_files_ecg_validation_accuracy[file][0], ecg_validation_comparison_report_dezimal_places)
+        all_files_ecg_validation_accuracy[file][1] = round(all_files_ecg_validation_accuracy[file][1], ecg_validation_comparison_report_dezimal_places)
+        all_files_ecg_validation_accuracy[file][2] = round(all_files_ecg_validation_accuracy[file][2], ecg_validation_comparison_report_dezimal_places)
+        all_files_ecg_validation_accuracy[file][3] = round(all_files_ecg_validation_accuracy[file][3], ecg_validation_comparison_report_dezimal_places)
 
         correct_valid_values.append(all_files_ecg_validation_accuracy[file][0])
         correct_invalid_values.append(all_files_ecg_validation_accuracy[file][1])
@@ -730,10 +730,10 @@ def print_ecg_validation_accuracy_results(
         wrong_as_invalid_values.append(all_files_ecg_validation_accuracy[file][3])
     
     # calculate mean of them
-    mean_correct_valid = round(np.mean(correct_valid_values), ecg_valdidation_accuracy_dezimal_places)
-    mean_correct_invalid = round(np.mean(correct_invalid_values), ecg_valdidation_accuracy_dezimal_places)
-    mean_wrong_as_valid = round(np.mean(wrong_as_valid_values), ecg_valdidation_accuracy_dezimal_places)
-    mean_wrong_as_invalid = round(np.mean(wrong_as_invalid_values), ecg_valdidation_accuracy_dezimal_places)
+    mean_correct_valid = round(np.mean(correct_valid_values), ecg_validation_comparison_report_dezimal_places)
+    mean_correct_invalid = round(np.mean(correct_invalid_values), ecg_validation_comparison_report_dezimal_places)
+    mean_wrong_as_valid = round(np.mean(wrong_as_valid_values), ecg_validation_comparison_report_dezimal_places)
+    mean_wrong_as_invalid = round(np.mean(wrong_as_invalid_values), ecg_validation_comparison_report_dezimal_places)
 
     # write the mean values to file
     message = "Mean of accuracy values:"
