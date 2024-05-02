@@ -582,15 +582,23 @@ def compare_ecg_validation(
     wrong_valid_points = []
 
     for point in accurate_valid_points:
-        if point in validated_intervals:
-            intersecting_valid_points.append(point)
-        else:
+        appended = False
+        for interval in validated_intervals:
+            if point >= interval[0] and point <= interval[1]:
+                intersecting_valid_points.append(point)
+                appended = True
+                break
+        if not appended:
             wrong_valid_points.append(point)
     
     for point in accurate_invalid_points:
-        if point in validated_intervals:
-            wrong_invalid_points.append(point)
-        else:
+        appended = False
+        for interval in validated_intervals:
+            if point >= interval[0] and point <= interval[1]:
+                wrong_invalid_points.append(point)
+                appended = True
+                break
+        if not appended:
             intersecting_invalid_points.append(point)
 
     correct_valid_ratio = len(intersecting_valid_points) / len(accurate_valid_points)
@@ -634,7 +642,7 @@ def evaluate_ecg_validation_accuracy(
     all_files_ecg_validation_accuracy = dict()
     
     # calculate the R peak accuracy values
-    print("Calculating ECG Validation accuracy values for %i files:" % total_data_files)
+    print("\nCalculating ECG Validation accuracy values for %i files:" % total_data_files)
     for file_key in determined_ecg_validation_dictionary:
         # show progress
         progress_bar(progressed_data_files, total_data_files)
@@ -666,3 +674,133 @@ def evaluate_ecg_validation_accuracy(
     
     # save the R peak accuracy values to a pickle file
     save_to_pickle(all_files_ecg_validation_accuracy, ecg_validation_accuracy_evaluation_path)
+
+
+def print_ecg_validation_accuracy_results(
+        ecg_validation_accuracy_report_path: str,
+        ecg_validation_accuracy_evaluation_path: str,
+        ecg_valdidation_accuracy_dezimal_places: int,
+    ):
+    """
+    """
+    # check if the report already exists and if yes: ask for permission to override
+    user_answer = ask_for_permission_to_override(file_path = ecg_validation_accuracy_report_path,
+                        message = "\nECG Validation accuracy report already exists in " + ecg_validation_accuracy_report_path + ".")
+
+    # cancel if user does not want to override
+    if user_answer == "n":
+        return
+
+    # open the file to write the report to
+    accuracy_file = open(ecg_validation_accuracy_report_path, "w")
+
+    # load the data
+    all_files_ecg_validation_accuracy = load_from_pickle(ecg_validation_accuracy_evaluation_path)
+
+    # write the file header
+    message = "ECG VALIDATION ACCURACY EVALUATION"
+    accuracy_file.write(message + "\n")
+    accuracy_file.write("=" * len(message) + "\n\n\n")
+
+    # correct_valid_ratio, correct_invalid_ratio, wrong_as_valid_ratio, wrong_as_invalid_ratio
+
+    # set the table captions
+    CORRECT_VALID_CAPTION = "Correct Valid"
+    CORRECT_INVALID_CAPTION = "Correct Invalid"
+    FILE_CAPTION = "File"
+    WRONG_AS_VALID_CAPTION = "Wrong Valid"
+    WRONG_AS_INVALID_CAPTION = "Wrong Invalid"
+
+    # create lists to collect all acccuracy values and print the mean of them
+    correct_valid_values = []
+    correct_invalid_values = []
+    wrong_as_valid_values = []
+    wrong_as_invalid_values = []
+
+    # collect all accuracy values
+    for file in all_files_ecg_validation_accuracy:
+        all_files_ecg_validation_accuracy[file][0] = round(all_files_ecg_validation_accuracy[file][0], ecg_valdidation_accuracy_dezimal_places)
+        all_files_ecg_validation_accuracy[file][1] = round(all_files_ecg_validation_accuracy[file][1], ecg_valdidation_accuracy_dezimal_places)
+        all_files_ecg_validation_accuracy[file][2] = round(all_files_ecg_validation_accuracy[file][2], ecg_valdidation_accuracy_dezimal_places)
+        all_files_ecg_validation_accuracy[file][3] = round(all_files_ecg_validation_accuracy[file][3], ecg_valdidation_accuracy_dezimal_places)
+
+        correct_valid_values.append(all_files_ecg_validation_accuracy[file][0])
+        correct_invalid_values.append(all_files_ecg_validation_accuracy[file][1])
+        wrong_as_valid_values.append(all_files_ecg_validation_accuracy[file][2])
+        wrong_as_invalid_values.append(all_files_ecg_validation_accuracy[file][3])
+    
+    # calculate mean of them
+    mean_correct_valid = round(np.mean(correct_valid_values), ecg_valdidation_accuracy_dezimal_places)
+    mean_correct_invalid = round(np.mean(correct_invalid_values), ecg_valdidation_accuracy_dezimal_places)
+    mean_wrong_as_valid = round(np.mean(wrong_as_valid_values), ecg_valdidation_accuracy_dezimal_places)
+    mean_wrong_as_invalid = round(np.mean(wrong_as_invalid_values), ecg_valdidation_accuracy_dezimal_places)
+
+    # write the mean values to file
+    message = "Mean of accuracy values:"
+    accuracy_file.write(message + "\n")
+    accuracy_file.write("-" * len(message) + "\n\n")
+    captions = ["Mean Correct Valid", "Mean Correct Invalid", "Mean Wrong as Valid", "Mean Wrong as Invalid"]
+    caption_values = [mean_correct_valid, mean_correct_invalid, mean_wrong_as_valid, mean_wrong_as_invalid]
+    for i in range(len(captions)):
+        message = captions[i] + " : " + str(caption_values[i])
+        accuracy_file.write(message)
+        accuracy_file.write("\n")
+    
+    accuracy_file.write("\n")
+
+    # calcualte max lengths of table columns
+    all_file_lengths = [len(key) for key in all_files_ecg_validation_accuracy]
+    max_file_length = max(len(FILE_CAPTION), max(all_file_lengths)) + 3
+
+    all_correct_valid_lengths = []
+    all_correct_invalid_lengths = []
+    all_wrong_as_valid_lengths = []
+    all_wrong_as_invalid_lengths = []
+    for file in all_files_ecg_validation_accuracy:
+        all_correct_valid_lengths.append(len(str(all_files_ecg_validation_accuracy[file][0])))
+        all_correct_invalid_lengths.append(len(str(all_files_ecg_validation_accuracy[file][1])))
+        all_wrong_as_valid_lengths.append(len(str(all_files_ecg_validation_accuracy[file][2])))
+        all_wrong_as_invalid_lengths.append(len(str(all_files_ecg_validation_accuracy[file][3])))
+
+    all_correct_valid_lengths = np.array(all_correct_valid_lengths)
+    all_correct_invalid_lengths = np.array(all_correct_invalid_lengths)
+    all_wrong_as_valid_lengths = np.array(all_wrong_as_valid_lengths)
+    all_wrong_as_invalid_lengths = np.array(all_wrong_as_invalid_lengths)
+
+    max_correct_valid_length = max(len(CORRECT_VALID_CAPTION), max(all_correct_valid_lengths)) + 3
+    max_correct_invalid_length = max(len(CORRECT_INVALID_CAPTION), max(all_correct_invalid_lengths)) + 3
+    max_wrong_as_valid_length = max(len(WRONG_AS_VALID_CAPTION), max(all_wrong_as_valid_lengths)) + 3
+    max_wrong_as_invalid_length = max(len(WRONG_AS_INVALID_CAPTION), max(all_wrong_as_invalid_lengths)) + 3
+
+    # write the legend for the table
+    message = "Legend:"
+    accuracy_file.write(message + "\n")
+    accuracy_file.write("-" * len(message) + "\n\n")
+    accuracy_file.write(CORRECT_VALID_CAPTION + "... Matching valid regions ratio\n")
+    accuracy_file.write(CORRECT_INVALID_CAPTION + "... Matching invalid regions ratio\n")
+    accuracy_file.write(WRONG_AS_VALID_CAPTION + "... valid (detected) / invalid (gif) ratio\n")
+    accuracy_file.write(WRONG_AS_INVALID_CAPTION + "... invalid (detected) / valid (gif) ratio\n\n\n")
+
+    message = "Table with Accuracy Values for each file:"
+    accuracy_file.write(message + "\n")
+    accuracy_file.write("-" * len(message) + "\n\n")
+
+    # create table header
+    accuracy_file.write(print_in_middle(FILE_CAPTION, max_file_length) + " | ")
+    accuracy_file.write(print_in_middle(CORRECT_VALID_CAPTION, max_correct_valid_length) + " | ")
+    accuracy_file.write(print_in_middle(CORRECT_INVALID_CAPTION, max_correct_invalid_length) + " | ")
+    accuracy_file.write(print_in_middle(WRONG_AS_VALID_CAPTION, max_wrong_as_valid_length) + " | ")
+    accuracy_file.write(print_in_middle(WRONG_AS_INVALID_CAPTION, max_wrong_as_invalid_length) + "\n")
+    # accuracy_file.write("\n")
+    accuracy_file.write("-" * (max_file_length + max_correct_valid_length + max_correct_invalid_length + max_wrong_as_valid_length + max_wrong_as_invalid_length + 12) + "\n")
+
+    # write the data
+    for file in all_files_ecg_validation_accuracy:
+        accuracy_file.write(print_in_middle(file, max_file_length) + " | ")
+        accuracy_file.write(print_in_middle(str(all_files_ecg_validation_accuracy[file][0]), max_correct_valid_length) + " | ")
+        accuracy_file.write(print_in_middle(str(all_files_ecg_validation_accuracy[file][1]), max_correct_invalid_length) + " | ")
+        accuracy_file.write(print_in_middle(str(all_files_ecg_validation_accuracy[file][2]), max_wrong_as_valid_length) + " | ")
+        accuracy_file.write(print_in_middle(str(all_files_ecg_validation_accuracy[file][3]), max_wrong_as_invalid_length) + "\n")
+        accuracy_file.write("-" * (max_file_length + max_correct_valid_length + max_correct_invalid_length + max_wrong_as_valid_length + max_wrong_as_invalid_length + 12) + "\n")
+
+    accuracy_file.close()

@@ -288,3 +288,24 @@ def create_rpeaks_pickle_path(Directory, rpeak_function_name):
         path to the pickle file
     """
     return Directory + "RPeaks_" + rpeak_function_name + ".pkl"
+
+
+def print_in_middle(string, length):
+    """
+    Function to center a string in a given length. Needed in printing tables.
+
+    ARGUMENTS:
+    --------------------------------
+    string: str
+        string that should be centered
+    length: int
+        length in which the string should be centered
+    
+    RETURNS:
+    --------------------------------
+    centered_string: str
+        string centered in the given length
+    """
+    len_string = len(string)
+    undersize = int((length - len_string) // 2)
+    return " " * undersize + string + " " * (length - len_string - undersize)

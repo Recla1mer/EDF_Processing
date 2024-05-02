@@ -775,7 +775,7 @@ def evaluate_rpeak_detection_accuracy(
     all_files_rpeak_accuracy = dict()
     
     # calculate the R peak accuracy values
-    print("Calculating R peak accuracy values for %i files:" % total_data_files)
+    print("\nCalculating R peak accuracy values for %i files:" % total_data_files)
     for file in valid_data_files:
         # show progress
         progress_bar(progressed_data_files, total_data_files)
@@ -833,28 +833,6 @@ def evaluate_rpeak_detection_accuracy(
     
     # save the R peak accuracy values to a pickle file
     save_to_pickle(all_files_rpeak_accuracy, rpeak_accuracy_evaluation_path)
-
-
-def print_in_middle(string, length):
-    """
-    Function to center a string in a given length. Needed to print the results of the R peak
-    accuracy evaluation in a nice format.
-
-    ARGUMENTS:
-    --------------------------------
-    string: str
-        string that should be centered
-    length: int
-        length in which the string should be centered
-    
-    RETURNS:
-    --------------------------------
-    centered_string: str
-        string centered in the given length
-    """
-    len_string = len(string)
-    undersize = int((length - len_string) // 2)
-    return " " * undersize + string + " " * (length - len_string - undersize)
 
 
 def print_rpeak_accuracy_results(

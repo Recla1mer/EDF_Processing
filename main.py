@@ -64,6 +64,12 @@ RPEAK_ACCURACY_REPORT_PATH = RPEAK_ACCURACY_DIRECTORY + "RPeak_Accuracy.txt"
 GIF_RPEAKS_DIRECTORY = "Data/GIF/Analyse_Somno_TUM/RRI/"
 GIF_DATA_DIRECTORY = "Data/GIF/SOMNOwatch/"
 
+# ECG Validation accuracy evaluation
+ECG_VALIDATION_ACCURACY_DIRECTORY = ADDITIONALS_DIRECTORY + "ECG_Validation_Accuracy/"
+ECG_VALIDATION_ACCURACY_EVALUATION_PATH = ECG_VALIDATION_ACCURACY_DIRECTORY + "ECG_Validation_Accuracy_Evaluation.pkl"
+ECG_VALIDATION_REPORT_PATH = ECG_VALIDATION_ACCURACY_DIRECTORY + "ECG_Validation_Accuracy.txt"
+GIF_ECG_VALIDATION_DIRECTORY = "Data/GIF/Analyse_Somno_TUM/Noise/"
+
 
 # create directories if they do not exist
 if not os.path.isdir(TEMPORARY_PICKLE_DIRECTORY):
@@ -74,8 +80,6 @@ if not os.path.isdir(PREPARATION_DIRECTORY):
     os.mkdir(PREPARATION_DIRECTORY)
 if not os.path.isdir(ADDITIONALS_DIRECTORY):
     os.mkdir(ADDITIONALS_DIRECTORY)
-if not os.path.isdir(RPEAK_ACCURACY_DIRECTORY):
-    os.mkdir(RPEAK_ACCURACY_DIRECTORY)
 
 
 """
@@ -96,11 +100,12 @@ parameters = dict()
 # main parameters: control which sections of the project will be executed
 settings_params = {
     # set what sections should be executed
-    "run_additionals_section": False, # if True, the ADDITIONALS SECTION will be executed
+    "run_additionals_section": True, # if True, the ADDITIONALS SECTION will be executed
     "run_preparation_section": True, # if True, the PREPARATION SECTION will be executed
     # set what parts of the ADDITIONALS SECTION should be executed
     "show_calibration_data": True, # if True, the calibration data in the manually chosen intervals will be plotted and saved to TEMPORARY_FIGURE_DIRECTORY_PATH
     "determine_rpeak_accuracy": True, # if True, the accuracy of the R peak detection functions will be evaluated
+    "determine_ecg_validation_accuracy": True, # if True, the accuracy of the ECG Validation will be evaluated
     # set what parts of the PREPARATION SECTION should be executed
     "calculate_ecg_thresholds": True, # if True, you will have the option to recalculate the thresholds for the ecg validation
     "determine_valid_ecg_regions": True, # if True, you will have the option to recalculate the valid regions for the ECG data
@@ -165,9 +170,20 @@ rpeak_accuracy_params = {
     "rpeak_accuracy_report_path": RPEAK_ACCURACY_REPORT_PATH, # path to the text file where the evaluation results are printed
 }
 
+ecg_validation_accuracy_params = {
+    "accurate_ecg_validation_raw_data_directory": GIF_DATA_DIRECTORY, # directory where the raw data of which we know the accurate ECG Validation are stored
+    "accurate_ecg_validation_values_directory": GIF_ECG_VALIDATION_DIRECTORY, # directory where the accurate ECG Validation values are stored
+    "valid_accurate_ecg_validation_file_types": [".txt"], # file types that store the accurate ECG Validation data
+    "ecg_validation_accuracy_evaluation_path": ECG_VALIDATION_ACCURACY_EVALUATION_PATH, # path to the pickle file where the evaluation results are saved
+    "ecg_validation_accuracy_report_path": ECG_VALIDATION_REPORT_PATH, # path to the text file where the evaluation results are printed
+    "ecg_valdidation_accuracy_dezimal_places": 4, # number of dezimal places for the accuracy values in the report
+}
+
 # add all parameters to the parameters dictionary, so we can access them later more easily
 if settings_params["determine_rpeak_accuracy"] and settings_params["run_additionals_section"]:
     parameters.update(rpeak_accuracy_params)
+if settings_params["determine_ecg_validation_accuracy"] and settings_params["run_additionals_section"]:
+    parameters.update(ecg_validation_accuracy_params)
 parameters.update(settings_params)
 parameters.update(file_params)
 parameters.update(valid_ecg_regions_params)
@@ -213,6 +229,13 @@ evaluate_rpeak_detection_accuracy_variables = ["accurate_rpeaks_raw_data_directo
 rpeak_accuracy_report_variables = ["rpeak_accuracy_function_names", "accurate_peaks_name", 
                         "rpeak_accuracy_rmse_dezimal_places", "rpeak_accuracy_report_path",
                         "rpeak_accuracy_evaluation_path"]
+
+evaluate_ecg_validation_accuracy_variables = ["accurate_ecg_validation_values_directory", 
+        "valid_accurate_ecg_validation_file_types", "ecg_validation_accuracy_evaluation_path",
+        "valid_ecg_regions_path"]
+
+ecg_validation_report_variables = ["ecg_validation_accuracy_evaluation_path", 
+            "ecg_validation_accuracy_report_path", "ecg_valdidation_accuracy_dezimal_places"]
 
 
 """
@@ -287,6 +310,49 @@ def additional_section(run_section: bool):
                 SHOW_CALIBRATION_DATA_DIRECTORY + names[manual_calibration_intervals.index(interval)] + ".png"
                 )
     
+    # create ecg validation thresholds if they are needed in this section
+    if parameters["determine_rpeak_accuracy"] or parameters["determine_ecg_validation_accuracy"]:
+        parameters["ecg_thresholds_save_path"] = ADDITIONALS_DIRECTORY + get_file_name_from_path(parameters["ecg_thresholds_save_path"])
+        # create arguments for ecg thresholds evaluation and calculate them
+        ecg_thresholds_args = create_sub_dict(parameters, ecg_thresholds_variables)
+        ecg_thresholds_args["ecg_calibration_intervals"] = manual_calibration_intervals
+        check_data.create_ecg_thresholds(**ecg_thresholds_args)
+        del ecg_thresholds_args
+
+        # load the ecg thresholds to the parameters dictionary
+        ecg_validation_thresholds_dict = load_from_pickle(parameters["ecg_thresholds_save_path"])
+        parameters.update(ecg_validation_thresholds_dict)
+        del ecg_validation_thresholds_dict
+        del manual_calibration_intervals
+
+        # change the data paths to where the ECG Validation are stored
+        parameters["data_directory"] = parameters["accurate_ecg_validation_raw_data_directory"]
+        parameters["valid_ecg_regions_path"] = ADDITIONALS_DIRECTORY + get_file_name_from_path(parameters["valid_ecg_regions_path"])
+
+        # create arguments for the valid ecg regions evaluation and calculate them
+        determine_ecg_region_args = create_sub_dict(parameters, determine_ecg_region_variables)
+        check_data.determine_valid_ecg_regions(**determine_ecg_region_args)
+        del determine_ecg_region_args
+    
+    """
+    --------------------------------
+    DETERMINE ECG VALIDATION ACCURACY
+    --------------------------------
+    """
+    # determine the accuracy of the ECG Validation if user requested it
+    if parameters["determine_ecg_validation_accuracy"]:
+        # create directory to save accuracy evaluation results if it does not exist
+        if not os.path.isdir(ECG_VALIDATION_ACCURACY_DIRECTORY):
+            os.mkdir(ECG_VALIDATION_ACCURACY_DIRECTORY)
+        # create arguments for the ECG Validation accuracy evaluation and perform it
+        evaluate_ecg_validation_accuracy_args = create_sub_dict(parameters, evaluate_ecg_validation_accuracy_variables)
+        check_data.evaluate_ecg_validation_accuracy(**evaluate_ecg_validation_accuracy_args)
+        del evaluate_ecg_validation_accuracy_args
+
+        # create arguments for printing the ECG Validation accuracy report and print it
+        ecg_validation_report_args = create_sub_dict(parameters, ecg_validation_report_variables)
+        check_data.print_ecg_validation_accuracy_results(**ecg_validation_report_args)
+    
     """
     --------------------------------
     DETERMINE R PEAK ACCURACY
@@ -295,27 +361,11 @@ def additional_section(run_section: bool):
 
     # determine the accuracy of the R peak detection functions if user requested it
     if parameters["determine_rpeak_accuracy"]:
+        # create directory to save accuracy evaluation results if it does not exist
+        if not os.path.isdir(RPEAK_ACCURACY_DIRECTORY):
+            os.mkdir(RPEAK_ACCURACY_DIRECTORY)
         # change the data paths to where the accurate R peaks are stored
         parameters["data_directory"] = parameters["accurate_rpeaks_raw_data_directory"]
-        parameters["ecg_thresholds_save_path"] = RPEAK_ACCURACY_DIRECTORY + get_file_name_from_path(parameters["ecg_thresholds_save_path"])
-        parameters["valid_ecg_regions_path"] = RPEAK_ACCURACY_DIRECTORY + get_file_name_from_path(parameters["valid_ecg_regions_path"])
-
-        # create arguments for ecg thresholds evaluation and calculate them
-        ecg_thresholds_args = create_sub_dict(parameters, ecg_thresholds_variables)
-        ecg_thresholds_args["ecg_calibration_intervals"] = manual_calibration_intervals
-        check_data.create_ecg_thresholds(**ecg_thresholds_args)
-        del ecg_thresholds_args
-        del manual_calibration_intervals
-
-        # load the ecg thresholds to the parameters dictionary
-        ecg_validation_thresholds_dict = load_from_pickle(parameters["ecg_thresholds_save_path"])
-        parameters.update(ecg_validation_thresholds_dict)
-        del ecg_validation_thresholds_dict
-
-        # create arguments for the valid ecg regions evaluation and calculate them
-        determine_ecg_region_args = create_sub_dict(parameters, determine_ecg_region_variables)
-        check_data.determine_valid_ecg_regions(**determine_ecg_region_args)
-        del determine_ecg_region_args
 
         # create arguments for the R peak detection evaluation
         detect_rpeaks_args = create_sub_dict(parameters, detect_rpeaks_variables)
