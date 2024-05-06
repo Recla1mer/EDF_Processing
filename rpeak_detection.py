@@ -474,12 +474,12 @@ def combine_detected_rpeaks(
 
 """
 Following code won't be used for the final implementation, but is useful for testing and
-comparing the results of different R-peak detection methods, as accurate R peaks
-(calculated automatically but later checked manually) are available for the GIF data.
+comparing the results of different R-peak detection methods. R peaks are also already
+available for the GIF data. They might or might not have been calculated automatically and
+later checked manually.
 
-They are stored in .rri files and can be used as a reference for the R-peak detection.
-Therefore we need to implement functions to compare the results of different R-peaks
-and to read the accurate R-peaks from the .rri files.
+They are stored in .rri files. Therefore we need to implement functions to compare the
+results of different R-peaks and to read the accurate R-peaks from the .rri files.
 They are stored in the following format: "integer letter" after a file header containing
 various information separated by a line of "-".
 """
@@ -490,10 +490,9 @@ def compare_rpeak_detections(
         second_rpeaks: list,
         frequency: int,
         rpeak_distance_threshold_seconds: float,
-        **kwargs
     ):
     """
-    Compare the results of two different R-peak detection methods.
+    Compare the results of two different R-peak detections.
 
     ARGUMENTS:
     --------------------------------
@@ -502,18 +501,9 @@ def compare_rpeak_detections(
     second_rpeaks: list
         R-peak locations detected by the second method
     frequency: int
-        sampling rate / frequency of the ECG data
+        sampling rate (frequency) of the ECG data
     rpeak_distance_threshold_seconds: float
         threshold for the distance between two R-peaks to be considered as the same
-
-    KEYWORD ARGUMENTS (they are hidden because were only necessary for testing purposes):
-    --------------------------------
-    first_name: str
-        name of the first method
-    second_name: str
-        name of the second method
-    print_results: bool
-        if True, the results will be printed to the console
 
     RETURNS:
     --------------------------------
@@ -526,11 +516,6 @@ def compare_rpeak_detections(
     number_of_values_considered_as_same: int
         number of R-peaks that were considered as the same
     """
-
-    # set default values
-    kwargs.setdefault("first_name", "First Method")
-    kwargs.setdefault("second_name", "Second Method")
-    kwargs.setdefault("print_results", False)
 
     # convert the threshold from seconds to iterations
     distance_threshold_iterations = int(rpeak_distance_threshold_seconds * frequency)
@@ -573,13 +558,11 @@ def compare_rpeak_detections(
     analog_value_in_second = np.array(analog_value_in_second)
     same_values = np.array(same_values)
 
-    # print the results if desired
-    if kwargs["print_results"]:
-        print("Number of same values: ", len(same_values))
-        print("Number of values considered as equal (distance < %f s): %i" % (rpeak_distance_threshold_seconds, len(analog_value_in_first)))
-
     # calculate mean squared error and root mean squared error for R-peaks that were considered as the same
-    mse_without_same = np.mean((analog_value_in_first - analog_value_in_second)**2)
+    if len(analog_value_in_first) > 0:
+        mse_without_same = np.mean((analog_value_in_first - analog_value_in_second)**2)
+    else:
+        mse_without_same = 0
     rmse_without_same = np.sqrt(mse_without_same)
 
     # add the R-peaks that were detected by both methods to the lists of R-peaks that are considered as the same
@@ -587,25 +570,15 @@ def compare_rpeak_detections(
     analog_value_in_second = np.append(analog_value_in_second, same_values)
 
     # calculate mean squared error and root mean squared error for R-peaks that were considered as the same and are the same
-    mse_with_same = np.mean((analog_value_in_first - analog_value_in_second)**2)
+    if len(analog_value_in_first) > 0:
+        mse_with_same = np.mean((analog_value_in_first - analog_value_in_second)**2)
+    else:
+        mse_with_same = 0
     rmse_with_same = np.sqrt(mse_with_same)
 
     # get the R-peaks that were only detected by one method
-    remaining_in_first = np.setdiff1d(first_rpeaks, analog_value_in_first)
-    remaining_in_second = np.setdiff1d(second_rpeaks, analog_value_in_second)
-
-    # print the results if desired
-    if kwargs["print_results"]:
-        print("")
-        print("Number of remaining values in %s: %i" % (kwargs["first_name"], len(remaining_in_first)))
-        print("Number of remaining values in %s: %i" % (kwargs["second_name"], len(remaining_in_second)))
-        print("Ratio of remaining values in %s: %f %%" % (kwargs["first_name"], round(100*len(remaining_in_first)/len(first_rpeaks), 2)))
-        print("Ratio of remaining values in %s: %f %%" % (kwargs["second_name"], round(100*len(remaining_in_second)/len(second_rpeaks), 2)))
-        print("")
-        #print("Mean squared error without same values: ", mse_without_same)
-        print("Root mean squared error without same values: %f = %f s" % (rmse_without_same, rmse_without_same/frequency))
-        #print("Mean squared error with same values: ", mse_with_same)
-        print("Root mean squared error with same values:%f = %f s" % (rmse_with_same, rmse_with_same/frequency))
+    # remaining_in_first = np.setdiff1d(first_rpeaks, analog_value_in_first)
+    # remaining_in_second = np.setdiff1d(second_rpeaks, analog_value_in_second)
     
     return rmse_without_same, rmse_with_same, len(same_values), len(analog_value_in_second)
 
@@ -655,7 +628,12 @@ def rri_string_evaluation(string):
 
 def get_rpeaks_classification_from_rri_file(file_path: str):
     """
-    Get R-peaks from an .rri file.
+    Get R-peak classification from an .rri file.
+
+    ARGUMENTS:
+    --------------------------------
+    file_path: str
+        path to the .rri file
 
     RETURNS:
     --------------------------------
@@ -711,6 +689,30 @@ def read_rpeaks_from_rri_files(
         rpeak_path: str
     ):
     """
+    Read the R peak values from all .rri files in the rpeaks_values_dirextory and save them
+
+    ARGUMENTS:
+    --------------------------------
+    data_directory: str
+        directory where the raw data is stored, to which we know the R peak values
+    valid_file_types: list
+        valid file types in the data directory
+    rpeaks_values_directory: str
+        directory where the R peak values are stored
+    valid_rpeak_values_file_types: list
+        valid file types in the rpeaks_values_directory
+    include_rpeak_value_classifications: list
+        list of the R peak classifications that should be included in the "R peak detection"
+    rpeak_path: str
+        path where the R peaks should be saved
+    
+    RETURNS:
+    --------------------------------
+    None, but the R peak values are saved as dictionary to a pickle file in following format:
+    {
+        "file_name": np.array of R-peaks of this file,
+        ...
+    }
     """
 
     # get all valid files
@@ -811,7 +813,7 @@ def rpeak_detection_comparison(
 
     # check if the evaluation already exists and if yes: ask for permission to override
     user_answer = ask_for_permission_to_override(file_path = rpeak_comparison_evaluation_path,
-                        message = "\nEvaluation of R peak detection accuracy already exists in " + rpeak_comparison_evaluation_path + ".")
+                        message = "\nEvaluation of R peak detection comparison already exists in " + rpeak_comparison_evaluation_path + ".")
     
     # cancel if user does not want to override
     if user_answer == "n":
@@ -878,10 +880,9 @@ def rpeak_detection_comparison(
 
 def rpeak_detection_comparison_report(
         rpeak_comparison_function_names: list,  
-        accurate_peaks_name: str, 
-        rpeak_accuracy_rmse_dezimal_places: int,
-        rpeak_accuracy_report_path: str,
-        rpeak_accuracy_evaluation_path: str
+        rpeak_comparison_report_dezimal_places: int,
+        rpeak_comparison_report_path: str,
+        rpeak_comparison_evaluation_path: str
     ):
     """
     Save the results of the R peak accuracy evaluation as a report to a text file.
@@ -906,196 +907,221 @@ def rpeak_detection_comparison_report(
     """
 
     # check if the report already exists and if yes: ask for permission to override
-    user_answer = ask_for_permission_to_override(file_path = rpeak_accuracy_report_path,
-            message = "\nR peak accuracy report already exists in " + rpeak_accuracy_report_path + ".")
+    user_answer = ask_for_permission_to_override(file_path = rpeak_comparison_report_path,
+            message = "\nR peak comparison report already exists in " + rpeak_comparison_report_path + ".")
 
     # cancel if user does not want to override
     if user_answer == "n":
         return
 
     # open the file to write the report to
-    accuracy_file = open(rpeak_accuracy_report_path, "w")
+    comparison_file = open(rpeak_comparison_report_path, "w")
 
     # write the file header
-    message = "R PEAK ACCURACY EVALUATION"
-    accuracy_file.write(message + "\n")
-    accuracy_file.write("=" * len(message) + "\n\n\n")
-
-    # set the table captions
-    RMSE_EX_CAPTION = "RMSE_exc"
-    RMSE_INC_CAPTION = "RMSE_inc"
-    FILE_CAPTION = "File"
-    TOTAL_LENGTH_CAPTION = "R peaks"
-    SAME_VALUES_CAPTION = "Same Values"
-    ANALOG_VALUES_CAPTION = "Analog Values"
+    message = "R PEAK COMPARISON REPORT"
+    comparison_file.write(message + "\n")
+    comparison_file.write("=" * len(message) + "\n\n\n")
 
     # load the data
-    all_files_rpeak_accuracy = load_from_pickle(rpeak_accuracy_evaluation_path)
+    all_files_rpeak_comparison = load_from_pickle(rpeak_comparison_evaluation_path)
 
-    # create lists to collect the RMSE values to calculate the mean
+    # create mean row captions
+    MEAN_ROW_CAPTION = "Mean Values:"
+    RMSE_EX_MEAN = "RMSE_exc: "
+    RMSE_INC_MEAN = "RMSE_inc: "
+    SAME_VALUES_RATIO_MEAN = "Same Ratio: "
+    ANALOG_VALUES_MEAN = "Analog Ratio: "
+    TOTAL_DISTANCE_MEAN = "R peak distance: "
+    TOTAL_DISTANCE_RATIO_MEAN = "      |-> Ratio: "
+    mean_value_captions = [RMSE_EX_MEAN, RMSE_INC_MEAN, SAME_VALUES_RATIO_MEAN, ANALOG_VALUES_MEAN, TOTAL_DISTANCE_MEAN, TOTAL_DISTANCE_RATIO_MEAN]
+    max_mean_value_caption_length = max([len(value) for value in mean_value_captions])
+
+    # create lists to collect the various values to calculate the mean
     collect_rmse_exc = []
     collect_rmse_inc = []
+    collect_rpeaks_distance = []
+    collect_rpeaks_distance_ratio = []
+    collect_analogue_values_ratio = []
+    collect_same_values_ratio = []
 
-    # round rmse values and collect them to print the mean
-    for file in all_files_rpeak_accuracy:
+    # collect various values to calculate the mean
+    for file in all_files_rpeak_comparison:
         this_rmse_exc = []
         this_rmse_inc = []
-        for func in range(len(rpeak_accuracy_function_names)):
-            all_files_rpeak_accuracy[file][func][0] = round(all_files_rpeak_accuracy[file][func][0], rpeak_accuracy_rmse_dezimal_places)
-            all_files_rpeak_accuracy[file][func][1] = round(all_files_rpeak_accuracy[file][func][1], rpeak_accuracy_rmse_dezimal_places)
+        this_rpeaks_distance = []
+        this_rpeaks_distance_ratio = []
+        this_analogue_values_ratio = []
+        this_same_values_ratio = []
 
-            this_rmse_exc.append(all_files_rpeak_accuracy[file][func][0])
-            this_rmse_inc.append(all_files_rpeak_accuracy[file][func][1])
+        for funcs_index in range(len(rpeak_comparison_function_names)):
+            # round rmse values
+            all_files_rpeak_comparison[file][funcs_index][0] = round(all_files_rpeak_comparison[file][funcs_index][0], rpeak_comparison_report_dezimal_places)
+            all_files_rpeak_comparison[file][funcs_index][1] = round(all_files_rpeak_comparison[file][funcs_index][1], rpeak_comparison_report_dezimal_places)
+
+            # collect rmse values
+            this_rmse_exc.append(all_files_rpeak_comparison[file][funcs_index][0])
+            this_rmse_inc.append(all_files_rpeak_comparison[file][funcs_index][1])
+            
+            # collect distance of number of detected R peaks
+            this_rpeaks_distance.append(abs(all_files_rpeak_comparison[file][funcs_index][4] - all_files_rpeak_comparison[file][funcs_index][5]))
+
+            # collect ratio of distance of number of detected R peaks
+            this_rpeaks_distance_ratio.append([this_rpeaks_distance[funcs_index] / all_files_rpeak_comparison[file][funcs_index][4], this_rpeaks_distance[funcs_index] / all_files_rpeak_comparison[file][funcs_index][5]])
+
+            # collect ratio of analog values to number of r peaks
+            this_analogue_values_ratio.append([all_files_rpeak_comparison[file][funcs_index][3] / all_files_rpeak_comparison[file][funcs_index][4], all_files_rpeak_comparison[file][funcs_index][3] / all_files_rpeak_comparison[file][funcs_index][5]])
+
+            # collect ratio of same values to number of r peaks
+            this_same_values_ratio.append([all_files_rpeak_comparison[file][funcs_index][2] / all_files_rpeak_comparison[file][funcs_index][4], all_files_rpeak_comparison[file][funcs_index][2] / all_files_rpeak_comparison[file][funcs_index][5]])
         
         collect_rmse_exc.append(this_rmse_exc)
         collect_rmse_inc.append(this_rmse_inc)
+        collect_rpeaks_distance.append(this_rpeaks_distance)
+        collect_rpeaks_distance_ratio.append(this_rpeaks_distance_ratio)
+        collect_analogue_values_ratio.append(this_analogue_values_ratio)
+        collect_same_values_ratio.append(this_same_values_ratio)
     
-    # calculate mean rmse values
+    # calculate mean values
     mean_rmse_exc = np.mean(collect_rmse_exc, axis = 0)
     mean_rmse_inc = np.mean(collect_rmse_inc, axis = 0)
-
-    # calculate mean distance of number of detected R peaks to accurate R peaks
-    collect_rpeaks_distance = []
-
-    for file in all_files_rpeak_accuracy:
-        this_rpeaks_distance = []
-        for func in range(len(rpeak_accuracy_function_names)):
-            this_rpeaks_distance.append(abs(all_files_rpeak_accuracy[file][func][4] - all_files_rpeak_accuracy[file][func][5]))
-        collect_rpeaks_distance.append(this_rpeaks_distance)
-    
     mean_rpeaks_distance = np.mean(collect_rpeaks_distance, axis = 0)
+    mean_rpeaks_distance_ratio = np.mean(collect_rpeaks_distance_ratio, axis = 0)
+    mean_analogue_values_ratio = np.mean(collect_analogue_values_ratio, axis = 0)
+    mean_same_values_ratio = np.mean(collect_same_values_ratio, axis = 0)
 
-    # calculate ratio of analog values to accurate R peaks
-    collect_analogue_values_ratio = []
-
-    for file in all_files_rpeak_accuracy:
-        this_same_values_ratio = []
-        for func in range(len(rpeak_accuracy_function_names)):
-            this_same_values_ratio.append(all_files_rpeak_accuracy[file][func][3] / all_files_rpeak_accuracy[file][func][5])
-        collect_analogue_values_ratio.append(this_same_values_ratio)
-
-    mean_same_values_ratio = np.mean(collect_analogue_values_ratio, axis = 0)
-
-    # write the mean values to file
-    message = "Mean values to compare used functions:"
-    accuracy_file.write(message + "\n")
-    accuracy_file.write("-" * len(message) + "\n\n")
-    captions = ["Mean RMSE_exc", "Mean RMSE_inc", "Mean R peaks difference", "Mean Analogue Values"]
-    caption_values = [mean_rmse_exc, mean_rmse_inc, mean_rpeaks_distance, mean_same_values_ratio]
-    for i in range(len(captions)):
-        message = captions[i] + " | "
-        first = True
-        for func in range(len(rpeak_accuracy_function_names)):
-            if first:
-                accuracy_file.write(message)
-                first = False
-            else:
-                accuracy_file.write(" " * (len(message)-2) + "| ")
-            accuracy_file.write(rpeak_accuracy_function_names[func] + ": " + str(caption_values[i][func]))
-            accuracy_file.write("\n")
-        accuracy_file.write("\n")
+    mean_row_values = []
+    mean_row_lengths = []
+    for funcs_index in range(len(rpeak_comparison_function_names)):
+        this_column = []
+        this_column.append(str(round(mean_rmse_exc[funcs_index], rpeak_comparison_report_dezimal_places)))
+        this_column.append(str(round(mean_rmse_inc[funcs_index], rpeak_comparison_report_dezimal_places)))
+        this_column.append(str(round(mean_same_values_ratio[funcs_index][0], rpeak_comparison_report_dezimal_places)) + " / " + str(round(mean_same_values_ratio[funcs_index][1], rpeak_comparison_report_dezimal_places)))
+        this_column.append(str(round(mean_analogue_values_ratio[funcs_index][0], rpeak_comparison_report_dezimal_places)) + " / " + str(round(mean_analogue_values_ratio[funcs_index][1], rpeak_comparison_report_dezimal_places)))
+        this_column.append(str(round(mean_rpeaks_distance[funcs_index], rpeak_comparison_report_dezimal_places)))
+        this_column.append(str(round(mean_rpeaks_distance_ratio[funcs_index][0], rpeak_comparison_report_dezimal_places)) + " / " + str(round(mean_rpeaks_distance_ratio[funcs_index][1], rpeak_comparison_report_dezimal_places)))
+        mean_row_values.append(this_column)
+        mean_row_lengths.append([len(value) for value in this_column])
     
-    accuracy_file.write("\n")
+    mean_row_lengths = np.array(mean_row_lengths)
+
+    # create table column captions
+    FILE_CAPTION = "File"
+    column_captions = [FILE_CAPTION]
+    for funcs_index in range(len(rpeak_comparison_function_names)):
+        column_captions.append(rpeak_comparison_function_names[funcs_index] + " / " + rpeak_comparison_function_names[funcs_index-1])
+    
+    # create column value captions
+    RMSE_EX_CAPTION = "RMSE_exc: "
+    RMSE_INC_CAPTION = "RMSE_inc: "
+    SAME_VALUES_CAPTION = "Same Values: "
+    SAME_VALUES_RATIO_CAPTION = "  |-> Ratio: "
+    ANALOG_VALUES_CAPTION = "Analog Values: "
+    ANALOG_VALUES_RATIO_CAPTION = "    |-> Ratio: "
+    TOTAL_LENGTH_CAPTION = "R peaks: "
+    value_captions = [RMSE_EX_CAPTION, RMSE_INC_CAPTION, TOTAL_LENGTH_CAPTION, SAME_VALUES_CAPTION, SAME_VALUES_RATIO_CAPTION, ANALOG_VALUES_CAPTION, ANALOG_VALUES_RATIO_CAPTION]
+    max_value_caption_length = max([len(value) for value in value_captions])
+    max_value_caption_length = max(max_value_caption_length, max_mean_value_caption_length)
             
     # calcualte max lengths of table columns
-    max_func_name = max([len(name) for name in rpeak_accuracy_function_names])
+    column_caption_length = [len(name) for name in column_captions]
 
-    all_file_lengths = [len(key) for key in all_files_rpeak_accuracy]
-    max_file_length = max(len(FILE_CAPTION), max(all_file_lengths)) + 3
+    all_file_lengths = [len(key) for key in all_files_rpeak_comparison]
+    all_file_lengths.append(len(MEAN_ROW_CAPTION))
+    max_file_length_column = max(len(FILE_CAPTION), max(all_file_lengths))
 
-    all_rmse_ex_lengths = []
-    for file in all_files_rpeak_accuracy:
-        for func in range(len(rpeak_accuracy_function_names)):
-            all_rmse_ex_lengths.append(len(str(all_files_rpeak_accuracy[file][func][0])))
-    all_rmse_ex_lengths = np.array(all_rmse_ex_lengths)
-    all_rmse_ex_lengths += max_func_name
-    max_rmse_ex_length = max(len(RMSE_EX_CAPTION), max(all_rmse_ex_lengths)) + 3
+    all_columns = []
+    all_column_lengths = []
 
-    all_rmse_inc_lengths = []
-    for file in all_files_rpeak_accuracy:
-        for func in range(len(rpeak_accuracy_function_names)):
-            all_rmse_inc_lengths.append(len(str(all_files_rpeak_accuracy[file][func][1])))
-    all_rmse_inc_lengths = np.array(all_rmse_inc_lengths)
-    all_rmse_inc_lengths += max_func_name
-    max_rmse_inc_length = max(len(RMSE_INC_CAPTION), max(all_rmse_inc_lengths)) + 3
+    for funcs_index in range(len(rpeak_comparison_function_names)):
+        this_column = []
+        for file in all_files_rpeak_comparison:
+            # RMSE excluding same R peaks:
+            this_column.append(str(all_files_rpeak_comparison[file][funcs_index][0]))
+            # RMSE including same R peaks:
+            this_column.append(str(all_files_rpeak_comparison[file][funcs_index][1]))
+            # Total number of R peaks:
+            this_column.append(str(all_files_rpeak_comparison[file][funcs_index][4]) + " / " + str(all_files_rpeak_comparison[file][funcs_index][5]))
+            # Number of R peaks that are the same:
+            this_column.append(str(all_files_rpeak_comparison[file][funcs_index][2]))
+            # Ratio of same values to number of r peaks:
+            key_to_index = list(all_files_rpeak_comparison.keys()).index(file)
+            same_val_ratio_1 = round(collect_same_values_ratio[key_to_index][funcs_index][0], rpeak_comparison_report_dezimal_places)
+            same_val_ratio_2 = round(collect_same_values_ratio[key_to_index][funcs_index][1], rpeak_comparison_report_dezimal_places)
+            this_column.append(str(same_val_ratio_1) + " / " + str(same_val_ratio_2))
+            # Number of R peaks that are considered as the same (difference < threshold):
+            this_column.append(str(all_files_rpeak_comparison[file][funcs_index][3]))
+            # Ratio of analog values to number of r peaks:
+            analog_val_ratio_1 = round(collect_analogue_values_ratio[key_to_index][funcs_index][0], rpeak_comparison_report_dezimal_places)
+            analog_val_ratio_2 = round(collect_analogue_values_ratio[key_to_index][funcs_index][1], rpeak_comparison_report_dezimal_places)
+            this_column.append(str(analog_val_ratio_1) + " / " + str(analog_val_ratio_2))
 
-    all_same_values_lengths = []
-    for file in all_files_rpeak_accuracy:
-        for func in range(len(rpeak_accuracy_function_names)):
-            all_same_values_lengths.append(len(str(all_files_rpeak_accuracy[file][func][2])))
-    all_same_values_lengths = np.array(all_same_values_lengths)
-    all_same_values_lengths += max_func_name
-    max_same_values_length = max(len(SAME_VALUES_CAPTION), max(all_same_values_lengths)) + 3
+        all_columns.append(this_column)
+        all_column_lengths.append([len(value) for value in this_column])
+    
+    all_column_lengths = np.array(all_column_lengths)
+    all_column_lengths = np.append(all_column_lengths, mean_row_lengths, axis = 1)
+    max_column_length = np.max(all_column_lengths, axis = 1)
+    max_column_length = np.insert(max_column_length, 0, max_file_length_column-max_value_caption_length)
 
-    all_analog_values_lengths = []
-    for file in all_files_rpeak_accuracy:
-        for func in range(len(rpeak_accuracy_function_names)):
-            all_analog_values_lengths.append(len(str(all_files_rpeak_accuracy[file][func][3])))
-    all_analog_values_lengths = np.array(all_analog_values_lengths)
-    all_analog_values_lengths += max_func_name
-    max_analog_values_length = max(len(ANALOG_VALUES_CAPTION), max(all_analog_values_lengths)) + 3
-
-    max_func_name = max(max_func_name, len(accurate_peaks_name)) + 3
-
-    all_rpeaks_lengths = []
-    for file in all_files_rpeak_accuracy:
-        for func in range(len(rpeak_accuracy_function_names)):
-            all_rpeaks_lengths.append(len(str(all_files_rpeak_accuracy[file][func][4])))
-
-    for file in all_files_rpeak_accuracy:
-        for func in range(len(rpeak_accuracy_function_names)):
-            all_rpeaks_lengths.append(len(str(all_files_rpeak_accuracy[file][func][5])))
-    all_rpeaks_lengths = np.array(all_rpeaks_lengths)
-
-    all_rpeaks_lengths += max_func_name
-    max_rpeaks_length = max(len(TOTAL_LENGTH_CAPTION), max(all_rpeaks_lengths)) + 3
+    column_caption_length = np.array(column_caption_length)
+    column_caption_length -= max_value_caption_length
+    for i in range(1, len(max_column_length)):
+        max_column_length[i] = max(max_column_length[i], column_caption_length[i])
 
     # write the legend for the table
     message = "Legend:"
-    accuracy_file.write(message + "\n")
-    accuracy_file.write("-" * len(message) + "\n\n")
-    accuracy_file.write("RMSE_exc... RMSE excluding same R peaks\n")
-    accuracy_file.write("RMSE_inc... RMSE including same R peaks\n")
-    accuracy_file.write("R peaks... Total number of R peaks\n")
-    accuracy_file.write("Same Values... Number of R peaks that are the same\n")
-    accuracy_file.write("Analogue Values... Number of R peaks that are considered as the same (difference < threshold)\n\n\n")
+    comparison_file.write(message + "\n")
+    comparison_file.write("-" * len(message) + "\n\n")
+    comparison_file.write(RMSE_EX_CAPTION + "RMSE excluding same R peaks\n")
+    comparison_file.write(RMSE_INC_CAPTION + "RMSE including same R peaks\n")
+    comparison_file.write(SAME_VALUES_CAPTION +  "Number of R peaks that are the same\n")
+    comparison_file.write(ANALOG_VALUES_CAPTION + "Number of R peaks that are considered as the same (difference < threshold)\n")
+    comparison_file.write(TOTAL_LENGTH_CAPTION + "Total number of R peaks\n\n\n")
 
     message = "Table with Accuracy Values for each file:"
-    accuracy_file.write(message + "\n")
-    accuracy_file.write("-" * len(message) + "\n\n")
+    comparison_file.write(message + "\n")
+    comparison_file.write("-" * len(message) + "\n\n")
 
     # create table header
-    accuracy_file.write(print_in_middle(FILE_CAPTION, max_file_length) + " | ")
-    accuracy_file.write(print_in_middle(RMSE_EX_CAPTION, max_rmse_ex_length) + " | ")
-    accuracy_file.write(print_in_middle(RMSE_INC_CAPTION, max_rmse_inc_length) + " | ")
-    accuracy_file.write(print_in_middle(TOTAL_LENGTH_CAPTION, max_rpeaks_length) + " | ")
-    accuracy_file.write(print_in_middle(SAME_VALUES_CAPTION, max_same_values_length) + " | ")
-    accuracy_file.write(print_in_middle(ANALOG_VALUES_CAPTION, max_analog_values_length) + " | ")
-    accuracy_file.write("\n")
-    accuracy_file.write("-" * (max_file_length + max_rmse_ex_length + max_rmse_inc_length + max_rpeaks_length + max_same_values_length + max_analog_values_length + 17) + "\n")
+    total_length = 0
+    for i in range(len(column_captions)):
+        comparison_file.write(print_in_middle(column_captions[i], max_column_length[i] + max_value_caption_length) + " | ")
+        total_length += max_column_length[i] + max_value_caption_length + 3
+    total_length -= 1
+
+    comparison_file.write("\n")
+    comparison_file.write("-" * total_length + "\n")
+
+    # write the mean values
+    vertical_center_index = len(mean_value_captions) // 2
+
+    for value_index in range(len(mean_value_captions)):
+        if value_index == vertical_center_index:
+            comparison_file.write(print_in_middle(MEAN_ROW_CAPTION, max_column_length[0] + max_value_caption_length) + " | ")
+        else:
+            comparison_file.write(print_in_middle("", max_column_length[0] + max_value_caption_length) + " | ")
+        for funcs_index in range(len(rpeak_comparison_function_names)):
+            comparison_file.write(print_left_aligned(mean_value_captions[value_index], max_value_caption_length))
+            comparison_file.write(print_left_aligned(str(mean_row_values[funcs_index][value_index]), max_column_length[funcs_index+1]))
+            comparison_file.write(" | ")
+        comparison_file.write("\n")
+    comparison_file.write("-" * total_length + "\n")
 
     # write the data
-    for file in all_files_rpeak_accuracy:
-        accuracy_file.write(print_in_middle(file, max_file_length) + " | ")
-        first = True
-        for func in range(len(rpeak_accuracy_function_names)):
-            if first:
-                first = False
-            else:
-                accuracy_file.write(print_in_middle("", max_file_length) + " | ")
-            accuracy_file.write(print_in_middle(rpeak_accuracy_function_names[func] + ": " + str(all_files_rpeak_accuracy[file][func][0]), max_rmse_ex_length) + " | ")
-            accuracy_file.write(print_in_middle(rpeak_accuracy_function_names[func] + ": " + str(all_files_rpeak_accuracy[file][func][1]), max_rmse_inc_length) + " | ")
-            accuracy_file.write(print_in_middle(rpeak_accuracy_function_names[func] + ": " + str(all_files_rpeak_accuracy[file][func][4]), max_rpeaks_length) + " | ")
-            accuracy_file.write(print_in_middle(rpeak_accuracy_function_names[func] + ": " + str(all_files_rpeak_accuracy[file][func][2]), max_same_values_length) + " | ")
-            accuracy_file.write(print_in_middle(rpeak_accuracy_function_names[func] + ": " + str(all_files_rpeak_accuracy[file][func][3]), max_analog_values_length) + " | ")
-            accuracy_file.write("\n")
-        accuracy_file.write(print_in_middle("", max_file_length) + " | ")
-        accuracy_file.write(print_in_middle("", max_rmse_ex_length) + " | ")
-        accuracy_file.write(print_in_middle("", max_rmse_inc_length) + " | ")
-        accuracy_file.write(print_in_middle(accurate_peaks_name + ": " + str(all_files_rpeak_accuracy[file][func][5]), max_rpeaks_length) + " | ")
-        accuracy_file.write(print_in_middle("", max_same_values_length) + " | ")
-        accuracy_file.write(print_in_middle("", max_analog_values_length) + " | ")
-        accuracy_file.write("\n")
-        accuracy_file.write("-" * (max_file_length + max_rmse_ex_length + max_rmse_inc_length + max_rpeaks_length + max_same_values_length + max_analog_values_length + 17) + "\n")
+    vertical_center_index = len(value_captions) // 2
 
-    accuracy_file.close()
+    for file_index in range(len(all_files_rpeak_comparison)):
+        for value_index in range(len(value_captions)):
+            if value_index == vertical_center_index:
+                index_to_key = str(list(all_files_rpeak_comparison.keys())[file_index])
+                comparison_file.write(print_in_middle(index_to_key, max_column_length[0] + max_value_caption_length) + " | ")
+            else:
+                comparison_file.write(print_in_middle("", max_column_length[0] + max_value_caption_length) + " | ")
+            for funcs_index in range(len(rpeak_comparison_function_names)):
+                comparison_file.write(print_left_aligned(value_captions[value_index], max_value_caption_length))
+                comparison_file.write(print_left_aligned(str(all_columns[funcs_index][file_index+value_index]), max_column_length[funcs_index+1]))
+                comparison_file.write(" | ")
+            comparison_file.write("\n")
+        comparison_file.write("-" * total_length + "\n")
+
+    comparison_file.close()

@@ -5,6 +5,7 @@ Main python file for the neural network project.
 """
 
 # import libraries
+import copy
 import numpy as np
 import os
 import pickle
@@ -58,9 +59,9 @@ ADDITIONALS_DIRECTORY = "Additions/"
 SHOW_CALIBRATION_DATA_DIRECTORY = ADDITIONALS_DIRECTORY + "Show_Calibration_Data/"
 
 # R peak accuracy evaluation
-RPEAK_ACCURACY_DIRECTORY = ADDITIONALS_DIRECTORY + "RPeak_Accuracy/"
-RPEAK_ACCURACY_EVALUATION_PATH = RPEAK_ACCURACY_DIRECTORY + "RPeak_Accuracy_Evaluation.pkl"
-RPEAK_ACCURACY_REPORT_PATH = RPEAK_ACCURACY_DIRECTORY + "RPeak_Accuracy.txt"
+RPEAK_COMPARISON_DIRECTORY = ADDITIONALS_DIRECTORY + "RPeak_Comparison/"
+RPEAK_COMPARISON_EVALUATION_PATH = RPEAK_COMPARISON_DIRECTORY + "RPeak_Comparison_Evaluation.pkl"
+RPEAK_COMPARISON_REPORT_PATH = RPEAK_COMPARISON_DIRECTORY + "RPeak_Comparison_Report.txt"
 GIF_RPEAKS_DIRECTORY = "Data/GIF/Analyse_Somno_TUM/RRI/"
 GIF_DATA_DIRECTORY = "Data/GIF/SOMNOwatch/"
 
@@ -104,8 +105,8 @@ settings_params = {
     "run_preparation_section": True, # if True, the PREPARATION SECTION will be executed
     # set what parts of the ADDITIONALS SECTION should be executed
     "show_calibration_data": True, # if True, the calibration data in the manually chosen intervals will be plotted and saved to TEMPORARY_FIGURE_DIRECTORY_PATH
-    "determine_rpeak_accuracy": True, # if True, the accuracy of the R peak detection functions will be evaluated
-    "determine_ecg_validation_comparison": True, # if True, the accuracy of the ECG Validation will be evaluated
+    "perform_rpeak_comparison": True, # if True, the R peak detection functions will be compared
+    "perform_ecg_validation_comparison": True, # if True, the ECG validations will be compared
     # set what parts of the PREPARATION SECTION should be executed
     "calculate_ecg_thresholds": True, # if True, you will have the option to recalculate the thresholds for the ecg validation
     "determine_valid_ecg_regions": True, # if True, you will have the option to recalculate the valid regions for the ECG data
@@ -157,19 +158,24 @@ calculate_MAD_params = {
 # parameters for the ADDITIONALS SECTION
 # --------------------------------------
 
-# parameters for the R peak accuracy evaluation
-rpeak_accuracy_params = {
-    "rpeak_accuracy_functions": [rpeak_detection.get_rpeaks_wfdb, rpeak_detection.get_rpeaks_old], # names of the R peak detection functions
-    "rpeak_accuracy_function_names": ["wfdb", "ecgdetectors"], # names of the R peak detection functions
-    "accurate_peaks_name": "Accurate", # name of the accurate R peaks
-    "accurate_rpeaks_raw_data_directory": GIF_DATA_DIRECTORY, # directory where the raw data of which we know the accurate R peaks are stored
-    "accurate_rpeaks_values_directory": GIF_RPEAKS_DIRECTORY, # directory where the accurate R peak values are stored
-    "valid_accurate_rpeak_file_types": [".rri"], # file types that store the accurate R peak data
-    "rpeak_accuracy_evaluation_path": RPEAK_ACCURACY_EVALUATION_PATH, # path to the pickle file where the evaluation results are saved
-    "rpeak_accuracy_rmse_dezimal_places": 4, # number of dezimal places for the RMSE values in the report
-    "rpeak_accuracy_report_path": RPEAK_ACCURACY_REPORT_PATH, # path to the text file where the evaluation results are printed
+# parameters for the R peak comparison evaluation
+rpeak_comparison_params = {
+    "rpeaks_values_directory": GIF_RPEAKS_DIRECTORY, # directory where the (gif) R peak location and classification is stored
+    "valid_rpeak_values_file_types": [".rri"], # file types that store the R peak data
+    "include_rpeak_value_classifications": ["N"], # classifications that should be included in the evaluation
+    #
+    "rpeak_comparison_functions": [rpeak_detection.get_rpeaks_wfdb, rpeak_detection.get_rpeaks_old], # R peak detection functions
+    "rpeak_classification_functions": [rpeak_detection.read_rpeaks_from_rri_files], # functions to read the R peak classifications
+    "rpeak_comparison_evaluation_path": RPEAK_COMPARISON_EVALUATION_PATH, # path to the pickle file where the evaluation results are saved
+    #
+    "rpeak_comparison_function_names": ["wfdb", "ecgdetectors", "gif_classification"], # names of all used R peak functions
+    "rpeak_comparison_report_dezimal_places": 4, # number of dezimal places for the RMSE values in the report
+    "rpeak_comparison_report_path": RPEAK_COMPARISON_REPORT_PATH, # path to the text file where the evaluation results are printed
+    "rpeaks_classification_raw_data_directory": GIF_DATA_DIRECTORY, # directory where the raw data of which we have the rpeak classifications are stored
+    "rpeaks_classification_values_directory": GIF_RPEAKS_DIRECTORY, # directory where the R peak classifications are stored
 }
 
+# parameters for the ECG Validation comparison evaluation
 ecg_validation_comparison_params = {
     "ecg_validation_comparison_raw_data_directory": GIF_DATA_DIRECTORY, # directory where the raw data of which we know the accurate ECG Validation are stored
     "ecg_classification_values_directory": GIF_ECG_VALIDATION_DIRECTORY, # directory where the accurate ECG Validation values are stored
@@ -180,9 +186,9 @@ ecg_validation_comparison_params = {
 }
 
 # add all parameters to the parameters dictionary, so we can access them later more easily
-if settings_params["determine_rpeak_accuracy"] and settings_params["run_additionals_section"]:
-    parameters.update(rpeak_accuracy_params)
-if settings_params["determine_ecg_validation_accuracy"] and settings_params["run_additionals_section"]:
+if settings_params["perform_rpeak_comparison"] and settings_params["run_additionals_section"]:
+    parameters.update(rpeak_comparison_params)
+if settings_params["perform_ecg_validation_comparison"] and settings_params["run_additionals_section"]:
     parameters.update(ecg_validation_comparison_params)
 parameters.update(settings_params)
 parameters.update(file_params)
@@ -191,7 +197,7 @@ parameters.update(detect_rpeaks_params)
 parameters.update(calculate_MAD_params)
 
 # delete the dictionaries as they are saved in the parameters dictionary now
-del settings_params, file_params, valid_ecg_regions_params, detect_rpeaks_params, calculate_MAD_params, rpeak_accuracy_params
+del settings_params, file_params, valid_ecg_regions_params, detect_rpeaks_params, calculate_MAD_params, rpeak_comparison_params, ecg_validation_comparison_params
 
 # following parameters are calculated in the PREPARATION section. They are written here for explanation
 params_to_be_calculated = {
@@ -199,12 +205,18 @@ params_to_be_calculated = {
     "check_ecg_std_max_threshold": 530.62, # if the standard deviation of the ECG data is above this threshold, the data is considered invalid
     "check_ecg_distance_std_ratio_threshold": 1.99, # if the ratio of the distance between two peaks and twice the standard deviation of the ECG data is above this threshold, the data is considered invalid
 }
+del params_to_be_calculated
 
 # check the parameters:
-# ----------------------
+# =====================
+
 validate_parameter_settings(parameters)
 
 # create lists of parameters relevant for the following functions (to make the code more readable)
+
+# list for the PREPARATION SECTION
+# --------------------------------
+
 ecg_thresholds_variables = ["ecg_calibration_file_path", "ecg_thresholds_multiplier", 
                             "ecg_thresholds_dezimal_places", "ecg_key", "ecg_thresholds_save_path"]
 
@@ -222,13 +234,18 @@ combine_detected_rpeaks_variables = ["data_directory", "valid_file_types", "ecg_
 calculate_MAD_variables = ["data_directory", "valid_file_types", "wrist_acceleration_keys", 
                         "mad_time_period_seconds", "mad_values_path"]
 
-evaluate_rpeak_detection_accuracy_variables = ["accurate_rpeaks_raw_data_directory", "valid_file_types",
-                    "accurate_rpeaks_values_directory", "valid_accurate_rpeak_file_types",
-                    "rpeak_distance_threshold_seconds","rpeak_accuracy_evaluation_path", "ecg_key"]
 
-rpeak_accuracy_report_variables = ["rpeak_accuracy_function_names", "accurate_peaks_name", 
-                        "rpeak_accuracy_rmse_dezimal_places", "rpeak_accuracy_report_path",
-                        "rpeak_accuracy_evaluation_path"]
+# lists for the ADDITIONALS SECTION
+# ---------------------------------
+
+read_rpeak_classification_variables = ["data_directory", "valid_file_types", "rpeaks_values_directory", 
+        "valid_rpeak_values_file_types", "include_rpeak_value_classifications"]
+
+rpeak_detection_comparison_variables = ["data_directory", "valid_file_types", "ecg_key",
+                    "rpeak_distance_threshold_seconds", "rpeak_comparison_evaluation_path"]
+
+rpeak_detection_comparison_report_variables = ["rpeak_comparison_function_names", "rpeak_comparison_report_dezimal_places", 
+                                   "rpeak_comparison_report_path", "rpeak_comparison_evaluation_path"]
 
 ecg_validation_comparison_variables = ["ecg_classification_values_directory", 
         "ecg_classification_file_types", "ecg_validation_comparison_evaluation_path",
@@ -311,7 +328,7 @@ def additional_section(run_section: bool):
                 )
     
     # create ecg validation thresholds if they are needed in this section
-    if parameters["determine_rpeak_accuracy"] or parameters["determine_ecg_validation_accuracy"]:
+    if parameters["perform_rpeak_comparison"] or parameters["perform_ecg_validation_comparison"]:
         parameters["ecg_thresholds_save_path"] = ADDITIONALS_DIRECTORY + get_file_name_from_path(parameters["ecg_thresholds_save_path"])
         # create arguments for ecg thresholds evaluation and calculate them
         ecg_thresholds_args = create_sub_dict(parameters, ecg_thresholds_variables)
@@ -326,6 +343,7 @@ def additional_section(run_section: bool):
         del manual_calibration_intervals
 
         # change the data paths to where the ECG Validation are stored
+        store_old_data_directory = copy.deepcopy(parameters["data_directory"])
         parameters["data_directory"] = parameters["ecg_validation_comparison_raw_data_directory"]
         parameters["valid_ecg_regions_path"] = ADDITIONALS_DIRECTORY + get_file_name_from_path(parameters["valid_ecg_regions_path"])
 
@@ -340,7 +358,7 @@ def additional_section(run_section: bool):
     --------------------------------
     """
     # determine the accuracy of the ECG Validation if user requested it
-    if parameters["determine_ecg_validation_accuracy"]:
+    if parameters["perform_ecg_validation_comparison"]:
         # create directory to save accuracy evaluation results if it does not exist
         if not os.path.isdir(ECG_VALIDATION_COMPARISON_DIRECTORY):
             os.mkdir(ECG_VALIDATION_COMPARISON_DIRECTORY)
@@ -359,40 +377,53 @@ def additional_section(run_section: bool):
     --------------------------------
     """
 
-    # determine the accuracy of the R peak detection functions if user requested it
-    if parameters["determine_rpeak_accuracy"]:
-        # create directory to save accuracy evaluation results if it does not exist
-        if not os.path.isdir(RPEAK_ACCURACY_DIRECTORY):
-            os.mkdir(RPEAK_ACCURACY_DIRECTORY)
-        # change the data paths to where the accurate R peaks are stored
-        parameters["data_directory"] = parameters["accurate_rpeaks_raw_data_directory"]
+    # compare the R peak detection functions if user requested it
+    if parameters["perform_rpeak_comparison"]:
+        # create directory to save comparison evaluation results if it does not exist
+        if not os.path.isdir(RPEAK_COMPARISON_DIRECTORY):
+            os.mkdir(RPEAK_COMPARISON_DIRECTORY)
+        
+        # change the data paths to where the R peak classifications are stored
+        if len(parameters["rpeak_classification_functions"]) > 0:
+            parameters["data_directory"] = parameters["rpeaks_classification_raw_data_directory"]
+        else:
+            parameters["data_directory"] = store_old_data_directory
 
         # create arguments for the R peak detection evaluation
         detect_rpeaks_args = create_sub_dict(parameters, detect_rpeaks_variables)
 
         # create paths to where the detected R peaks will be saved
         compare_rpeaks_paths = []
-        for i in range(len(parameters["rpeak_accuracy_function_names"])):
-            compare_rpeaks_paths.append(create_rpeaks_pickle_path(RPEAK_ACCURACY_DIRECTORY, parameters["rpeak_accuracy_function_names"][i]))
+        for func_name in parameters["rpeak_comparison_function_names"]:
+            compare_rpeaks_paths.append(create_rpeaks_pickle_path(RPEAK_COMPARISON_DIRECTORY, func_name))
 
         # detect R peaks in the valid regions of the ECG data
-        for i in range(len(parameters["rpeak_accuracy_functions"])):
-            detect_rpeaks_args["rpeak_function"] = parameters["rpeak_accuracy_functions"][i]
-            detect_rpeaks_args["rpeak_function_name"] = parameters["rpeak_accuracy_function_names"][i]
+        classification_index_offset = 0
+        for i in range(len(parameters["rpeak_comparison_functions"])):
+            classification_index_offset += 1
+            detect_rpeaks_args["rpeak_function"] = parameters["rpeak_comparison_functions"][i]
+            detect_rpeaks_args["rpeak_function_name"] = parameters["rpeak_comparison_function_names"][i]
             detect_rpeaks_args["rpeak_path"] = compare_rpeaks_paths[i]
             rpeak_detection.detect_rpeaks(**detect_rpeaks_args)
 
         del detect_rpeaks_args
 
-        # create arguments for the R peak accuracy evaluation and perform it
-        evaluate_rpeak_detection_accuracy_args = create_sub_dict(parameters, evaluate_rpeak_detection_accuracy_variables)
-        evaluate_rpeak_detection_accuracy_args["compare_rpeaks_paths"] = compare_rpeaks_paths
-        rpeak_detection.evaluate_rpeak_detection_accuracy(**evaluate_rpeak_detection_accuracy_args)
-        del evaluate_rpeak_detection_accuracy_args
+        # read r peaks from the classification files if they are needed
+        read_rpeak_classification_args = create_sub_dict(parameters, read_rpeak_classification_variables)
+        for i in range(len(parameters["rpeak_classification_functions"])):
+            read_rpeak_classification_args["rpeak_path"] = compare_rpeaks_paths[classification_index_offset + i]
+            rpeak_detection.read_rpeaks_from_rri_files(**read_rpeak_classification_args)
+        del read_rpeak_classification_args
 
-        # create arguments for printing the R peak accuracy report and print it
-        rpeak_accuracy_report_args = create_sub_dict(parameters, rpeak_accuracy_report_variables)
-        rpeak_detection.print_rpeak_accuracy_results(**rpeak_accuracy_report_args)
+        # create arguments for the R peak comparison evaluation and perform it
+        rpeak_detection_comparison_args = create_sub_dict(parameters, rpeak_detection_comparison_variables)
+        rpeak_detection_comparison_args["compare_rpeaks_paths"] = compare_rpeaks_paths
+        rpeak_detection.rpeak_detection_comparison(**rpeak_detection_comparison_args)
+        del rpeak_detection_comparison_args
+
+        # create arguments for printing the R peak comparison report and print it
+        rpeak_comparison_report_args = create_sub_dict(parameters, rpeak_detection_comparison_report_variables)
+        rpeak_detection.rpeak_detection_comparison_report(**rpeak_comparison_report_args)
     
     # terminate the script after the ADDITIONALS SECTION
     raise SystemExit("\nIt is not intended to run the ADDTIONAL SECTION and afterwards the MAIN project. As a matter of assuring the correct execution of the script, the script will be TERMINATED. If you want to execute the MAIN project, please set the 'run_additionals_section' parameter to False in the settings section of the script\n")
@@ -500,8 +531,12 @@ In this section we will run the functions we have created until now.
 """
 
 def main():
-    additional_section(parameters["run_additionals_section"])
-    preparation_section(parameters["run_preparation_section"])
+    # create arguments for printing the R peak comparison report and print it
+    rpeak_comparison_report_args = create_sub_dict(parameters, rpeak_detection_comparison_report_variables)
+    rpeak_detection.rpeak_detection_comparison_report(**rpeak_comparison_report_args)
+
+    # additional_section(parameters["run_additionals_section"])
+    # preparation_section(parameters["run_preparation_section"])
 
     # rpeaks = load_from_pickle(PREPARATION_DIRECTORY + "RPeaks_wfdb.pkl")
     # print(rpeaks)

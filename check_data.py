@@ -656,7 +656,7 @@ def ecg_validation_comparison(
             if this_file_name in acc_file:
                 this_accurate_file = acc_file
         try:
-            accurate_ecg_validation_dictionary = get_ecg_classification_from_txt_file(ecg_classification_values_directory + this_accurate_file)
+            ecg_classification_dictionary = get_ecg_classification_from_txt_file(ecg_classification_values_directory + this_accurate_file)
         except ValueError:
             print("Accurate R peaks are missing for %s. Skipping this file." % file_key)
             continue
@@ -664,7 +664,7 @@ def ecg_validation_comparison(
         # compare the differnt ECG validations
         this_file_accuracy_values = compare_ecg_validations(
             validated_intervals = determined_ecg_validation_dictionary[file_key],
-            accurate_classification = accurate_ecg_validation_dictionary
+            ecg_classification = ecg_classification_dictionary
             )
         
         # save the R peak accuracy values for this file to the dictionary

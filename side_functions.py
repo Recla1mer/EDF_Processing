@@ -77,23 +77,23 @@ def validate_parameter_settings(parameters):
     if not isinstance(parameters["mad_values_path"], str):
         raise ValueError("'mad_values_path' parameter must be a string.")
 
-    # parameters for the R peak accuracy evaluation
-    if not isinstance(parameters["rpeak_accuracy_functions"], list):
-        raise ValueError("'rpeak_accuracy_functions' parameter must be a list.")
-    if not isinstance(parameters["rpeak_accuracy_function_names"], list):
-        raise ValueError("'rpeak_accuracy_function_names' parameter must be a list.")
-    if not isinstance(parameters["accurate_peaks_name"], str):
-        raise ValueError("'accurate_peaks_name' parameter must be a string.")
-    if not isinstance(parameters["accurate_rpeaks_raw_data_directory"], str):
-        raise ValueError("'accurate_rpeaks_raw_data_directory' parameter must be a string.")
-    if not isinstance(parameters["accurate_rpeaks_values_directory"], str):
-        raise ValueError("'accurate_rpeaks_values_directory' parameter must be a string.")
-    if not isinstance(parameters["valid_accurate_rpeak_file_types"], list):
-        raise ValueError("'valid_accurate_rpeak_file_types' parameter must be a list.")
-    if not isinstance(parameters["rpeak_accuracy_evaluation_path"], str):
-        raise ValueError("'rpeak_accuracy_evaluation_path' parameter must be a string.")
-    if not isinstance(parameters["rpeak_accuracy_rmse_dezimal_places"], int):
-        raise ValueError("'rpeak_accuracy_rmse_dezimal_places' parameter must be an integer.")
+    # # parameters for the R peak accuracy evaluation
+    # if not isinstance(parameters["rpeak_accuracy_functions"], list):
+    #     raise ValueError("'rpeak_accuracy_functions' parameter must be a list.")
+    # if not isinstance(parameters["rpeak_accuracy_function_names"], list):
+    #     raise ValueError("'rpeak_accuracy_function_names' parameter must be a list.")
+    # if not isinstance(parameters["accurate_peaks_name"], str):
+    #     raise ValueError("'accurate_peaks_name' parameter must be a string.")
+    # if not isinstance(parameters["accurate_rpeaks_raw_data_directory"], str):
+    #     raise ValueError("'accurate_rpeaks_raw_data_directory' parameter must be a string.")
+    # if not isinstance(parameters["accurate_rpeaks_values_directory"], str):
+    #     raise ValueError("'accurate_rpeaks_values_directory' parameter must be a string.")
+    # if not isinstance(parameters["valid_accurate_rpeak_file_types"], list):
+    #     raise ValueError("'valid_accurate_rpeak_file_types' parameter must be a list.")
+    # if not isinstance(parameters["rpeak_accuracy_evaluation_path"], str):
+    #     raise ValueError("'rpeak_accuracy_evaluation_path' parameter must be a string.")
+    # if not isinstance(parameters["rpeak_accuracy_rmse_dezimal_places"], int):
+    #     raise ValueError("'rpeak_accuracy_rmse_dezimal_places' parameter must be an integer.")
 
 
 def progress_bar(index, total, bar_len=50, title='Please wait'):
@@ -290,7 +290,7 @@ def create_rpeaks_pickle_path(Directory, rpeak_function_name):
     return Directory + "RPeaks_" + rpeak_function_name + ".pkl"
 
 
-def print_in_middle(string, length):
+def print_in_middle(string: str, length: int):
     """
     Function to center a string in a given length. Needed in printing tables.
 
@@ -309,3 +309,23 @@ def print_in_middle(string, length):
     len_string = len(string)
     undersize = int((length - len_string) // 2)
     return " " * undersize + string + " " * (length - len_string - undersize)
+
+
+def print_left_aligned(string: str, length: int):
+    """
+    Function to left align a string in a given length. Needed in printing tables.
+
+    ARGUMENTS:
+    --------------------------------
+    string: str
+        string that should be left aligned
+    length: int
+        length in which the string should be left aligned
+    
+    RETURNS:
+    --------------------------------
+    left_aligned_string: str
+        string left aligned in the given length
+    """
+    len_string = len(string)
+    return string + " " * (length - len_string)
