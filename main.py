@@ -58,14 +58,14 @@ ADDITIONALS_DIRECTORY = "Additions/"
 # Show Calibration Data
 SHOW_CALIBRATION_DATA_DIRECTORY = ADDITIONALS_DIRECTORY + "Show_Calibration_Data/"
 
-# R peak accuracy evaluation
+# R peak detection comparison
 RPEAK_COMPARISON_DIRECTORY = ADDITIONALS_DIRECTORY + "RPeak_Comparison/"
 RPEAK_COMPARISON_EVALUATION_PATH = RPEAK_COMPARISON_DIRECTORY + "RPeak_Comparison_Evaluation.pkl"
 RPEAK_COMPARISON_REPORT_PATH = RPEAK_COMPARISON_DIRECTORY + "RPeak_Comparison_Report.txt"
 GIF_RPEAKS_DIRECTORY = "Data/GIF/Analyse_Somno_TUM/RRI/"
 GIF_DATA_DIRECTORY = "Data/GIF/SOMNOwatch/"
 
-# ECG Validation accuracy evaluation
+# ECG Validation comparison
 ECG_VALIDATION_COMPARISON_DIRECTORY = ADDITIONALS_DIRECTORY + "ECG_Validation_Comparison/"
 ECG_VALIDATION_COMPARISON_EVALUATION_PATH = ECG_VALIDATION_COMPARISON_DIRECTORY + "ECG_Validation_Comparison_Evaluation.pkl"
 ECG_VALIDATION_COMPARISON_REPORT_PATH = ECG_VALIDATION_COMPARISON_DIRECTORY + "ECG_Validation_Comparison_Report.txt"
@@ -79,8 +79,6 @@ if not os.path.isdir(TEMPORARY_FIGURE_DIRECTORY):
     os.mkdir(TEMPORARY_FIGURE_DIRECTORY)
 if not os.path.isdir(PREPARATION_DIRECTORY):
     os.mkdir(PREPARATION_DIRECTORY)
-if not os.path.isdir(ADDITIONALS_DIRECTORY):
-    os.mkdir(ADDITIONALS_DIRECTORY)
 
 
 """
@@ -96,6 +94,7 @@ This is because it should usually be run only once, while you might want to run 
 sections multiple times.
 """
 
+# dictionary that will store all parameters that are used within the project
 parameters = dict()
 
 # main parameters: control which sections of the project will be executed
@@ -104,7 +103,7 @@ settings_params = {
     "run_additionals_section": True, # if True, the ADDITIONALS SECTION will be executed
     "run_preparation_section": True, # if True, the PREPARATION SECTION will be executed
     # set what parts of the ADDITIONALS SECTION should be executed
-    "show_calibration_data": True, # if True, the calibration data in the manually chosen intervals will be plotted and saved to TEMPORARY_FIGURE_DIRECTORY_PATH
+    "show_calibration_data": True, # if True, the calibration data in the manually chosen intervals will be plotted and saved to the SHOW_CALIBRATION_DATA_DIRECTORY
     "perform_rpeak_comparison": True, # if True, the R peak detection functions will be compared
     "perform_ecg_validation_comparison": True, # if True, the ECG validations will be compared
     # set what parts of the PREPARATION SECTION should be executed
@@ -128,12 +127,12 @@ file_params = {
 # parameters for the ECG Validation
 valid_ecg_regions_params = {
     "ecg_calibration_file_path": ECG_CALIBRATION_DATA_PATH, # path to the EDF file for threshold calibration
-    "ecg_thresholds_multiplier": 0.5, # multiplier for the thresholds in check_data.check_ecg() (between 0 and 1)
+    "ecg_thresholds_multiplier": 0.5, # multiplier for the thresholds in check_data.check_ecg() (between 0 and 1, the higher the more strict the thresholds are)
     "ecg_thresholds_dezimal_places": 2, # number of dezimal places for the check ecg thresholds in the pickle files
     "ecg_thresholds_save_path": ECG_VALIDATION_THRESHOLDS_PATH, # path to the pickle file where the thresholds are saved
     "check_ecg_time_interval_seconds": 10, # time interval considered when determining the valid regions for the ECG data
     "check_ecg_min_valid_length_minutes": 5, # minimum length of valid data in minutes
-    "check_ecg_allowed_invalid_region_length_seconds": 30, # data region (see above) still considered valid if the invalid part is shorter than this
+    "check_ecg_allowed_invalid_region_length_seconds": 30, # data region (see directly above) still considered valid if the invalid part is shorter than this
     "valid_ecg_regions_path": VALID_ECG_REGIONS_PATH, # path to the pickle file where the valid regions for the ECG data are saved
 }
 
@@ -143,7 +142,7 @@ detect_rpeaks_params = {
     "rpeak_secondary_function": rpeak_detection.get_rpeaks_old, # secondary R peak detection function
     "rpeak_name_primary": "wfdb", # name of the primary R peak detection function
     "rpeak_name_secondary": "ecgdetectors", # name of the secondary R peak detection function
-    "rpeak_distance_threshold_seconds": 0.05, # max 50ms
+    "rpeak_distance_threshold_seconds": 0.05, # If R peaks in the two functions differ by this value, they are still considered the same (max 50ms)
     "certain_rpeaks_path": CERTAIN_RPEAKS_PATH, # path to the pickle file where the certain R peaks are saved (detected by both methods)
     "uncertain_primary_rpeaks_path": UNCERTAIN_PRIMARY_RPEAKS_PATH, # path to the pickle file where the uncertain primary R peaks are saved (remaining R peaks from the primary method)
     "uncertain_secondary_rpeaks_path": UNCERTAIN_SECONDARY_RPEAKS_PATH, # path to the pickle file where the uncertain secondary R peaks are saved (remaining R peaks from the secondary method)
@@ -158,10 +157,11 @@ calculate_MAD_params = {
 # parameters for the ADDITIONALS SECTION
 # --------------------------------------
 
-# parameters for the R peak comparison evaluation
+# parameters for the R peak detection comparison
 rpeak_comparison_params = {
-    "rpeaks_values_directory": GIF_RPEAKS_DIRECTORY, # directory where the (gif) R peak location and classification is stored
-    "valid_rpeak_values_file_types": [".rri"], # file types that store the R peak data
+    "rpeaks_values_directory": GIF_RPEAKS_DIRECTORY, # directory where the given R peak location and classification is stored
+    "rpeaks_classification_raw_data_directory": GIF_DATA_DIRECTORY, # directory where the raw data of which we have the rpeak classifications are stored
+    "valid_rpeak_values_file_types": [".rri"], # file types that store the R peak classification data
     "include_rpeak_value_classifications": ["N"], # classifications that should be included in the evaluation
     #
     "rpeak_comparison_functions": [rpeak_detection.get_rpeaks_wfdb, rpeak_detection.get_rpeaks_old], # R peak detection functions
@@ -169,20 +169,18 @@ rpeak_comparison_params = {
     "rpeak_comparison_evaluation_path": RPEAK_COMPARISON_EVALUATION_PATH, # path to the pickle file where the evaluation results are saved
     #
     "rpeak_comparison_function_names": ["wfdb", "ecgdetectors", "gif_classification"], # names of all used R peak functions
-    "rpeak_comparison_report_dezimal_places": 4, # number of dezimal places for the RMSE values in the report
-    "rpeak_comparison_report_path": RPEAK_COMPARISON_REPORT_PATH, # path to the text file where the evaluation results are printed
-    "rpeaks_classification_raw_data_directory": GIF_DATA_DIRECTORY, # directory where the raw data of which we have the rpeak classifications are stored
-    "rpeaks_classification_values_directory": GIF_RPEAKS_DIRECTORY, # directory where the R peak classifications are stored
+    "rpeak_comparison_report_dezimal_places": 4, # number of dezimal places in the comparison report
+    "rpeak_comparison_report_path": RPEAK_COMPARISON_REPORT_PATH, # path to the text file that stores the comparison report
 }
 
-# parameters for the ECG Validation comparison evaluation
+# parameters for the ECG Validation comparison
 ecg_validation_comparison_params = {
-    "ecg_validation_comparison_raw_data_directory": GIF_DATA_DIRECTORY, # directory where the raw data of which we know the accurate ECG Validation are stored
-    "ecg_classification_values_directory": GIF_ECG_VALIDATION_DIRECTORY, # directory where the accurate ECG Validation values are stored
-    "ecg_classification_file_types": [".txt"], # file types that store the accurate ECG Validation data
-    "ecg_validation_comparison_evaluation_path": ECG_VALIDATION_COMPARISON_EVALUATION_PATH, # path to the pickle file where the evaluation results are saved
-    "ecg_validation_comparison_report_path": ECG_VALIDATION_COMPARISON_REPORT_PATH, # path to the text file where the evaluation results are printed
-    "ecg_validation_comparison_report_dezimal_places": 4, # number of dezimal places for the accuracy values in the report
+    "ecg_validation_comparison_raw_data_directory": GIF_DATA_DIRECTORY, # directory that stores the raw data of which we have the ECG classification
+    "ecg_classification_values_directory": GIF_ECG_VALIDATION_DIRECTORY, # directory that stores the ECG classification values
+    "ecg_classification_file_types": [".txt"], # file types that store the ECG clasification data
+    "ecg_validation_comparison_evaluation_path": ECG_VALIDATION_COMPARISON_EVALUATION_PATH, # path to the pickle file where the comparison results are saved
+    "ecg_validation_comparison_report_path": ECG_VALIDATION_COMPARISON_REPORT_PATH, # path to the text file that stores the comparison report
+    "ecg_validation_comparison_report_dezimal_places": 4, # number of dezimal places in the comparison report
 }
 
 # add all parameters to the parameters dictionary, so we can access them later more easily
@@ -294,19 +292,23 @@ main part of the project.
 def additional_section(run_section: bool):
     """
     Section that is not relevant for the main part of the project. It shows calibration data
-    and determines the accuracy of the R peak detection functions.
+    and compares different R peak detections and ECG Validations.
     """
 
     # check if the section should be run
     if not run_section:
         return
+    
+    # create needed directory if it does not exist
+    if not os.path.isdir(ADDITIONALS_DIRECTORY):
+        os.mkdir(ADDITIONALS_DIRECTORY)
 
     """
     --------------------------------
     SHOW CALIBRATION DATA
     --------------------------------
     """
-    # get manually chosen calibration intervals for the ECG Validation:
+    # get manually chosen calibration intervals for the ECG validation:
     manual_calibration_intervals, manual_interval_size = ecg_threshold_calibration_intervals()
 
     # show calibration data if user requested it
@@ -327,7 +329,7 @@ def additional_section(run_section: bool):
                 SHOW_CALIBRATION_DATA_DIRECTORY + names[manual_calibration_intervals.index(interval)] + ".png"
                 )
     
-    # create ecg validation thresholds if they are needed in this section
+    # perform ecg validation if needed
     if parameters["perform_rpeak_comparison"] or parameters["perform_ecg_validation_comparison"]:
         parameters["ecg_thresholds_save_path"] = ADDITIONALS_DIRECTORY + get_file_name_from_path(parameters["ecg_thresholds_save_path"])
         # create arguments for ecg thresholds evaluation and calculate them
@@ -342,7 +344,7 @@ def additional_section(run_section: bool):
         del ecg_validation_thresholds_dict
         del manual_calibration_intervals
 
-        # change the data paths to where the ECG Validation are stored
+        # change the data paths to where the ECG classification is stored
         store_old_data_directory = copy.deepcopy(parameters["data_directory"])
         parameters["data_directory"] = parameters["ecg_validation_comparison_raw_data_directory"]
         parameters["valid_ecg_regions_path"] = ADDITIONALS_DIRECTORY + get_file_name_from_path(parameters["valid_ecg_regions_path"])
@@ -354,32 +356,32 @@ def additional_section(run_section: bool):
     
     """
     --------------------------------
-    DETERMINE ECG VALIDATION ACCURACY
+    COMPARE ECG VALIDATIONS
     --------------------------------
     """
-    # determine the accuracy of the ECG Validation if user requested it
+    # compare ECG validations if user requested it
     if parameters["perform_ecg_validation_comparison"]:
-        # create directory to save accuracy evaluation results if it does not exist
+        # create directory to save comparison results if it does not exist
         if not os.path.isdir(ECG_VALIDATION_COMPARISON_DIRECTORY):
             os.mkdir(ECG_VALIDATION_COMPARISON_DIRECTORY)
-        # create arguments for the ECG Validation accuracy evaluation and perform it
+        # create arguments for the ECG validation comparison and perform it
         ecg_validation_comparison_args = create_sub_dict(parameters, ecg_validation_comparison_variables)
         check_data.ecg_validation_comparison(**ecg_validation_comparison_args)
         del ecg_validation_comparison_args
 
-        # create arguments for printing the ECG Validation accuracy report and print it
+        # create arguments for printing the ECG validation comparison report
         ecg_validation_report_args = create_sub_dict(parameters, ecg_validation_comparison_report_variables)
         check_data.ecg_validation_comparison_report(**ecg_validation_report_args)
     
     """
     --------------------------------
-    DETERMINE R PEAK ACCURACY
+    COMPARE R PEAK DETECTIONS
     --------------------------------
     """
 
     # compare the R peak detection functions if user requested it
     if parameters["perform_rpeak_comparison"]:
-        # create directory to save comparison evaluation results if it does not exist
+        # create directory to save comparison results if it does not exist
         if not os.path.isdir(RPEAK_COMPARISON_DIRECTORY):
             os.mkdir(RPEAK_COMPARISON_DIRECTORY)
         
@@ -426,7 +428,7 @@ def additional_section(run_section: bool):
         rpeak_detection.rpeak_detection_comparison_report(**rpeak_comparison_report_args)
     
     # terminate the script after the ADDITIONALS SECTION
-    raise SystemExit("\nIt is not intended to run the ADDTIONAL SECTION and afterwards the MAIN project. As a matter of assuring the correct execution of the script, the script will be TERMINATED. If you want to execute the MAIN project, please set the 'run_additionals_section' parameter to False in the settings section of the script\n")
+    raise SystemExit("\nIt is not intended to run the ADDTIONAL SECTION and afterwards the MAIN project. Therefore, the script will be TERMINATED. If you want to execute the MAIN project, please set the 'run_additionals_section' parameter to False in the settings section of the script\n")
         
 
 """
@@ -435,7 +437,7 @@ PREPARATION SECTION
 --------------------------------
 
 In this section we will make preparations for the main part of the project. Depending on
-the parameters set in the kwargs dictionary, we will calculate the thresholds needed for
+the parameters set in the parameters dictionary, we will calculate the thresholds needed for
 various functions, evaluate the valid regions for the ECG data, perform R peak detection
 and calculate the MAD in the wrist acceleration data.
 """
@@ -445,10 +447,6 @@ def preparation_section(run_section: bool):
     # check if the section should be run
     if not run_section:
         return
-            
-    # make sure temporary directories are empty
-    clear_directory(TEMPORARY_PICKLE_DIRECTORY)
-    clear_directory(TEMPORARY_FIGURE_DIRECTORY)
 
     """
     --------------------------------
@@ -534,6 +532,10 @@ def main():
     # create arguments for printing the R peak comparison report and print it
     rpeak_comparison_report_args = create_sub_dict(parameters, rpeak_detection_comparison_report_variables)
     rpeak_detection.rpeak_detection_comparison_report(**rpeak_comparison_report_args)
+
+     # create arguments for printing the ECG validation comparison report
+    ecg_validation_report_args = create_sub_dict(parameters, ecg_validation_comparison_report_variables)
+    check_data.ecg_validation_comparison_report(**ecg_validation_report_args)
 
     # additional_section(parameters["run_additionals_section"])
     # preparation_section(parameters["run_preparation_section"])

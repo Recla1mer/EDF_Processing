@@ -494,12 +494,12 @@ def valid_total_ratio(data: dict, valid_regions: list, ecg_key: str):
 
 """
 Following code won't be used for the final implementation, but is useful for testing and
-comparing the results of the ECG validation, as accurate intervals (calculated automatically 
-but later checked manually) are available for the GIF data.
+comparing the results of the ECG validation, as interval classification is available for
+the GIF data. They might or might not have been calculated automatically and
+later checked manually.
 
-They are stored in .txt files and can be used as a reference for the ECG Validation.
-Therefore we need to implement functions to compare the results of the validation
-and to read the accurate intervals from the .txt files.
+They are stored in .txt files. Therefore we need to implement functions to compare the
+results of the validation and to read the intervals from the .txt files.
 They are stored in the following format: "integer integer" after a file header containing
 various information separated by a line of "-".
 
@@ -510,7 +510,23 @@ of the data point (0: valid, 1: invalid).
 
 def ecg_validation_txt_string_evaluation(string: str):
     """
+    Appearence of string entries in the .txt files: "integer integer"
+    The first integer is the index in the ECG data and the second integer is the classification:
+    (0: valid, 1: invalid)
+
+    ARGUMENTS:
+    --------------------------------
+    string: str
+        string to be evaluated
+    
+    RETURNS:
+    --------------------------------
+    datapoint: int
+        index of the data point
+    classification: str
+        classification of the data point
     """
+
     # set default values if the integer or the letter do not exist
     datapoint = " "
     classification = " "
@@ -534,7 +550,23 @@ def ecg_validation_txt_string_evaluation(string: str):
 
 def get_ecg_classification_from_txt_file(file_path: str):
     """
+    Get the ECG classification from a .txt file.
+
+    ARGUMENTS:
+    --------------------------------
+    file_path: str
+        path to the .txt file containing the ECG classification
+    
+    RETURNS:
+    --------------------------------
+    ecg_classification: dict
+        dictionary containing the ECG classification in the following format:
+        {
+            "0": [valid_datapoint_1, valid_datapoint_2, ...],
+            "1": [invalid_datapoint_1, invalid_datapoint_2, ...]
+        }
     """
+
     # read the txt file
     with open(file_path, 'r') as file:
         txt_lines = file.readlines()
@@ -550,7 +582,7 @@ def get_ecg_classification_from_txt_file(file_path: str):
             start = i + 1
             break
     
-    # create dictionary to save the accurate classification
+    # create dictionary to save the classification
     ecg_classification = dict()
 
     # determine valid datapoints from the txt file
@@ -571,16 +603,40 @@ def compare_ecg_validations(
         ecg_classification: dict,
     ):
     """
+    Compare the validated intervals with the ECG classification.
+
+    ARGUMENTS:
+    --------------------------------
+    validated_intervals: list
+        list of tuples containing the start and end indices of the intervals considered valid
+    ecg_classification: dict
+        dictionary containing the ECG classification
+    
+    RETURNS:
+    --------------------------------
+    correct_valid_ratio: float
+        ratio of correctly classified valid points
+    correct_invalid_ratio: float
+        ratio of correctly classified invalid points
+    valid_wrong_ratio: float
+        ratio of valid points classified as invalid
+    invalid_wrong_ratio: float
+        ratio of invalid points classified as valid
     """
+
+    # get points considered valid and invalid by the ECG classification
     classification_invalid_points = ecg_classification["1"]
     classification_valid_points = ecg_classification["0"]
 
+    # create lists to save the intersecting points and the wrong classified points
     intersecting_invalid_points = []
     intersecting_valid_points = []
 
     invalid_points_wrong = []
     valid_points_wrong = []
 
+    # check if point classified as valid is in the validated intervals
+    # append to the corresponding list depending on the result
     for point in classification_valid_points:
         appended = False
         for interval in validated_intervals:
@@ -591,6 +647,8 @@ def compare_ecg_validations(
         if not appended:
             valid_points_wrong.append(point)
     
+    # check if point classified as invalid is outside the validated intervals
+    # append to the corresponding list depending on the result
     for point in classification_invalid_points:
         appended = False
         for interval in validated_intervals:
@@ -601,6 +659,7 @@ def compare_ecg_validations(
         if not appended:
             intersecting_invalid_points.append(point)
 
+    # calculate the ratios and return them
     correct_valid_ratio = len(intersecting_valid_points) / len(classification_valid_points)
     correct_invalid_ratio = len(intersecting_invalid_points) / len(classification_invalid_points)
 
@@ -617,11 +676,33 @@ def ecg_validation_comparison(
         valid_ecg_regions_path: str
     ):
     """
+    Compare the ECG validation with the ECG classification values.
+
+    ARGUMENTS:
+    --------------------------------
+    ecg_classification_values_directory: str
+        directory where the ECG classification values are stored
+    ecg_classification_file_types: list
+        valid file types for the ECG classification values
+    ecg_validation_comparison_evaluation_path: str
+        path to the pickle file where the evaluation is saved
+    valid_ecg_regions_path: str
+        path to the pickle file where the valid regions are stored
+    
+    RETURNS:
+    --------------------------------
+    None, but the evaluation is saved as dictionary to a pickle file in the following
+    format:
+        {
+            "file_name_1": [correct_valid_ratio, correct_invalid_ratio, valid_wrong_ratio, invalid_wrong_ratio],
+            "file_name_2": [correct_valid_ratio, correct_invalid_ratio, valid_wrong_ratio, invalid_wrong_ratio],
+            ...
+        }
     """
     
     # check if the evaluation already exists and if yes: ask for permission to override
     user_answer = ask_for_permission_to_override(file_path = ecg_validation_comparison_evaluation_path,
-                        message = "\nEvaluation of ECG Validation accuracy already exists in " + ecg_validation_comparison_evaluation_path + ".")
+                        message = "\nEvaluation of ECG validation comparison already exists in " + ecg_validation_comparison_evaluation_path + ".")
     
     # cancel if user does not want to override
     if user_answer == "n":
@@ -630,19 +711,19 @@ def ecg_validation_comparison(
     # get all determined ECG Validation files
     determined_ecg_validation_dictionary = load_from_pickle(valid_ecg_regions_path)
 
-    # get all valid accurate ECG Validation files
-    all_accurate_files = os.listdir(ecg_classification_values_directory)
-    valid_accurate_files = [file for file in all_accurate_files if get_file_type(file) in ecg_classification_file_types]
+    # get all ECG classification files
+    all_classification_files = os.listdir(ecg_classification_values_directory)
+    valid_classification_files = [file for file in all_classification_files if get_file_type(file) in ecg_classification_file_types]
 
     # create variables to track progress
     total_data_files = len(determined_ecg_validation_dictionary)
     progressed_data_files = 0
 
-    # create dictionary to store the ECG Validation accuracy values for all files
-    all_files_ecg_validation_accuracy = dict()
+    # create dictionary to store the ECG Validation comparison values for all files
+    all_files_ecg_validation_comparison = dict()
     
-    # calculate the R peak accuracy values
-    print("\nCalculating ECG Validation accuracy values for %i files:" % total_data_files)
+    # calculate the R peak comparison values
+    print("\nCalculating ECG validation comparison values for %i files:" % total_data_files)
     for file_key in determined_ecg_validation_dictionary:
         # show progress
         progress_bar(progressed_data_files, total_data_files)
@@ -651,29 +732,29 @@ def ecg_validation_comparison(
         # get the file name without the file type
         this_file_name = os.path.splitext(file_key)[0]
 
-        # get corresponding accurate ECG Validation file name for this file
-        for acc_file in valid_accurate_files:
-            if this_file_name in acc_file:
-                this_accurate_file = acc_file
+        # get corresponding ECG classification file name for this file
+        for clfc_file in valid_classification_files:
+            if this_file_name in clfc_file:
+                this_classification_file = clfc_file
         try:
-            ecg_classification_dictionary = get_ecg_classification_from_txt_file(ecg_classification_values_directory + this_accurate_file)
+            ecg_classification_dictionary = get_ecg_classification_from_txt_file(ecg_classification_values_directory + this_classification_file)
         except ValueError:
-            print("Accurate R peaks are missing for %s. Skipping this file." % file_key)
+            print("ECG classification is missing for %s. Skipping this file." % file_key)
             continue
         
         # compare the differnt ECG validations
-        this_file_accuracy_values = compare_ecg_validations(
+        this_file_comparison_values = compare_ecg_validations(
             validated_intervals = determined_ecg_validation_dictionary[file_key],
             ecg_classification = ecg_classification_dictionary
             )
         
-        # save the R peak accuracy values for this file to the dictionary
-        all_files_ecg_validation_accuracy[file_key] = [accuracy_value for accuracy_value in this_file_accuracy_values]
+        # save the comparison values for this file to the dictionary
+        all_files_ecg_validation_comparison[file_key] = [comparison_value for comparison_value in this_file_comparison_values]
     
     progress_bar(progressed_data_files, total_data_files)
     
-    # save the R peak accuracy values to a pickle file
-    save_to_pickle(all_files_ecg_validation_accuracy, ecg_validation_comparison_evaluation_path)
+    # save the comparison values to a pickle file
+    save_to_pickle(all_files_ecg_validation_comparison, ecg_validation_comparison_evaluation_path)
 
 
 def ecg_validation_comparison_report(
@@ -682,27 +763,40 @@ def ecg_validation_comparison_report(
         ecg_validation_comparison_report_dezimal_places: int,
     ):
     """
+    Create a report for the ECG Validation comparison.
+
+    ARGUMENTS:
+    --------------------------------
+    ecg_validation_comparison_report_path: str
+        path to the file where the report is saved
+    ecg_validation_comparison_evaluation_path: str
+        path to the pickle file where the evaluation is stored
+    ecg_validation_comparison_report_dezimal_places: int
+        number of decimal places for the report
+    
+    RETURNS:
+    --------------------------------
+    None, but the report is saved to a file as a table
     """
+
     # check if the report already exists and if yes: ask for permission to override
     user_answer = ask_for_permission_to_override(file_path = ecg_validation_comparison_report_path,
-                        message = "\nECG Validation accuracy report already exists in " + ecg_validation_comparison_report_path + ".")
+                        message = "\nECG validation comparison report already exists in " + ecg_validation_comparison_report_path + ".")
 
     # cancel if user does not want to override
     if user_answer == "n":
         return
 
     # open the file to write the report to
-    accuracy_file = open(ecg_validation_comparison_report_path, "w")
+    comparison_file = open(ecg_validation_comparison_report_path, "w")
 
     # load the data
-    all_files_ecg_validation_accuracy = load_from_pickle(ecg_validation_comparison_evaluation_path)
+    all_files_ecg_validation_comparison = load_from_pickle(ecg_validation_comparison_evaluation_path)
 
     # write the file header
     message = "ECG VALIDATION COMPARISON REPORT"
-    accuracy_file.write(message + "\n")
-    accuracy_file.write("=" * len(message) + "\n\n\n")
-
-    # correct_valid_ratio, correct_invalid_ratio, wrong_as_valid_ratio, wrong_as_invalid_ratio
+    comparison_file.write(message + "\n")
+    comparison_file.write("=" * len(message) + "\n\n\n")
 
     # set the table captions
     CORRECT_VALID_CAPTION = "Correct Valid"
@@ -711,23 +805,25 @@ def ecg_validation_comparison_report(
     WRONG_AS_VALID_CAPTION = "Wrong Valid"
     WRONG_AS_INVALID_CAPTION = "Wrong Invalid"
 
+    MEAN_ROW_CAPTION = "Mean values"
+
     # create lists to collect all acccuracy values and print the mean of them
     correct_valid_values = []
     correct_invalid_values = []
     wrong_as_valid_values = []
     wrong_as_invalid_values = []
 
-    # collect all accuracy values
-    for file in all_files_ecg_validation_accuracy:
-        all_files_ecg_validation_accuracy[file][0] = round(all_files_ecg_validation_accuracy[file][0], ecg_validation_comparison_report_dezimal_places)
-        all_files_ecg_validation_accuracy[file][1] = round(all_files_ecg_validation_accuracy[file][1], ecg_validation_comparison_report_dezimal_places)
-        all_files_ecg_validation_accuracy[file][2] = round(all_files_ecg_validation_accuracy[file][2], ecg_validation_comparison_report_dezimal_places)
-        all_files_ecg_validation_accuracy[file][3] = round(all_files_ecg_validation_accuracy[file][3], ecg_validation_comparison_report_dezimal_places)
+    # collect all comparison values
+    for file in all_files_ecg_validation_comparison:
+        all_files_ecg_validation_comparison[file][0] = round(all_files_ecg_validation_comparison[file][0], ecg_validation_comparison_report_dezimal_places)
+        all_files_ecg_validation_comparison[file][1] = round(all_files_ecg_validation_comparison[file][1], ecg_validation_comparison_report_dezimal_places)
+        all_files_ecg_validation_comparison[file][2] = round(all_files_ecg_validation_comparison[file][2], ecg_validation_comparison_report_dezimal_places)
+        all_files_ecg_validation_comparison[file][3] = round(all_files_ecg_validation_comparison[file][3], ecg_validation_comparison_report_dezimal_places)
 
-        correct_valid_values.append(all_files_ecg_validation_accuracy[file][0])
-        correct_invalid_values.append(all_files_ecg_validation_accuracy[file][1])
-        wrong_as_valid_values.append(all_files_ecg_validation_accuracy[file][2])
-        wrong_as_invalid_values.append(all_files_ecg_validation_accuracy[file][3])
+        correct_valid_values.append(all_files_ecg_validation_comparison[file][0])
+        correct_invalid_values.append(all_files_ecg_validation_comparison[file][1])
+        wrong_as_valid_values.append(all_files_ecg_validation_comparison[file][2])
+        wrong_as_invalid_values.append(all_files_ecg_validation_comparison[file][3])
     
     # calculate mean of them
     mean_correct_valid = round(np.mean(correct_valid_values), ecg_validation_comparison_report_dezimal_places)
@@ -735,72 +831,63 @@ def ecg_validation_comparison_report(
     mean_wrong_as_valid = round(np.mean(wrong_as_valid_values), ecg_validation_comparison_report_dezimal_places)
     mean_wrong_as_invalid = round(np.mean(wrong_as_invalid_values), ecg_validation_comparison_report_dezimal_places)
 
-    # write the mean values to file
-    message = "Mean of accuracy values:"
-    accuracy_file.write(message + "\n")
-    accuracy_file.write("-" * len(message) + "\n\n")
-    captions = ["Mean Correct Valid", "Mean Correct Invalid", "Mean Wrong as Valid", "Mean Wrong as Invalid"]
-    caption_values = [mean_correct_valid, mean_correct_invalid, mean_wrong_as_valid, mean_wrong_as_invalid]
-    for i in range(len(captions)):
-        message = captions[i] + " : " + str(caption_values[i])
-        accuracy_file.write(message)
-        accuracy_file.write("\n")
-    
-    accuracy_file.write("\n")
+    quick_items = list(all_files_ecg_validation_comparison.items())
+    quick_items.insert(0, (MEAN_ROW_CAPTION, [mean_correct_valid, mean_correct_invalid, mean_wrong_as_valid, mean_wrong_as_invalid]))
+    all_files_ecg_validation_comparison = dict(quick_items)
 
     # calcualte max lengths of table columns
-    all_file_lengths = [len(key) for key in all_files_ecg_validation_accuracy]
+    all_file_lengths = [len(key) for key in all_files_ecg_validation_comparison]
     max_file_length = max(len(FILE_CAPTION), max(all_file_lengths)) + 3
 
     all_correct_valid_lengths = []
     all_correct_invalid_lengths = []
     all_wrong_as_valid_lengths = []
     all_wrong_as_invalid_lengths = []
-    for file in all_files_ecg_validation_accuracy:
-        all_correct_valid_lengths.append(len(str(all_files_ecg_validation_accuracy[file][0])))
-        all_correct_invalid_lengths.append(len(str(all_files_ecg_validation_accuracy[file][1])))
-        all_wrong_as_valid_lengths.append(len(str(all_files_ecg_validation_accuracy[file][2])))
-        all_wrong_as_invalid_lengths.append(len(str(all_files_ecg_validation_accuracy[file][3])))
+    for file in all_files_ecg_validation_comparison:
+        all_correct_valid_lengths.append(len(str(all_files_ecg_validation_comparison[file][0])))
+        all_correct_invalid_lengths.append(len(str(all_files_ecg_validation_comparison[file][1])))
+        all_wrong_as_valid_lengths.append(len(str(all_files_ecg_validation_comparison[file][2])))
+        all_wrong_as_invalid_lengths.append(len(str(all_files_ecg_validation_comparison[file][3])))
 
     all_correct_valid_lengths = np.array(all_correct_valid_lengths)
     all_correct_invalid_lengths = np.array(all_correct_invalid_lengths)
     all_wrong_as_valid_lengths = np.array(all_wrong_as_valid_lengths)
     all_wrong_as_invalid_lengths = np.array(all_wrong_as_invalid_lengths)
 
-    max_correct_valid_length = max(len(CORRECT_VALID_CAPTION), max(all_correct_valid_lengths)) + 3
-    max_correct_invalid_length = max(len(CORRECT_INVALID_CAPTION), max(all_correct_invalid_lengths)) + 3
-    max_wrong_as_valid_length = max(len(WRONG_AS_VALID_CAPTION), max(all_wrong_as_valid_lengths)) + 3
-    max_wrong_as_invalid_length = max(len(WRONG_AS_INVALID_CAPTION), max(all_wrong_as_invalid_lengths)) + 3
+    max_correct_valid_length = max(len(CORRECT_VALID_CAPTION), max(all_correct_valid_lengths))
+    max_correct_invalid_length = max(len(CORRECT_INVALID_CAPTION), max(all_correct_invalid_lengths))
+    max_wrong_as_valid_length = max(len(WRONG_AS_VALID_CAPTION), max(all_wrong_as_valid_lengths))
+    max_wrong_as_invalid_length = max(len(WRONG_AS_INVALID_CAPTION), max(all_wrong_as_invalid_lengths))
 
     # write the legend for the table
     message = "Legend:"
-    accuracy_file.write(message + "\n")
-    accuracy_file.write("-" * len(message) + "\n\n")
-    accuracy_file.write(CORRECT_VALID_CAPTION + "... Matching valid regions ratio\n")
-    accuracy_file.write(CORRECT_INVALID_CAPTION + "... Matching invalid regions ratio\n")
-    accuracy_file.write(WRONG_AS_VALID_CAPTION + "... valid (detected) / invalid (gif) ratio\n")
-    accuracy_file.write(WRONG_AS_INVALID_CAPTION + "... invalid (detected) / valid (gif) ratio\n\n\n")
+    comparison_file.write(message + "\n")
+    comparison_file.write("-" * len(message) + "\n\n")
+    comparison_file.write(CORRECT_VALID_CAPTION + "... Matching valid regions ratio\n")
+    comparison_file.write(CORRECT_INVALID_CAPTION + "... Matching invalid regions ratio\n")
+    comparison_file.write(WRONG_AS_VALID_CAPTION + "... valid (detected) / invalid (gif) ratio\n")
+    comparison_file.write(WRONG_AS_INVALID_CAPTION + "... invalid (detected) / valid (gif) ratio\n\n\n")
 
-    message = "Table with Accuracy Values for each file:"
-    accuracy_file.write(message + "\n")
-    accuracy_file.write("-" * len(message) + "\n\n")
+    message = "Table with comparison values for each file:"
+    comparison_file.write(message + "\n")
+    comparison_file.write("-" * len(message) + "\n\n")
 
     # create table header
-    accuracy_file.write(print_in_middle(FILE_CAPTION, max_file_length) + " | ")
-    accuracy_file.write(print_in_middle(CORRECT_VALID_CAPTION, max_correct_valid_length) + " | ")
-    accuracy_file.write(print_in_middle(CORRECT_INVALID_CAPTION, max_correct_invalid_length) + " | ")
-    accuracy_file.write(print_in_middle(WRONG_AS_VALID_CAPTION, max_wrong_as_valid_length) + " | ")
-    accuracy_file.write(print_in_middle(WRONG_AS_INVALID_CAPTION, max_wrong_as_invalid_length) + "\n")
-    # accuracy_file.write("\n")
-    accuracy_file.write("-" * (max_file_length + max_correct_valid_length + max_correct_invalid_length + max_wrong_as_valid_length + max_wrong_as_invalid_length + 12) + "\n")
+    comparison_file.write(print_in_middle(FILE_CAPTION, max_file_length) + " | ")
+    comparison_file.write(print_in_middle(CORRECT_VALID_CAPTION, max_correct_valid_length) + " | ")
+    comparison_file.write(print_in_middle(CORRECT_INVALID_CAPTION, max_correct_invalid_length) + " | ")
+    comparison_file.write(print_in_middle(WRONG_AS_VALID_CAPTION, max_wrong_as_valid_length) + " | ")
+    comparison_file.write(print_in_middle(WRONG_AS_INVALID_CAPTION, max_wrong_as_invalid_length) + "\n")
+    total_length = max_file_length + max_correct_valid_length + max_correct_invalid_length + max_wrong_as_valid_length + max_wrong_as_invalid_length + 3*4 + 1
+    comparison_file.write("-" * total_length + "\n")
 
     # write the data
-    for file in all_files_ecg_validation_accuracy:
-        accuracy_file.write(print_in_middle(file, max_file_length) + " | ")
-        accuracy_file.write(print_in_middle(str(all_files_ecg_validation_accuracy[file][0]), max_correct_valid_length) + " | ")
-        accuracy_file.write(print_in_middle(str(all_files_ecg_validation_accuracy[file][1]), max_correct_invalid_length) + " | ")
-        accuracy_file.write(print_in_middle(str(all_files_ecg_validation_accuracy[file][2]), max_wrong_as_valid_length) + " | ")
-        accuracy_file.write(print_in_middle(str(all_files_ecg_validation_accuracy[file][3]), max_wrong_as_invalid_length) + "\n")
-        accuracy_file.write("-" * (max_file_length + max_correct_valid_length + max_correct_invalid_length + max_wrong_as_valid_length + max_wrong_as_invalid_length + 12) + "\n")
+    for file in all_files_ecg_validation_comparison:
+        comparison_file.write(print_in_middle(file, max_file_length) + " | ")
+        comparison_file.write(print_in_middle(str(all_files_ecg_validation_comparison[file][0]), max_correct_valid_length) + " | ")
+        comparison_file.write(print_in_middle(str(all_files_ecg_validation_comparison[file][1]), max_correct_invalid_length) + " | ")
+        comparison_file.write(print_in_middle(str(all_files_ecg_validation_comparison[file][2]), max_wrong_as_valid_length) + " | ")
+        comparison_file.write(print_in_middle(str(all_files_ecg_validation_comparison[file][3]), max_wrong_as_invalid_length) + "\n")
+        comparison_file.write("-" * total_length + "\n")
 
-    accuracy_file.close()
+    comparison_file.close()

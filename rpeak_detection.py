@@ -479,7 +479,7 @@ available for the GIF data. They might or might not have been calculated automat
 later checked manually.
 
 They are stored in .rri files. Therefore we need to implement functions to compare the
-results of different R-peaks and to read the accurate R-peaks from the .rri files.
+results of different R-peaks and to read R-peaks from the .rri files.
 They are stored in the following format: "integer letter" after a file header containing
 various information separated by a line of "-".
 """
@@ -694,7 +694,7 @@ def read_rpeaks_from_rri_files(
     ARGUMENTS:
     --------------------------------
     data_directory: str
-        directory where the raw data is stored, to which we know the R peak values
+        directory where the raw data is stored, to which we have R peak values
     valid_file_types: list
         valid file types in the data directory
     rpeaks_values_directory: str
@@ -714,6 +714,14 @@ def read_rpeaks_from_rri_files(
         ...
     }
     """
+
+    # check if the R peaks were already read and if yes: ask for permission to override
+    user_answer = ask_for_permission_to_override(file_path = rpeak_path,
+                                    message = "\nRead R peak classification already exists in " + rpeak_path + ".")
+    
+    # cancel if user does not want to override
+    if user_answer == "n":
+        return
 
     # get all valid files
     all_data_files = os.listdir(data_directory)
@@ -747,7 +755,7 @@ def read_rpeaks_from_rri_files(
         try:
             rpeaks_values = get_rpeaks_classification_from_rri_file(rpeaks_values_directory + this_value_file)
         except ValueError:
-            print("Accurate R peaks are missing for %s. Skipping this file." % file)
+            print("R peaks are missing for %s. Skipping this file." % file)
             continue
 
         # save R peak values with wanted classification to the dictionary
@@ -773,42 +781,34 @@ def rpeak_detection_comparison(
         rpeak_comparison_evaluation_path: str
     ):
     """
-    Evaluate the accuracy of the R peak detection methods.
-
-    Accurate R peaks available for GIF data: 
-    They were also detected automatically but later corrected manually, so they can be 
-    used as a reference.
+    Evaluate the comparison of the R peak detection methods.
 
     ARGUMENTS:
     --------------------------------
-    accurate_rpeaks_raw_data_directory: str
-        directory where the raw ECG data is stored to which the accurate R peaks exist
+    data_directory: str
+        directory where the raw ECG data is stored to which we have R peaks
     valid_file_types: list
-        valid file types in the accurate_rpeaks_raw_data_directory
+        valid file types in the data_directory
     ecg_key: str
         key for the ECG data in the data dictionary
-    accurate_rpeaks_values_directory: str
-        directory where the accurate R peaks are stored
-    valid_accurate_rpeak_file_types: list
-        valid file types in the accurate_rpeaks_values_directory
     compare_rpeaks_paths: list
-        paths to the R peaks that should be compared to the accurate R peaks
+        paths to the R peaks that should be compared with each other
     rpeak_distance_threshold_seconds: float
         time period in seconds over which two different R peaks are still considered the same
-    rpeak_accuracy_evaluation_path: str
-        path where the R peak accuracy values should be saved
+    rpeak_comparison_evaluation_path: str
+        path where the R peak comparison values should be saved
     
     RETURNS:
     --------------------------------
-    None, but the Accuracy values are saved as dictionary to a pickle file in following format:
+    None, but the comparison values are saved as dictionary to a pickle file in following format:
     {
-        "file_name": [ [function_1 values], [function_2 values], ... ],
+        "file_name": [ [compare values function 1 / n], [compare values function 2 / 1], ... [compare values function n / (n-1)]],
         ...
     }
-    with function values being: rmse_without_same, rmse_with_same, number_of_same_values, 
-                                number_of_values_considered_as_same, len_function_rpeaks, 
-                                length_accurate_rpeaks
-    for rmse_without_same and rmse_with_same see rpeak_detection.compare_rpeak_detection_methods()
+    with compare values being:  rmse_without_same, rmse_with_same, number_of_same_values, 
+                                number_of_values_considered_as_same, total_rpeaks_first_function, 
+                                total_rpeaks_second_function
+    for rmse_without_same and rmse_with_same see: compare_rpeak_detections()
     """
 
     # check if the evaluation already exists and if yes: ask for permission to override
@@ -827,10 +827,10 @@ def rpeak_detection_comparison(
     total_data_files = len(valid_data_files)
     progressed_data_files = 0
 
-    # create dictionary to store the R peak accuracy values of all detection methods for all files
+    # create dictionary to store the R peak comparison values of all detection methods for all files
     all_files_rpeak_comparison = dict()
     
-    # calculate the R peak accuracy values
+    # calculate the R peak comparison values
     print("\nCalculating R peak comparison values for %i files:" % total_data_files)
     for file in valid_data_files:
         # show progress
@@ -874,7 +874,7 @@ def rpeak_detection_comparison(
     
     progress_bar(progressed_data_files, total_data_files)
     
-    # save the R peak accuracy values to a pickle file
+    # save the R peak comparison values to a pickle file
     save_to_pickle(all_files_rpeak_comparison, rpeak_comparison_evaluation_path)
 
 
@@ -885,24 +885,22 @@ def rpeak_detection_comparison_report(
         rpeak_comparison_evaluation_path: str
     ):
     """
-    Save the results of the R peak accuracy evaluation as a report to a text file.
+    Save the results of the R peak comparison evaluation as a report to a text file.
 
     ARGUMENTS:
     --------------------------------
-    rpeak_accuracy_function_names: list
+    rpeak_comparison_function_names: list
         names of the R peak detection methods
-    accurate_peaks_name: str
-        name of the accurate R peaks
-    rpeak_accuracy_rmse_dezimal_places: int
-        number of dezimal places for the RMSE values
-    rpeak_accuracy_report_path: str
-        path where the R peak accuracy report should be saved
-    rpeak_accuracy_evaluation_path: str
-        path to the R peak accuracy evaluation values (created by evaluate_rpeak_detection_accuracy())
+    rpeak_comparison_report_dezimal_places: int
+        number of dezimal places in the report
+    rpeak_comparison_report_path: str
+        path where the R peak comparison report should be saved
+    rpeak_comparison_evaluation_path: str
+        path to the R peak comparison evaluation values (created by rpeak_detection_comparison())
     
     RETURNS:
     --------------------------------
-    None, but the R peak accuracy report is saved to a text file in the given path
+    None, but the R peak comparison report is saved to a text file in the given path
     Format of the report: Table showing results for each file
     """
 
@@ -1072,22 +1070,25 @@ def rpeak_detection_comparison_report(
     message = "Legend:"
     comparison_file.write(message + "\n")
     comparison_file.write("-" * len(message) + "\n\n")
-    comparison_file.write(RMSE_EX_CAPTION + "RMSE excluding same R peaks\n")
-    comparison_file.write(RMSE_INC_CAPTION + "RMSE including same R peaks\n")
+    comparison_file.write(RMSE_EX_CAPTION + "RMSE of analog values excluding same R peaks\n")
+    comparison_file.write(RMSE_INC_CAPTION + "RMSE of analog values including same R peaks\n")
     comparison_file.write(SAME_VALUES_CAPTION +  "Number of R peaks that are the same\n")
     comparison_file.write(ANALOG_VALUES_CAPTION + "Number of R peaks that are considered as the same (difference < threshold)\n")
     comparison_file.write(TOTAL_LENGTH_CAPTION + "Total number of R peaks\n\n\n")
 
-    message = "Table with Accuracy Values for each file:"
+    message = "Table with comparison values for each file:"
     comparison_file.write(message + "\n")
     comparison_file.write("-" * len(message) + "\n\n")
 
     # create table header
     total_length = 0
     for i in range(len(column_captions)):
-        comparison_file.write(print_in_middle(column_captions[i], max_column_length[i] + max_value_caption_length) + " | ")
+        if i == len(column_captions) - 1:
+            comparison_file.write(print_in_middle(column_captions[i], max_column_length[i] + max_value_caption_length))
+        else:
+            comparison_file.write(print_in_middle(column_captions[i], max_column_length[i] + max_value_caption_length) + " | ")
         total_length += max_column_length[i] + max_value_caption_length + 3
-    total_length -= 1
+    total_length -= 2
 
     comparison_file.write("\n")
     comparison_file.write("-" * total_length + "\n")
@@ -1103,13 +1104,15 @@ def rpeak_detection_comparison_report(
         for funcs_index in range(len(rpeak_comparison_function_names)):
             comparison_file.write(print_left_aligned(mean_value_captions[value_index], max_value_caption_length))
             comparison_file.write(print_left_aligned(str(mean_row_values[funcs_index][value_index]), max_column_length[funcs_index+1]))
-            comparison_file.write(" | ")
+            if funcs_index != len(rpeak_comparison_function_names) - 1:
+                comparison_file.write(" | ")
         comparison_file.write("\n")
     comparison_file.write("-" * total_length + "\n")
 
     # write the data
     vertical_center_index = len(value_captions) // 2
 
+    number_of_values = len(value_captions)
     for file_index in range(len(all_files_rpeak_comparison)):
         for value_index in range(len(value_captions)):
             if value_index == vertical_center_index:
@@ -1119,8 +1122,9 @@ def rpeak_detection_comparison_report(
                 comparison_file.write(print_in_middle("", max_column_length[0] + max_value_caption_length) + " | ")
             for funcs_index in range(len(rpeak_comparison_function_names)):
                 comparison_file.write(print_left_aligned(value_captions[value_index], max_value_caption_length))
-                comparison_file.write(print_left_aligned(str(all_columns[funcs_index][file_index+value_index]), max_column_length[funcs_index+1]))
-                comparison_file.write(" | ")
+                comparison_file.write(print_left_aligned(str(all_columns[funcs_index][file_index*number_of_values+value_index]), max_column_length[funcs_index+1]))
+                if funcs_index != len(rpeak_comparison_function_names) - 1:
+                    comparison_file.write(" | ")
             comparison_file.write("\n")
         comparison_file.write("-" * total_length + "\n")
 

@@ -1,7 +1,8 @@
 """
 Author: Johannes Peter Knoll
 
-In this file we provide functions to keep the other files a little cleaner and more intuitive.
+In this file we provide functions that are not just needed in the main file, but also in
+other ones. Their purpose is to keep them a little cleaner and more intuitive.
 """
 
 # IMPORTS
@@ -32,6 +33,12 @@ def validate_parameter_settings(parameters):
         raise ValueError("'ecg_key' parameter must be a string.")
     if not isinstance(parameters["wrist_acceleration_keys"], list):
         raise ValueError("'wrist_acceleration_keys' parameter must be a list.")
+    
+    """
+    --------------------------------------
+    parameters for the PREPARATION SECTION
+    --------------------------------------
+    """
 
     # parameters for the ECG Validation
     if not isinstance(parameters["ecg_calibration_file_path"], str):
@@ -76,30 +83,54 @@ def validate_parameter_settings(parameters):
         raise ValueError("'mad_time_period_seconds' parameter must be an integer.")
     if not isinstance(parameters["mad_values_path"], str):
         raise ValueError("'mad_values_path' parameter must be a string.")
+    
+    """
+    --------------------------------------
+    parameters for the ADDITIONALS SECTION
+    --------------------------------------
+    """
+    
+    # parameters for the R peak accuracy evaluation
+    if not isinstance(parameters["rpeaks_values_directory"], str):
+        raise ValueError("'rpeaks_values_directory' parameter must be a string.")
+    if not isinstance(parameters["valid_rpeak_values_file_types"], list):
+        raise ValueError("'valid_rpeak_values_file_types' parameter must be a list.")
+    if not isinstance(parameters["include_rpeak_value_classifications"], list):
+        raise ValueError("'include_rpeak_value_classifications' parameter must be a list.")
+    if not isinstance(parameters["rpeak_comparison_functions"], list):
+        raise ValueError("'rpeak_comparison_functions' parameter must be a list.")
+    if not isinstance(parameters["rpeak_classification_functions"], list):
+        raise ValueError("'rpeak_classification_functions' parameter must be a list.")
+    if not isinstance(parameters["rpeak_comparison_evaluation_path"], str):
+        raise ValueError("'rpeak_comparison_evaluation_path' parameter must be a string.")
+    if not isinstance(parameters["rpeak_comparison_function_names"], list):
+        raise ValueError("'rpeak_comparison_function_names' parameter must be a list.")
+    if not isinstance(parameters["rpeak_comparison_report_dezimal_places"], int):
+        raise ValueError("'rpeak_comparison_report_dezimal_places' parameter must be an integer.")
+    if not isinstance(parameters["rpeak_comparison_report_path"], str):
+        raise ValueError("'rpeak_comparison_report_path' parameter must be a string.")
+    if not isinstance(parameters["rpeaks_classification_raw_data_directory"], str):
+        raise ValueError("'rpeaks_classification_raw_data_directory' parameter must be a string.")
 
-    # # parameters for the R peak accuracy evaluation
-    # if not isinstance(parameters["rpeak_accuracy_functions"], list):
-    #     raise ValueError("'rpeak_accuracy_functions' parameter must be a list.")
-    # if not isinstance(parameters["rpeak_accuracy_function_names"], list):
-    #     raise ValueError("'rpeak_accuracy_function_names' parameter must be a list.")
-    # if not isinstance(parameters["accurate_peaks_name"], str):
-    #     raise ValueError("'accurate_peaks_name' parameter must be a string.")
-    # if not isinstance(parameters["accurate_rpeaks_raw_data_directory"], str):
-    #     raise ValueError("'accurate_rpeaks_raw_data_directory' parameter must be a string.")
-    # if not isinstance(parameters["accurate_rpeaks_values_directory"], str):
-    #     raise ValueError("'accurate_rpeaks_values_directory' parameter must be a string.")
-    # if not isinstance(parameters["valid_accurate_rpeak_file_types"], list):
-    #     raise ValueError("'valid_accurate_rpeak_file_types' parameter must be a list.")
-    # if not isinstance(parameters["rpeak_accuracy_evaluation_path"], str):
-    #     raise ValueError("'rpeak_accuracy_evaluation_path' parameter must be a string.")
-    # if not isinstance(parameters["rpeak_accuracy_rmse_dezimal_places"], int):
-    #     raise ValueError("'rpeak_accuracy_rmse_dezimal_places' parameter must be an integer.")
+    # parameters for the ECG Validation comparison
+    if not isinstance(parameters["ecg_validation_comparison_raw_data_directory"], str):
+        raise ValueError("'ecg_validation_comparison_raw_data_directory' parameter must be a string.")
+    if not isinstance(parameters["ecg_classification_values_directory"], str):
+        raise ValueError("'ecg_classification_values_directory' parameter must be a string.")
+    if not isinstance(parameters["ecg_classification_file_types"], list):
+        raise ValueError("'ecg_classification_file_types' parameter must be a list.")
+    if not isinstance(parameters["ecg_validation_comparison_evaluation_path"], str):
+        raise ValueError("'ecg_validation_comparison_evaluation_path' parameter must be a string.")
+    if not isinstance(parameters["ecg_validation_comparison_report_path"], str):
+        raise ValueError("'ecg_validation_comparison_report_path' parameter must be a string.")
+    if not isinstance(parameters["ecg_validation_comparison_report_dezimal_places"], int):
+        raise ValueError("'ecg_validation_comparison_report_dezimal_places' parameter must be an integer.")
 
 
 def progress_bar(index, total, bar_len=50, title='Please wait'):
-    '''
+    """
     Source: https://stackoverflow.com/questions/6169217/replace-console-output-in-python
-    '''
+    """
     percent_done = index/total*100
     percent_done = round(percent_done, 1)
 
@@ -308,7 +339,7 @@ def print_in_middle(string: str, length: int):
     """
     len_string = len(string)
     undersize = int((length - len_string) // 2)
-    return " " * undersize + string + " " * (length - len_string - undersize)
+    return " " * (length - len_string - undersize) + string + " " * undersize
 
 
 def print_left_aligned(string: str, length: int):
