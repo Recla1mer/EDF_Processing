@@ -162,6 +162,7 @@ def get_dimensions_and_signal_labels(directory, valid_file_types = [".edf"]):
     total_files = len(valid_files)
     progressed_files = 0
 
+    print("Reading physical dimensions and signal labels from %i files:" % total_files)
     for file in valid_files:
         progress_bar(progressed_files, total_files)
         progressed_files += 1
