@@ -4,8 +4,13 @@ Author: Johannes Peter Knoll
 This file contains functions that are used to read EDF files.
 """
 
+# IMPORTS
 import pyedflib # https://github.com/holgern/pyedflib
 import numpy as np
+import os
+
+# LOCAL IMPORTS
+from side_functions import *
 
 # https://github.com/holgern/pyedflib
 
@@ -127,3 +132,89 @@ def get_edf_data(file_name):
     f._close()
     
     return sigbufs, sigfreqs, sigdims, duration
+
+
+def get_dimensions_and_signal_labels(directory, valid_file_types = [".edf"]):
+    """
+    Reads the physical dimensions and signal labels from an EDF file.
+
+    ARGUMENTS:
+    --------------------------------
+    directory: str
+        path to the directory
+    
+    RETURNS:
+    --------------------------------
+    sigdims: dict
+        dictionary containing the physical dimensions of the signals
+    sigbufs: dict
+        dictionary containing the signals
+
+    The keys of the dictionaries are the signal labels.
+    """
+   
+    all_files = os.listdir(directory)
+    valid_files = [file for file in all_files if get_file_type(file) in valid_file_types]
+
+    all_signal_labels = []
+    all_physical_dimensions = []
+
+    total_files = len(valid_files)
+    progressed_files = 0
+
+    for file in valid_files:
+        progress_bar(progressed_files, total_files)
+        progressed_files += 1
+
+        try:
+            sigdims = get_edf_data(directory + file)[2]
+        except:
+            print("Error in: " + file + ". Skipping file.")
+            continue
+
+        for key in sigdims:
+            if key not in all_signal_labels:
+                all_signal_labels.append(key)
+            if sigdims[key] not in all_physical_dimensions:
+                all_physical_dimensions.append(sigdims[key])
+    
+    progress_bar(progressed_files, total_files)
+    
+    return all_signal_labels, all_physical_dimensions
+
+
+def correct_physical_dimension(sigbufs, sigdims, standard_dimension, dimensions = ["uV"], dimension_correction = [0]):
+    """
+    Corrects the physical dimensions of the signals.
+
+    If the physical dimension of a signal is in the list of dimensions, and its dimension
+    unequals the standard dimension, the signal is corrected by the corresponding value in
+    the list dimension_correction.
+
+    ARGUMENTS:
+    --------------------------------
+    sigbufs: dict
+        dictionary containing the signals
+    sigdims: dict
+        dictionary containing the physical dimensions of the signals
+    standard_dimension: str
+        standard dimension that the signals should have
+    dimensions: list
+        list of dimensions that should be corrected
+    dimension_correction: list
+        list of correction values for the dimensions in dimensions
+    
+    RETURNS:
+    --------------------------------
+    corrected_sigbufs: dict
+        dictionary containing the signal with corrected physical dimensions
+    """
+    for key in sigdims:
+        if sigdims[key] in dimensions and sigdims[key] != standard_dimension:
+            sigbufs[key] *= dimension_correction[dimensions.index(sigdims[key])]
+            sigdims[key] = standard_dimension
+    return sigdims
+
+
+try_directory = "Data/GIF/SOMNOwatch/"
+print(get_dimensions_and_signal_labels(try_directory))

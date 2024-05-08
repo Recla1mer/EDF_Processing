@@ -131,6 +131,7 @@ valid_ecg_regions_params = {
     "ecg_thresholds_dezimal_places": 2, # number of dezimal places for the check ecg thresholds in the pickle files
     "ecg_thresholds_save_path": ECG_VALIDATION_THRESHOLDS_PATH, # path to the pickle file where the thresholds are saved
     "check_ecg_time_interval_seconds": 10, # time interval considered when determining the valid regions for the ECG data
+    "check_ecg_overlapping_interval_steps": 5, # number of times the interval needs to be shifted to the right until the next check_ecg_time_interval_seconds is reached
     "check_ecg_min_valid_length_minutes": 5, # minimum length of valid data in minutes
     "check_ecg_allowed_invalid_region_length_seconds": 30, # data region (see directly above) still considered valid if the invalid part is shorter than this
     "valid_ecg_regions_path": VALID_ECG_REGIONS_PATH, # path to the pickle file where the valid regions for the ECG data are saved
@@ -218,9 +219,9 @@ ecg_thresholds_variables = ["ecg_calibration_file_path", "ecg_thresholds_multipl
                             "ecg_thresholds_dezimal_places", "ecg_key", "ecg_thresholds_save_path"]
 
 determine_ecg_region_variables = ["data_directory", "valid_file_types", "check_ecg_std_min_threshold", 
-            "check_ecg_distance_std_ratio_threshold", "check_ecg_time_interval_seconds", 
-            "check_ecg_min_valid_length_minutes", "check_ecg_allowed_invalid_region_length_seconds", 
-            "ecg_key", "valid_ecg_regions_path"]
+            "check_ecg_distance_std_ratio_threshold", "check_ecg_time_interval_seconds",
+            "check_ecg_overlapping_interval_steps", "check_ecg_min_valid_length_minutes", 
+            "check_ecg_allowed_invalid_region_length_seconds", "ecg_key", "valid_ecg_regions_path"]
 
 detect_rpeaks_variables = ["data_directory", "valid_file_types", "ecg_key", "valid_ecg_regions_path"]
 

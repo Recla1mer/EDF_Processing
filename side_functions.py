@@ -53,6 +53,8 @@ def validate_parameter_settings(parameters):
         raise ValueError("'ecg_thresholds_save_path' parameter must be a string.")
     if not isinstance(parameters["check_ecg_time_interval_seconds"], int):
         raise ValueError("'check_ecg_time_interval_seconds' parameter must be an integer.")
+    if not isinstance(parameters["check_ecg_overlapping_interval_steps"], int):
+        raise ValueError("'check_ecg_overlapping_interval_steps' parameter must be an integer.")
     if not isinstance(parameters["check_ecg_min_valid_length_minutes"], int):
         raise ValueError("'check_ecg_min_valid_length_minutes' parameter must be an integer.")
     if not isinstance(parameters["check_ecg_allowed_invalid_region_length_seconds"], int):

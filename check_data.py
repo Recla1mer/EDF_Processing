@@ -383,6 +383,7 @@ def check_ecg(
         check_ecg_std_min_threshold: float, 
         check_ecg_distance_std_ratio_threshold: float,
         time_interval_seconds: int, 
+        overlapping_interval_steps: int,
         min_valid_length_minutes: int,
         allowed_invalid_region_length_seconds: int,
         ecg_key: str
@@ -427,7 +428,7 @@ def check_ecg(
     # check condition for given time intervals and add regions (multiple time intervals) to a list if number of invalid intervals is sufficiently low
     overlapping_valid_regions = []
     
-    interval_steps = int(time_interval_iterations/5)
+    interval_steps = int(time_interval_iterations/overlapping_interval_steps)
     was_valid = False
 
     for i in np.arange(0, len(data[ecg_key]), interval_steps):
@@ -455,7 +456,7 @@ def check_ecg(
             was_valid = True
         else:
             if was_valid:
-                limit = upper_border - time_interval_iterations/5
+                limit = upper_border - time_interval_iterations/overlapping_interval_steps
                 for j in range(len(overlapping_valid_regions)-1, -1, -1):
                     if overlapping_valid_regions[j][1] >= limit:
                         del overlapping_valid_regions[j]
@@ -467,7 +468,7 @@ def check_ecg(
     concatenated_intervals = []
     this_interval = [overlapping_valid_regions[0][0], overlapping_valid_regions[0][1]]
     for i in range(1, len(overlapping_valid_regions)):
-        if overlapping_valid_regions[i][0] < this_interval[1]:
+        if overlapping_valid_regions[i][0] <= this_interval[1]:
             this_interval[1] = overlapping_valid_regions[i][1]
         else:
             concatenated_intervals.append(this_interval)
@@ -565,6 +566,7 @@ def determine_valid_ecg_regions(
         check_ecg_std_min_threshold: float, 
         check_ecg_distance_std_ratio_threshold: float,
         check_ecg_time_interval_seconds: int, 
+        check_ecg_overlapping_interval_steps: int,
         check_ecg_min_valid_length_minutes: int,
         check_ecg_allowed_invalid_region_length_seconds: int,
         ecg_key: str,
@@ -630,6 +632,7 @@ def determine_valid_ecg_regions(
             check_ecg_std_min_threshold = check_ecg_std_min_threshold, 
             check_ecg_distance_std_ratio_threshold = check_ecg_distance_std_ratio_threshold,
             time_interval_seconds = check_ecg_time_interval_seconds, 
+            overlapping_interval_steps = check_ecg_overlapping_interval_steps,
             min_valid_length_minutes = check_ecg_min_valid_length_minutes,
             allowed_invalid_region_length_seconds = check_ecg_allowed_invalid_region_length_seconds,
             ecg_key = ecg_key
