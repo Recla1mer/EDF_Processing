@@ -200,7 +200,6 @@ del settings_params, file_params, valid_ecg_regions_params, detect_rpeaks_params
 # following parameters are calculated in the PREPARATION section. They are written here for explanation
 params_to_be_calculated = {
     "check_ecg_std_min_threshold": 97.84, # if the standard deviation of the ECG data is below this threshold, the data is considered invalid
-    "check_ecg_std_max_threshold": 530.62, # if the standard deviation of the ECG data is above this threshold, the data is considered invalid
     "check_ecg_distance_std_ratio_threshold": 1.99, # if the ratio of the distance between two peaks and twice the standard deviation of the ECG data is above this threshold, the data is considered invalid
 }
 del params_to_be_calculated
@@ -219,9 +218,9 @@ ecg_thresholds_variables = ["ecg_calibration_file_path", "ecg_thresholds_multipl
                             "ecg_thresholds_dezimal_places", "ecg_key", "ecg_thresholds_save_path"]
 
 determine_ecg_region_variables = ["data_directory", "valid_file_types", "check_ecg_std_min_threshold", 
-            "check_ecg_std_max_threshold", "check_ecg_distance_std_ratio_threshold", 
-            "check_ecg_time_interval_seconds", "check_ecg_min_valid_length_minutes", 
-            "check_ecg_allowed_invalid_region_length_seconds", "ecg_key", "valid_ecg_regions_path"]
+            "check_ecg_distance_std_ratio_threshold", "check_ecg_time_interval_seconds", 
+            "check_ecg_min_valid_length_minutes", "check_ecg_allowed_invalid_region_length_seconds", 
+            "ecg_key", "valid_ecg_regions_path"]
 
 detect_rpeaks_variables = ["data_directory", "valid_file_types", "ecg_key", "valid_ecg_regions_path"]
 
@@ -530,14 +529,42 @@ In this section we will run the functions we have created until now.
 
 def main():
     # create arguments for printing the R peak comparison report and print it
-    rpeak_comparison_report_args = create_sub_dict(parameters, rpeak_detection_comparison_report_variables)
-    rpeak_detection.rpeak_detection_comparison_report(**rpeak_comparison_report_args)
+    # rpeak_comparison_report_args = create_sub_dict(parameters, rpeak_detection_comparison_report_variables)
+    # rpeak_detection.rpeak_detection_comparison_report(**rpeak_comparison_report_args)
 
-     # create arguments for printing the ECG validation comparison report
-    ecg_validation_report_args = create_sub_dict(parameters, ecg_validation_comparison_report_variables)
-    check_data.ecg_validation_comparison_report(**ecg_validation_report_args)
+    #  # create arguments for printing the ECG validation comparison report
+    # ecg_validation_report_args = create_sub_dict(parameters, ecg_validation_comparison_report_variables)
+    # check_data.ecg_validation_comparison_report(**ecg_validation_report_args)
 
-    # additional_section(parameters["run_additionals_section"])
+    # load the ecg thresholds to the parameters dictionary
+    # ecg_validation_thresholds_dict = load_from_pickle(parameters["ecg_thresholds_save_path"])
+    # parameters.update(ecg_validation_thresholds_dict)
+    # del ecg_validation_thresholds_dict
+
+    # determine_ecg_region_args = create_sub_dict(parameters, determine_ecg_region_variables)
+    # check_data.determine_valid_ecg_regions(**determine_ecg_region_args)
+    # del determine_ecg_region_args
+
+    # file_name = "SL154_SL154_(1).edf"
+    # file_name = "SL214_SL214_(1).edf"
+
+    # valid_regions_dict = load_from_pickle(ADDITIONALS_DIRECTORY + "Valid_ECG_Regions.pkl")
+    # sigbufs, sigfreqs, sigdims, duration = read_edf.get_edf_data(GIF_DATA_DIRECTORY + file_name)
+
+    # valid_regions_ratio = check_data.valid_total_ratio(sigbufs, valid_regions_dict[file_name], parameters["ecg_key"])
+    # print("(Valid / Total) Regions Ratio: %f %%" % (round(valid_regions_ratio, 4)*100))
+
+    # total_length = len(sigbufs[parameters["ecg_key"]])
+    # x_lim = [int(0*total_length), int(0.5*total_length)]
+
+    # plot_helper.plot_valid_regions(
+    #     sigbufs, 
+    #     valid_regions_dict[file_name], 
+    #     parameters["ecg_key"], 
+    #     xlim = x_lim
+    #     )
+
+    additional_section(parameters["run_additionals_section"])
     # preparation_section(parameters["run_preparation_section"])
 
     # rpeaks = load_from_pickle(PREPARATION_DIRECTORY + "RPeaks_wfdb.pkl")
