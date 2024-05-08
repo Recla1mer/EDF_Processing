@@ -134,7 +134,7 @@ def progress_bar(index, total, bar_len=50, title='Please wait'):
     Source: https://stackoverflow.com/questions/6169217/replace-console-output-in-python
     """
     percent_done = index/total*100
-    percent_done = round(percent_done, 1)
+    rounded_percent_done = round(percent_done, 1)
 
     done = round(percent_done/(100/bar_len))
     togo = bar_len-done
@@ -142,9 +142,9 @@ def progress_bar(index, total, bar_len=50, title='Please wait'):
     done_str = '█'*int(done)
     togo_str = '░'*int(togo)
 
-    print(f'\t⏳{title}: [{done_str}{togo_str}] {percent_done}% done', end='\r')
+    print(f'\t⏳{title}: [{done_str}{togo_str}] {rounded_percent_done}% done', end='\r')
 
-    if round(percent_done) == 100:
+    if percent_done == 100:
         print('\t✅')
 
 

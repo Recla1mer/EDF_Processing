@@ -162,7 +162,7 @@ def get_dimensions_and_signal_labels(directory, valid_file_types = [".edf"]):
     total_files = len(valid_files)
     progressed_files = 0
 
-    print("Reading physical dimensions and signal labels from %i files:" % total_files)
+    print("Reading signal labels and their physical dimensions from %i files:" % total_files)
     for file in valid_files:
         progress_bar(progressed_files, total_files)
         progressed_files += 1
@@ -176,8 +176,10 @@ def get_dimensions_and_signal_labels(directory, valid_file_types = [".edf"]):
         for key in sigdims:
             if key not in all_signal_labels:
                 all_signal_labels.append(key)
-            if sigdims[key] not in all_physical_dimensions:
-                all_physical_dimensions.append(sigdims[key])
+                all_physical_dimensions.append([])
+            key_to_index = all_signal_labels.index(key)
+            if sigdims[key] not in all_physical_dimensions[key_to_index]:
+                all_physical_dimensions[key_to_index].append(sigdims[key])
     
     progress_bar(progressed_files, total_files)
     
