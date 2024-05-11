@@ -22,23 +22,20 @@ from side_functions import *
 
 
 def get_rpeaks_old(
-        data: dict, 
-        frequency: dict, 
-        ecg_key: str, 
-        detection_interval: tuple
+        ECG: list, 
+        frequency: int, 
+        detection_interval: list
     ):
     """
     Detect R-peaks in ECG data using the code that was previously used by my research group.
 
     ARGUMENTS:
     --------------------------------
-    data: dict
-        dictionary containing the data arrays
-    frequency: dict
-        dictionary containing the frequency of the signals
-    ecg_key: str
-        key of the ECG data in the data dictionary
-    detection_interval: tuple
+    ECG: list
+        list containing the ECG data
+    frequency: int
+        sampling frequency of the ECG data
+    detection_interval: list
         interval in which the R-peaks should be detected
         if None, the whole ECG data will be used
 
@@ -48,17 +45,14 @@ def get_rpeaks_old(
         list of R-peak locations
     """
 
-    # retrieve sampling rate (or 'frequency')
-    sampling_rate = frequency[ecg_key]
-
     # get the ECG data in the detection interval
     if detection_interval is None:
-        ecg_signal = data[ecg_key]
+        ecg_signal = ECG
     else:
-        ecg_signal = data[ecg_key][detection_interval[0]:detection_interval[1]]
+        ecg_signal = ECG[detection_interval[0]:detection_interval[1]]
 
     # detect the R-peaks
-    rpeaks_old = old_rpeak.get_rpeaks(ecg_signal, sampling_rate)
+    rpeaks_old = old_rpeak.get_rpeaks(ecg_signal, frequency)
     
     # if not the whole ECG data is used, the R-peaks are shifted by the start of the detection interval and need to be corrected
     if detection_interval is not None:
@@ -68,10 +62,9 @@ def get_rpeaks_old(
 
 
 def get_rpeaks_neuro(
-        data: dict, 
-        frequency: dict, 
-        ecg_key: str, 
-        detection_interval: tuple
+        ECG: list, 
+        frequency: int, 
+        detection_interval: list
     ):
     """
     Detect R-peaks in ECG data using the neurokit2 library.
@@ -79,13 +72,11 @@ def get_rpeaks_neuro(
 
     ARGUMENTS:
     --------------------------------
-    data: dict
-        dictionary containing the data arrays
-    frequency: dict
-        dictionary containing the frequency of the signals
-    ecg_key: str
-        key of the ECG data in the data dictionary
-    detection_interval: tuple
+    ECG: list
+        list containing the ECG data
+    frequency: int
+        sampling frequency of the ECG data
+    detection_interval: list
         interval in which the R-peaks should be detected
         if None, the whole ECG data will be used
 
@@ -95,23 +86,19 @@ def get_rpeaks_neuro(
         list of R-peak locations
     """
 
-    # retrieve sampling rate (or 'frequency')
-    sampling_rate = frequency[ecg_key]
-
     # get the ECG data in the detection interval
     if detection_interval is None:
-        ecg_signal = data[ecg_key]
+        ecg_signal = ECG
     else:
-        ecg_signal = data[ecg_key][detection_interval[0]:detection_interval[1]]
+        ecg_signal = ECG[detection_interval[0]:detection_interval[1]]
 
     # detect the R-peaks
-    _, results = neurokit2.ecg_peaks(ecg_signal, sampling_rate=sampling_rate)
+    _, results = neurokit2.ecg_peaks(ecg_signal, sampling_rate=frequency)
     rpeaks = results["ECG_R_Peaks"]
 
     rpeaks_corrected = wfdb.processing.correct_peaks(
         ecg_signal, rpeaks, search_radius=36, smooth_window_size=50, peak_dir="up"
     )
-    #wfdb.plot_items(ecg_signal, [rpeaks_corrected])  # styling options omitted
 
     # if not the whole ECG data is used, the R-peaks are shifted by the start of the detection interval and need to be corrected
     if detection_interval is not None:
@@ -121,10 +108,9 @@ def get_rpeaks_neuro(
 
 
 def get_rpeaks_wfdb(
-        data: dict, 
-        frequency: dict, 
-        ecg_key: str, 
-        detection_interval: tuple
+        ECG: list,
+        frequency: int, 
+        detection_interval: list
     ):
     """
     Detect R-peaks in ECG data using the wfdb library.
@@ -132,13 +118,11 @@ def get_rpeaks_wfdb(
 
     ARGUMENTS:
     --------------------------------
-    data: dict
-        dictionary containing the data arrays
-    frequency: dict
-        dictionary containing the frequency of the signals
-    ecg_key: str
-        key of the ECG data in the data dictionary
-    detection_interval: tuple
+    ECG: list
+        list containing the ECG data
+    frequency: int
+        sampling frequency of the ECG data
+    detection_interval: list
         interval in which the R-peaks should be detected
         if None, the whole ECG data will be used
 
@@ -148,17 +132,14 @@ def get_rpeaks_wfdb(
         list of R-peak locations
     """
 
-    # retrieve sampling rate (or 'frequency')
-    sampling_rate = frequency[ecg_key]
-
     # get the ECG data in the detection interval
     if detection_interval is None:
-        ecg_signal = data[ecg_key]
+        ecg_signal = ECG
     else:
-        ecg_signal = data[ecg_key][detection_interval[0]:detection_interval[1]]
+        ecg_signal = ECG[detection_interval[0]:detection_interval[1]]
 
     # detect the R-peaks
-    rpeaks = wfdb.processing.xqrs_detect(ecg_signal, fs=sampling_rate, verbose=False)
+    rpeaks = wfdb.processing.xqrs_detect(ecg_signal, fs=frequency, verbose=False)
     rpeaks_corrected = wfdb.processing.correct_peaks(
         ecg_signal, rpeaks, search_radius=36, smooth_window_size=50, peak_dir="up"
     )
@@ -173,7 +154,8 @@ def get_rpeaks_wfdb(
 def detect_rpeaks(
         data_directory: str,
         valid_file_types: list,
-        ecg_key: str,
+        ecg_keys: list,
+        physical_dimension_correction_dictionary: dict,
         rpeak_function,
         rpeak_function_name: str,
         rpeak_path: str,
@@ -189,8 +171,10 @@ def detect_rpeaks(
         directory where the data is stored
     valid_file_types: list
         valid file types in the data directory
-    ecg_key: str
-        key for the ECG data in the data dictionary
+    ecg_keys: list
+        list of possible labels for the ECG data
+    physical_dimension_correction_dictionary: dict
+        dictionary needed to check and correct the physical dimension of all signals
     rpeak_function: function
         function to detect the R peaks
     rpeak_function_name: str
@@ -225,6 +209,9 @@ def detect_rpeaks(
     total_files = len(valid_files)
     progressed_files = 0
 
+    # create lists to store files with missing valid ecg regions
+    files_with_missing_regions = []
+
     # create dictionary to save the R peaks
     all_rpeaks = dict()
 
@@ -236,26 +223,33 @@ def detect_rpeaks(
     for file in valid_files:
         # show progress
         progress_bar(progressed_files, total_files)
+        progressed_files += 1
 
         # get the valid regions for the ECG data, if they do not exist: skip this file
         try:
             detection_intervals = valid_ecg_regions[file]
-            progressed_files += 1
         except KeyError:
-            print("Valid regions for the ECG data in " + file + " are missing. Skipping this file.")
+            files_with_missing_regions.append(file)
             continue
 
-        # get the ECG data
-        sigbufs, sigfreqs, sigdims, duration = read_edf.get_edf_data(data_directory + file)
+        # try to load the data and correct the physical dimension if needed
+        try:
+            ecg_signal, ecg_sampling_frequency = read_edf.get_data_from_edf_channel(
+                file_path = data_directory + file,
+                possible_channel_labels = ecg_keys,
+                physical_dimension_correction_dictionary = physical_dimension_correction_dictionary
+            )
+        except:
+            # exception should obviously not occur, but just in case
+            continue
 
         # detect the R peaks in the valid ecg regions
         this_rpeaks = np.array([], dtype = int)
         for interval in detection_intervals:
             this_result = rpeak_function(
-                sigbufs, 
-                sigfreqs, 
-                ecg_key,
-                interval,
+                ECG = ecg_signal,
+                frequency = ecg_sampling_frequency,
+                detection_interval = interval
                 )
             this_rpeaks = np.append(this_rpeaks, this_result)
         
@@ -265,6 +259,11 @@ def detect_rpeaks(
     
     # save the R peaks to a pickle file
     save_to_pickle(all_rpeaks, rpeak_path)
+
+    # print files with missing valid ecg regions
+    if len(files_with_missing_regions) > 0:
+        print("\nFor the following files the R peaks could not be detected because the valid ecg regions were missing:")
+        print(files_with_missing_regions)
 
 
 def combine_rpeaks(
@@ -358,7 +357,7 @@ def combine_rpeaks(
 def combine_detected_rpeaks(
         data_directory: str,
         valid_file_types: list,
-        ecg_key: str,
+        ecg_keys: list,
         rpeak_primary_path: str,
         rpeak_secondary_path: str,
         rpeak_distance_threshold_seconds: float,
@@ -377,8 +376,8 @@ def combine_detected_rpeaks(
         directory where the data is stored
     valid_file_types: list
         valid file types in the data directory
-    ecg_key: str
-        key for the ECG data in the data dictionary
+    ecg_keys: list
+        list of possible labels for the ECG data
     rpeak_primary_path: str
         path to the R peaks detected by the primary method
     rpeak_secondary_path: str
@@ -449,13 +448,16 @@ def combine_detected_rpeaks(
         progressed_files += 1
         
         # get the frequency
-        sigfreqs = read_edf.get_edf_data(data_directory + file)[1]
+        sampling_frequency = read_edf.get_frequency_from_edf_channel(
+            file_path = data_directory + file,
+            possible_channel_labels = ecg_keys
+        )
 
         # combine the R peaks
         these_combined_rpeaks = combine_rpeaks(
             rpeaks_primary = all_rpeaks_primary[file],
             rpeaks_secondary = all_rpeaks_secondary[file],
-            frequency = sigfreqs[ecg_key],
+            frequency = sampling_frequency,
             rpeak_distance_threshold_seconds = rpeak_distance_threshold_seconds
             )
         
@@ -775,7 +777,7 @@ def read_rpeaks_from_rri_files(
 def rpeak_detection_comparison(
         data_directory: str,
         valid_file_types: list,
-        ecg_key: str,
+        ecg_keys: list,
         compare_rpeaks_paths: list,
         rpeak_distance_threshold_seconds: float,
         rpeak_comparison_evaluation_path: str
@@ -789,8 +791,8 @@ def rpeak_detection_comparison(
         directory where the raw ECG data is stored to which we have R peaks
     valid_file_types: list
         valid file types in the data_directory
-    ecg_key: str
-        key for the ECG data in the data dictionary
+    ecg_keys: list
+        list of possible labels for the ECG data
     compare_rpeaks_paths: list
         paths to the R peaks that should be compared with each other
     rpeak_distance_threshold_seconds: float
@@ -841,8 +843,10 @@ def rpeak_detection_comparison(
         this_file_rpeak_comparison = []
         
         # get the frequency of the ECG data
-        sigfreqs = read_edf.get_edf_data(data_directory + file)[1]
-        frequency = sigfreqs[ecg_key]
+        sampling_frequency = read_edf.get_frequency_from_edf_channel(
+            file_path = data_directory + file,
+            possible_channel_labels = ecg_keys
+        )
         
         # compare the R peaks of the different detection methods
         for path_index in range(len(compare_rpeaks_paths)):
@@ -862,7 +866,7 @@ def rpeak_detection_comparison(
             rmse_without_same, rmse_with_same, len_same_values, len_analog_values = compare_rpeak_detections(
                 first_rpeaks = first_rpeaks, 
                 second_rpeaks = second_rpeaks,
-                frequency = frequency,
+                frequency = sampling_frequency,
                 rpeak_distance_threshold_seconds = rpeak_distance_threshold_seconds,
                 )
             

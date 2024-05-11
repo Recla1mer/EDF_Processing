@@ -938,3 +938,231 @@ def print_rpeak_accuracy_results(
         accuracy_file.write("-" * (max_file_length + max_rmse_ex_length + max_rmse_inc_length + max_rpeaks_length + max_same_values_length + max_analog_values_length + 17) + "\n")
 
     accuracy_file.close()
+
+
+def check_ecg_blocks(
+        data: dict, 
+        frequency: dict,
+        check_ecg_std_min_threshold: float, 
+        check_ecg_distance_std_ratio_threshold: float,
+        time_interval_seconds: int, 
+        min_valid_length_minutes: int,
+        allowed_invalid_region_length_seconds: int,
+        ecg_key: str
+    ):
+    """
+    This function won't be used in the project. It was a first draft, but the final function:
+    check_ecg() is more useful.
+
+    Check where the ECG data is valid.
+    (Checks blocks of x minutes for validity)
+
+    ARGUMENTS:
+    --------------------------------
+    data: dict
+        dictionary containing the ECG data among other signals
+    frequency: dict
+        dictionary containing the frequency of the signals
+    check_ecg_std_min_threshold: float
+        minimum threshold for the standard deviation
+    check_ecg_distance_std_ratio_threshold: float
+        threshold for the distance to standard deviation ratio
+    time_interval_seconds: int
+        time interval length to be checked for validity in seconds
+    min_valid_length_minutes: int
+        minimum length of valid data in minutes
+    allowed_invalid_region_length_seconds: int
+        allowed length of invalid data in seconds
+    ecg_key: str
+        key of the ECG data in the data dictionary
+
+    RETURNS:
+    --------------------------------
+    valid_regions: list
+        list of tuples containing the start and end indices of the valid regions
+    """
+
+    # calculate the number of iterations from time and frequency
+    time_interval_iterations = int(time_interval_seconds * frequency[ecg_key])
+
+    # check condition for given time intervals and add regions (multiple time intervals) to a list if number of invalid intervals is sufficiently low
+    valid_regions = []
+    current_valid_intervals = 0 # counts valid intervals
+    total_intervals = 0 # counts intervals, set to 0 when region is completed (valid or invalid)
+    lower_border = 0 # lower border of the region
+    skip_interval = 0 # skip intervals if region is valid but total intervals not max (= intervals_per_region)
+    min_valid_intervals = int((min_valid_length_minutes * 60 - allowed_invalid_region_length_seconds) / time_interval_seconds) # minimum number of valid intervals in a region
+    intervals_per_region = int(min_valid_length_minutes * 60 / time_interval_seconds) # number of intervals in a region
+    valid_total_ratio = min_valid_intervals / intervals_per_region # ratio of valid intervals in a region, for the last region that might be too short
+    # print("Variables: ", time_interval_iterations, min_valid_intervals, intervals_per_region)
+
+    for i in np.arange(0, len(data[ecg_key]), time_interval_iterations):
+        # if region met condition, but there are still intervals left, skip them
+        if skip_interval > 0:
+            skip_interval -= 1
+            continue
+        # print("NEW ITERATION: ", i)
+
+        # make sure upper border is not out of bounds
+        if i + time_interval_iterations > len(data[ecg_key]):
+            upper_border = len(data[ecg_key])
+        else:
+            upper_border = i + time_interval_iterations
+        
+        # check if interval is valid
+        this_std = np.std(data[ecg_key][i:upper_border])
+        this_max = np.max(data[ecg_key][i:upper_border])
+        this_min = np.min(data[ecg_key][i:upper_border])
+        max_min_distance = this_max - this_min
+        std_distance_ratio = 0.5 * max_min_distance / this_std
+
+        if this_std >= check_ecg_std_min_threshold and std_distance_ratio >= check_ecg_distance_std_ratio_threshold:
+            current_valid_intervals += 1
+            # print("VALID")
+        
+        # increase total intervals
+        total_intervals += 1
+        
+        # check if the region is valid
+        if current_valid_intervals >= min_valid_intervals:
+            # print("VALID REGION: ", lower_border, lower_border + intervals_per_region*time_interval_iterations)
+            valid_regions.append((lower_border,lower_border + intervals_per_region*time_interval_iterations))
+            lower_border += intervals_per_region*time_interval_iterations
+            skip_interval = intervals_per_region - total_intervals
+            current_valid_intervals = 0
+            total_intervals = 0
+            continue
+        
+        #check if region is invalid
+        if total_intervals >= intervals_per_region:
+            lower_border += intervals_per_region*time_interval_iterations
+            total_intervals = 0
+            current_valid_intervals = 0
+        
+        # check if the last region is valid
+        if upper_border == len(data[ecg_key]):
+            try:
+                if current_valid_intervals / total_intervals >= valid_total_ratio:
+                    # print("VALID REGION: ", lower_border, upper_border)
+                    valid_regions.append((lower_border,upper_border))
+            except:
+                continue
+    
+    print("Valid regions ratio: ", round(len(valid_regions) / (len(data[ecg_key]) / int(min_valid_length_minutes * 60 * frequency[ecg_key])), 5)*100, "%")
+    
+    return valid_regions
+
+
+def check_ecg_more_mistakes(
+        data: dict, 
+        frequency: dict,
+        check_ecg_std_min_threshold: float, 
+        check_ecg_distance_std_ratio_threshold: float,
+        time_interval_seconds: int, 
+        min_valid_length_minutes: int,
+        allowed_invalid_region_length_seconds: int,
+        ecg_key: str
+    ):
+    """
+    This function won't be used in the project. It was the second draft, but the final function:
+    check_ecg() is more useful.
+
+    (The function checks in non overlapping intervals. It appends a valid region if its
+    long enough with few enough errors. Afterwards it expands the upper border if the following 
+    interval is also valid. Problem 1: All errors could be right at the start of a region, without
+    excluding them. Problem 2: It won't append an almost long enough region to a valid region, if
+    they are separated by a short invalid region, however short it will be.)
+
+    ARGUMENTS:
+    --------------------------------
+    data: dict
+        dictionary containing the data arrays
+    frequency: dict
+        dictionary containing the frequency of the signals
+    check_ecg_std_min_threshold: float
+        minimum threshold for the standard deviation
+    check_ecg_distance_std_ratio_threshold: float
+        threshold for the max-min distance to twice the standard deviation ratio
+    time_interval_seconds: int
+        time interval length in seconds to be checked for validity
+    min_valid_length_minutes: int
+        minimum length of valid data in minutes
+    allowed_invalid_region_length_seconds: int
+        length of data in seconds that is allowed to be invalid in a valid region of size min_valid_length_minutes
+    ecg_key: str
+        key of the ECG data in the data dictionary
+
+    RETURNS:
+    --------------------------------
+    valid_regions: list
+        list of lists containing the start and end indices of the valid regions: valid_regions[i] = [start, end] of region i
+    """
+
+    # calculate the number of iterations from time and frequency
+    time_interval_iterations = int(time_interval_seconds * frequency[ecg_key])
+
+    # check condition for given time intervals and add regions (multiple time intervals) to a list if number of invalid intervals is sufficiently low
+    valid_regions = []
+    current_valid_intervals = 0 # counts valid intervals
+    total_intervals = 0 # counts intervals, set to 0 when region is completed (valid or invalid)
+    lower_border = 0 # lower border of the region
+    min_length_reached = False # check if the minimum length is reached
+    min_valid_intervals = int((min_valid_length_minutes * 60 - allowed_invalid_region_length_seconds) / time_interval_seconds) # minimum number of valid intervals in a region
+    intervals_per_region = int(min_valid_length_minutes * 60 / time_interval_seconds) # number of intervals in a region
+    valid_total_ratio = min_valid_intervals / intervals_per_region # ratio of valid intervals in a region, for the last region that might be too short
+    # print("Variables: ", time_interval_iterations, min_valid_intervals, intervals_per_region)
+
+    for i in np.arange(0, len(data[ecg_key]), time_interval_iterations):
+
+        # make sure upper border is not out of bounds
+        if i + time_interval_iterations > len(data[ecg_key]):
+            upper_border = len(data[ecg_key])
+        else:
+            upper_border = i + time_interval_iterations
+        
+        # calc std and max-min-distance ratio
+        this_std = np.std(data[ecg_key][i:upper_border])
+        this_max = np.max(data[ecg_key][i:upper_border])
+        this_min = np.min(data[ecg_key][i:upper_border])
+        max_min_distance = this_max - this_min
+        std_distance_ratio = 0.5 * max_min_distance / this_std
+
+        if min_length_reached:
+            # check if interval is valid
+            if this_std >= check_ecg_std_min_threshold and std_distance_ratio >= check_ecg_distance_std_ratio_threshold:
+                valid_regions[-1][1] = upper_border
+            else:
+                min_length_reached = False
+                lower_border = upper_border
+        else:
+            # check if interval is valid
+            if this_std >= check_ecg_std_min_threshold and std_distance_ratio >= check_ecg_distance_std_ratio_threshold:
+                current_valid_intervals += 1
+            
+            # increase total intervals
+            total_intervals += 1
+            
+            # check if the region is valid
+            if current_valid_intervals >= min_valid_intervals:
+                valid_regions.append([lower_border,lower_border + intervals_per_region*time_interval_iterations])
+                lower_border += intervals_per_region*time_interval_iterations
+                current_valid_intervals = 0
+                total_intervals = 0
+                min_length_reached = True
+                continue
+            
+            #check if region is invalid
+            if total_intervals >= intervals_per_region:
+                lower_border += intervals_per_region*time_interval_iterations
+                total_intervals = 0
+                current_valid_intervals = 0
+            
+            # check if the last region is valid
+            if upper_border == len(data[ecg_key]):
+                try:
+                    if current_valid_intervals / total_intervals >= valid_total_ratio:
+                        valid_regions.append([lower_border,upper_border])
+                except:
+                    continue
+    
+    return valid_regions

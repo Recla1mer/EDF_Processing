@@ -15,6 +15,205 @@ from side_functions import *
 # https://github.com/holgern/pyedflib
 
 
+def correct_physical_dimension(signal_key, signal_dimension, dimension_correction_dict):
+    """
+    Corrects the physical dimensions of the signals. This is important as the physical
+    dimensions of the signals might not always be the same in all files.
+
+    ARGUMENTS:
+    --------------------------------
+    signal_key: str
+        label of the signal
+    signal_dimension: str
+        physical dimension of the signal
+    dimension_correction_dict: 
+        dictionary containing all possible signal labels as keys and a dictionary as value 
+        dictionary value has the following structure:
+            {
+                "possible_dimensions": list,
+                "dimension_correction": list
+            }
+    
+    RETURNS:
+    --------------------------------
+    correction_value: float
+        value which should be multiplied to the signal for correction
+    """
+    for key in dimension_correction_dict:
+        if key == signal_key:
+            signal_dim_index = dimension_correction_dict[key]["possible_dimensions"].index(signal_dimension)
+            correction_value = dimension_correction_dict[key]["dimension_correction"][signal_dim_index]
+            break
+    
+    return correction_value
+
+
+def get_data_from_edf_channel(
+        file_path: str, 
+        possible_channel_labels: list, 
+        physical_dimension_correction_dictionary: dict
+    ):
+    """
+    Reads the signal, frequency and physical dimension from an EDF file.
+     
+    The labels for channels are not consistent in all EDF files. Therefore we first need 
+    to find the correct label for the channel in this file.
+
+    After reading the signal, the function checks the physical dimension and corrects the
+    signal if the physical dimension is off.
+      
+    Returns the corrected signal and sampling frequency.
+
+    ARGUMENTS:
+    --------------------------------
+    file_path: str
+        path to the EDF file
+    possible_channel_labels: list
+        list of possible labels for the signal
+    physical_dimension_correction_dictionary: dict
+        dictionary needed to check and correct the physical dimension of all signals
+
+    
+    RETURNS:
+    --------------------------------
+    signal: np.array
+        signal from the channel
+    sample_frequency: int
+        frequency of the signal
+    """
+    f = pyedflib.EdfReader(file_path)
+    n = f.signals_in_file
+    signal_labels = f.getSignalLabels()
+
+    for i in np.arange(n):
+        if signal_labels[i] in possible_channel_labels:
+            channel = signal_labels[i]
+
+    for i in np.arange(n):
+        if signal_labels[i] == channel:
+            signal = f.readSignal(i)
+            sample_frequency = f.getSampleFrequency(i)
+            physical_dimension = f.getPhysicalDimension(i)
+            break
+    f._close()
+
+    signal = np.array(signal)
+    dimension_correction_value = correct_physical_dimension(
+        signal_key = channel,
+        signal_dimension = physical_dimension,
+        dimension_correction_dict = physical_dimension_correction_dictionary
+    )
+    signal = signal * dimension_correction_value
+
+    return signal, sample_frequency
+
+
+def get_frequency_from_edf_channel(file_path: str, possible_channel_labels: list):
+    """
+    Reads the frequency of the channel from an EDF file.
+
+    ARGUMENTS:
+    --------------------------------
+    file_path: str
+        path to the EDF file
+    possible_channel_labels: list
+        list of possible labels for the signal
+    
+    RETURNS:
+    --------------------------------
+    sample_frequency: int
+        frequency of the signal
+    """
+    f = pyedflib.EdfReader(file_path)
+    n = f.signals_in_file
+    signal_labels = f.getSignalLabels()
+
+    for i in np.arange(n):
+        if signal_labels[i] in possible_channel_labels:
+            channel = signal_labels[i]
+
+    for i in np.arange(n):
+        if signal_labels[i] == channel:
+            sample_frequency = f.getSampleFrequency(i)
+            break
+    f._close()
+
+    return sample_frequency
+
+
+"""
+Following functions are not needed for the final implementation, but were required by me
+to get an overview of the data.
+"""
+
+
+def get_dimensions_and_signal_labels(directory, valid_file_types = [".edf"]):
+    """
+    Collects the physical dimensions and signal labels from all valid files in the 
+    directory.
+
+    ARGUMENTS:
+    --------------------------------
+    directory: str
+        path to the directory
+    
+    RETURNS:
+    --------------------------------
+    all_signal_labels: list
+        list of all signal labels
+    all_physical_dimensions: list
+        list of lists containing the physical dimensions of the signals
+    """
+   
+    # get all valid files in the directory
+    all_files = os.listdir(directory)
+    valid_files = [file for file in all_files if get_file_type(file) in valid_file_types]
+
+    # create lists to store the signal labels and their physical dimensions
+    all_signal_labels = []
+    all_physical_dimensions = []
+
+    # variables to track the progress
+    total_files = len(valid_files)
+    progressed_files = 0
+    error_in_files = []
+
+    print("Reading signal labels and their physical dimensions from %i files:" % total_files)
+    for file in valid_files:
+        progress_bar(progressed_files, total_files)
+        progressed_files += 1
+
+        try:
+            f = pyedflib.EdfReader(directory + file)
+
+            n = f.signals_in_file
+            signal_labels = f.getSignalLabels()
+            sigdims = dict()
+
+            for i in np.arange(n):
+                sigdims[signal_labels[i]] = f.getPhysicalDimension(i)
+            f._close()
+        except:
+            error_in_files.append(file)
+            continue
+
+        for key in sigdims:
+            if key not in all_signal_labels:
+                all_signal_labels.append(key)
+                all_physical_dimensions.append([])
+            key_to_index = all_signal_labels.index(key)
+            if sigdims[key] not in all_physical_dimensions[key_to_index]:
+                all_physical_dimensions[key_to_index].append(sigdims[key])
+    
+    progress_bar(progressed_files, total_files)
+
+    if len(error_in_files) > 0:
+        print("Due to an error in the following files, they could not be read and were skipped:")
+        print(error_in_files)
+    
+    return all_signal_labels, all_physical_dimensions
+
+
 def library_overview(file_name):
     """
     This function won't be used in the project. It is just a demonstration of available
@@ -134,90 +333,5 @@ def get_edf_data(file_name):
     return sigbufs, sigfreqs, sigdims, duration
 
 
-def get_dimensions_and_signal_labels(directory, valid_file_types = [".edf"]):
-    """
-    Reads the physical dimensions and signal labels from an EDF file.
-
-    ARGUMENTS:
-    --------------------------------
-    directory: str
-        path to the directory
-    
-    RETURNS:
-    --------------------------------
-    sigdims: dict
-        dictionary containing the physical dimensions of the signals
-    sigbufs: dict
-        dictionary containing the signals
-
-    The keys of the dictionaries are the signal labels.
-    """
-   
-    all_files = os.listdir(directory)
-    valid_files = [file for file in all_files if get_file_type(file) in valid_file_types]
-
-    all_signal_labels = []
-    all_physical_dimensions = []
-
-    total_files = len(valid_files)
-    progressed_files = 0
-
-    print("Reading signal labels and their physical dimensions from %i files:" % total_files)
-    for file in valid_files:
-        progress_bar(progressed_files, total_files)
-        progressed_files += 1
-
-        try:
-            sigdims = get_edf_data(directory + file)[2]
-        except:
-            print("Error in: " + file + ". Skipping file.")
-            continue
-
-        for key in sigdims:
-            if key not in all_signal_labels:
-                all_signal_labels.append(key)
-                all_physical_dimensions.append([])
-            key_to_index = all_signal_labels.index(key)
-            if sigdims[key] not in all_physical_dimensions[key_to_index]:
-                all_physical_dimensions[key_to_index].append(sigdims[key])
-    
-    progress_bar(progressed_files, total_files)
-    
-    return all_signal_labels, all_physical_dimensions
-
-
-def correct_physical_dimension(sigbufs, sigdims, standard_dimension, dimensions = ["uV"], dimension_correction = [0]):
-    """
-    Corrects the physical dimensions of the signals.
-
-    If the physical dimension of a signal is in the list of dimensions, and its dimension
-    unequals the standard dimension, the signal is corrected by the corresponding value in
-    the list dimension_correction.
-
-    ARGUMENTS:
-    --------------------------------
-    sigbufs: dict
-        dictionary containing the signals
-    sigdims: dict
-        dictionary containing the physical dimensions of the signals
-    standard_dimension: str
-        standard dimension that the signals should have
-    dimensions: list
-        list of dimensions that should be corrected
-    dimension_correction: list
-        list of correction values for the dimensions in dimensions
-    
-    RETURNS:
-    --------------------------------
-    corrected_sigbufs: dict
-        dictionary containing the signal with corrected physical dimensions
-    """
-    for key in sigdims:
-        if sigdims[key] in dimensions and sigdims[key] != standard_dimension:
-            sigbufs[key] *= dimension_correction[dimensions.index(sigdims[key])]
-            sigdims[key] = standard_dimension
-    return sigdims
-
-
-try_directory = "Data/GIF/SOMNOwatch/"
-print(get_dimensions_and_signal_labels(try_directory))
+# try_directory = "Data/GIF/SOMNOwatch/"
+# print(get_dimensions_and_signal_labels(try_directory))

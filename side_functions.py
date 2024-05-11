@@ -29,8 +29,8 @@ def validate_parameter_settings(parameters):
         raise ValueError("'data_directory' parameter must be a string.")
     if not isinstance(parameters["valid_file_types"], list):
         raise ValueError("'valid_file_types' parameter must be a list.")
-    if not isinstance(parameters["ecg_key"], str):
-        raise ValueError("'ecg_key' parameter must be a string.")
+    if not isinstance(parameters["ecg_keys"], list):
+        raise ValueError("'ecg_key' parameter must be a list.")
     if not isinstance(parameters["wrist_acceleration_keys"], list):
         raise ValueError("'wrist_acceleration_keys' parameter must be a list.")
     

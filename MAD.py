@@ -13,45 +13,39 @@ import read_edf
 
 
 def check_mad_conditions(
-        data: dict, 
-        frequency: dict, 
-        wrist_acceleration_keys: list
+        acceleration_data_lists: list, 
+        frequencies: list, 
     ):
     """
     Check if the data is valid for MAD calculation (uniform frequency and data points).
 
     ARGUMENTS:
     --------------------------------
-    data: dict
-        dictionary containing the data arrays
-    frequency: dict
-        dictionary containing the frequencies of the data arrays
-    wrist_acceleration_keys: list
-        list of keys of data dictionary that are relevant for MAD calculation
+    acceleration_data_lists: list
+        list of acceleration data arrays (x, y, z - axis)
+    frequencies: list
+        list of sampling frequencies of the acceleration data arrays
 
     NO RETURN VALUE: raises ValueError if conditions are not met
     """
 
     #check if frequencies are the same
-    compare_key = wrist_acceleration_keys[0]
-    uniform_frequency = frequency[compare_key]
-    for key in wrist_acceleration_keys:
-        if frequency[key] != uniform_frequency:
+    uniform_frequency = frequencies[0]
+    for freq in frequencies:
+        if freq != uniform_frequency:
             raise ValueError("Frequencies are not the same. Calculation of MAD requires the same frequency for all data arrays.")
 
     #check if the data arrays are the same length
-    uniform_length = len(data[compare_key])
-    for key in wrist_acceleration_keys:
-        if len(data[key]) != uniform_length:
+    uniform_length = len(acceleration_data_lists[0])
+    for data_axis in acceleration_data_lists:
+        if len(data_axis) != uniform_length:
             raise ValueError("Data arrays are not the same length. Calculation of MAD requires the same length for all data arrays.")
-    del compare_key
 
 
 def calc_mad_in_interval(
-        data: dict, 
+        acceleration_data_lists: list, 
         start_position: int, 
         end_position: int, 
-        wrist_acceleration_keys: list
     ):
     """
     Calculate MAD in a given time frame.
@@ -61,14 +55,12 @@ def calc_mad_in_interval(
 
     ARGUMENTS:
     --------------------------------
-    data: dict
-        dictionary containing the data arrays
+    acceleration_data_lists: list
+        list of acceleration data arrays (x, y, z - axis)
     start_position: int
         start position of the interval
     end_position: int
         end position of the interval
-    wrist_acceleration_keys: list
-        list of keys of data dictionary that are relevant for MAD calculation
 
     RETURNS: 
     --------------------------------
@@ -80,9 +72,9 @@ def calc_mad_in_interval(
     average_acceleration = 0
     for i in np.arange(start_position, end_position):
         current_acceleration = 0
-        for key in wrist_acceleration_keys:
-            current_acceleration += data[key][i]*2
-        current_acceleration *= 0.5
+        for data_axis in acceleration_data_lists:
+            current_acceleration += data_axis[i]**2
+        current_acceleration = current_acceleration**0.5
         average_acceleration += current_acceleration
     average_acceleration /= interval_size
 
@@ -90,9 +82,9 @@ def calc_mad_in_interval(
     mad = 0
     for i in np.arange(start_position, end_position):
         current_acceleration = 0
-        for key in wrist_acceleration_keys:
-            current_acceleration += data[key][i]*2
-        current_acceleration *= 0.5
+        for data_axis in acceleration_data_lists:
+            current_acceleration += data_axis[i]**2
+        current_acceleration = current_acceleration**0.5
         mad += abs(current_acceleration - average_acceleration)
     mad /= interval_size
 
@@ -100,20 +92,19 @@ def calc_mad_in_interval(
 
 
 def calc_mad(
-        data: dict, 
-        frequency: dict, 
-        time_period: int, 
-        wrist_acceleration_keys: list
+        acceleration_data_lists: list,
+        frequencies: list, 
+        time_period: int,
     ):
     """
     Calculate mean amplitude deviation (MAD) of movement acceleration data.
 
     ARGUMENTS:
     --------------------------------
-    data: dict
-        dictionary containing the data arrays
-    frequency: dict
-        dictionary containing the frequencies of the data arrays
+    acceleration_data_lists: list
+        list of acceleration data arrays (x, y, z - axis)
+    frequencies: list
+        list of sampling frequencies of the acceleration data arrays
     time_period: int
         length of the time period in seconds over which the MAD will be calculated
     wrist_acceleration_keys: list
@@ -125,15 +116,22 @@ def calc_mad(
         list of MAD values for each interval: MAD[i] = MAD in interval i
     """
     #check if data is valid
-    check_mad_conditions(data, frequency, wrist_acceleration_keys)
+    check_mad_conditions(
+        acceleration_data_lists = acceleration_data_lists,
+        frequencies = frequencies
+        )
 
     #transform time_period to number of samples
-    number_of_samples = int(time_period * frequency[wrist_acceleration_keys[0]])
+    number_of_samples = int(time_period * frequencies[0])
 
     #calculate MAD in intervals
     MAD = []
-    for i in np.arange(0, len(data[wrist_acceleration_keys[0]]), number_of_samples):
-        MAD.append(calc_mad_in_interval(data, i, i + time_period, wrist_acceleration_keys))
+    for i in np.arange(0, len(acceleration_data_lists[0]), number_of_samples):
+        MAD.append(calc_mad_in_interval(
+            acceleration_data_lists = acceleration_data_lists,
+            start_position = i,
+            end_position = i + time_period)
+            )
 
     return np.array(MAD)
 
@@ -141,7 +139,8 @@ def calc_mad(
 def calculate_MAD_in_acceleration_data(
         data_directory: str,
         valid_file_types: list,
-        wrist_acceleration_keys: list, 
+        wrist_acceleration_keys: list,
+        physical_dimension_correction_dictionary: dict,
         mad_time_period_seconds: int,
         mad_values_path: str
     ):
@@ -157,6 +156,8 @@ def calculate_MAD_in_acceleration_data(
         valid file types in the data directory
     wrist_acceleration_keys: list
         keys for the wrist acceleration data in the data dictionary
+    physical_dimension_correction_dictionary: dict
+        dictionary needed to check and correct the physical dimension of all signals
     mad_time_period_seconds: int
         time period in seconds over which the MAD will be calculated
     mad_values_path: str
@@ -189,6 +190,9 @@ def calculate_MAD_in_acceleration_data(
     total_files = len(valid_files)
     progressed_files = 0
 
+    # create list to store unprocessable files
+    unprocessable_files = []
+
     # create dictionary to save the MAD values
     MAD_values = dict()
 
@@ -197,20 +201,43 @@ def calculate_MAD_in_acceleration_data(
     for file in valid_files:
         # show progress
         progress_bar(progressed_files, total_files)
+        progressed_files += 1
 
-        # read the data
-        sigbufs, sigfreqs, sigdims, duration = read_edf.get_edf_data(data_directory + file)
+        # try to load the data and correct the physical dimension if needed
+        try:
+            # create lists to save the acceleration data and frequencies for each axis
+            acceleration_data = []
+            acceleration_data_frequencies = []
+
+            # get the acceleration data and frequency for each axis
+            for possible_axis_keys in wrist_acceleration_keys:
+                this_axis_signal, this_axis_frequency = read_edf.get_data_from_edf_channel(
+                    file_path = data_directory + file,
+                    possible_channel_labels = possible_axis_keys,
+                    physical_dimension_correction_dictionary = physical_dimension_correction_dictionary
+                )
+
+                # append data to corresponding lists
+                acceleration_data.append(this_axis_signal)
+                acceleration_data_frequencies.append(this_axis_frequency)
+        except:
+            unprocessable_files.append(data_directory + file)
+            continue
 
         # caculate MAD values
         MAD_values[file] = calc_mad(
-            data = sigbufs, 
-            frequency = sigfreqs, 
+            acceleration_data_lists = acceleration_data,
+            frequencies = acceleration_data_frequencies,
             time_period = mad_time_period_seconds, 
-            wrist_acceleration_keys = wrist_acceleration_keys
             )
-        progressed_files += 1
     
     progress_bar(progressed_files, total_files)
 
     # save MAD values
     save_to_pickle(MAD_values, mad_values_path)
+
+    # print unprocessable files
+    if len(unprocessable_files) > 0:
+        print("\nThe following files could not be processed:")
+        print(unprocessable_files)
+        print("Possible reasons: no matching label in wrist_acceleration_keys and the files, physical dimension of label is unknown")

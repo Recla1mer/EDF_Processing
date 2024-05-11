@@ -29,7 +29,7 @@ In this section we define the file/directory names.
 """
 
 # define directory and file names (will always be written in capital letters)
-DATA_DIRECTORY = "Data/"
+DATA_DIRECTORY = "Data/GIF/SOMNOwatch/"
 
 TEMPORARY_PICKLE_DIRECTORY = "Temporary_Pickles/"
 TEMPORARY_FIGURE_DIRECTORY = "Temporary_Figures/"
@@ -83,6 +83,38 @@ if not os.path.isdir(PREPARATION_DIRECTORY):
 
 """
 --------------------------------
+PHYSICAL DIMENSION SECTION
+--------------------------------
+
+Of course computers only operate with numbers, so we need to make sure that the physical
+dimensions of the data is consistent. This is especially important when we are working with
+different data sources. In this section we will define a dictionary that is used to correct
+the physical dimensions of the data.
+
+We will store every possible label of the signals as keys in the dictionary. The values will
+also be dictionaries in the following format:
+    {
+        "possible_dimensions": [list of possible physical dimensions],
+        "dimension_correction": [list of values that will be multiplied to the data if it has the corresponding physical dimension]
+    }
+"""
+
+voltage_dimensions = ["uV", "mV"]
+voltage_correction = [1, 1e3]
+
+force_dimensions = ["mg"]
+force_correction = [1]
+
+physical_dimension_correction_dictionary = {
+    "ECG": {"possible_dimensions": voltage_dimensions, "dimension_correction": voltage_correction},
+    "X": {"possible_dimensions": force_dimensions, "dimension_correction": force_correction},
+    "Y": {"possible_dimensions": force_dimensions, "dimension_correction": force_correction},
+    "Z": {"possible_dimensions": force_dimensions, "dimension_correction": force_correction}
+}
+
+
+"""
+--------------------------------
 PARAMETERS SECTION
 --------------------------------
 
@@ -117,8 +149,9 @@ settings_params = {
 file_params = {
     "data_directory": DATA_DIRECTORY, # directory where the data is stored
     "valid_file_types": [".edf"], # valid file types in the data directory
-    "ecg_key": "ECG", # key for the ECG data in the data dictionary
-    "wrist_acceleration_keys": ["X", "Y", "Z"], # keys for the wrist acceleration data in the data dictionary
+    "ecg_keys": ["ECG"], # possible labels for the ECG data in the data files
+    "wrist_acceleration_keys": [["X"], ["Y"], ["Z"]], # possible labels for the wrist acceleration data in the data files
+    "physical_dimension_correction_dictionary": physical_dimension_correction_dictionary, # dictionary to correct the physical dimensions of the data
 }
 
 # parameters for the PREPARATION SECTION
@@ -215,22 +248,24 @@ validate_parameter_settings(parameters)
 # list for the PREPARATION SECTION
 # --------------------------------
 
-ecg_thresholds_variables = ["ecg_calibration_file_path", "ecg_thresholds_multiplier", 
-                            "ecg_thresholds_dezimal_places", "ecg_key", "ecg_thresholds_save_path"]
+ecg_thresholds_variables = ["ecg_calibration_file_path", "ecg_keys", "physical_dimension_correction_dictionary",
+                            "ecg_thresholds_multiplier", "ecg_thresholds_dezimal_places", "ecg_thresholds_save_path"]
 
-determine_ecg_region_variables = ["data_directory", "valid_file_types", "check_ecg_std_min_threshold", 
-            "check_ecg_distance_std_ratio_threshold", "check_ecg_time_interval_seconds",
-            "check_ecg_overlapping_interval_steps", "check_ecg_min_valid_length_minutes", 
-            "check_ecg_allowed_invalid_region_length_seconds", "ecg_key", "valid_ecg_regions_path"]
+determine_ecg_region_variables = ["data_directory", "valid_file_types", "ecg_keys", 
+            "physical_dimension_correction_dictionary", "valid_ecg_regions_path",
+            "check_ecg_std_min_threshold", "check_ecg_distance_std_ratio_threshold", 
+            "check_ecg_time_interval_seconds", "check_ecg_overlapping_interval_steps", 
+            "check_ecg_min_valid_length_minutes", "check_ecg_allowed_invalid_region_length_seconds"]
 
-detect_rpeaks_variables = ["data_directory", "valid_file_types", "ecg_key", "valid_ecg_regions_path"]
+detect_rpeaks_variables = ["data_directory", "valid_file_types", "ecg_keys", 
+                           "physical_dimension_correction_dictionary", "valid_ecg_regions_path"]
 
-combine_detected_rpeaks_variables = ["data_directory", "valid_file_types", "ecg_key",
+combine_detected_rpeaks_variables = ["data_directory", "valid_file_types", "ecg_keys",
                         "rpeak_distance_threshold_seconds", "certain_rpeaks_path", 
                         "uncertain_primary_rpeaks_path", "uncertain_secondary_rpeaks_path"]
 
 calculate_MAD_variables = ["data_directory", "valid_file_types", "wrist_acceleration_keys", 
-                        "mad_time_period_seconds", "mad_values_path"]
+            "physical_dimension_correction_dictionary", "mad_time_period_seconds", "mad_values_path"]
 
 
 # lists for the ADDITIONALS SECTION
@@ -239,7 +274,7 @@ calculate_MAD_variables = ["data_directory", "valid_file_types", "wrist_accelera
 read_rpeak_classification_variables = ["data_directory", "valid_file_types", "rpeaks_values_directory", 
         "valid_rpeak_values_file_types", "include_rpeak_value_classifications"]
 
-rpeak_detection_comparison_variables = ["data_directory", "valid_file_types", "ecg_key",
+rpeak_detection_comparison_variables = ["data_directory", "valid_file_types", "ecg_keys",
                     "rpeak_distance_threshold_seconds", "rpeak_comparison_evaluation_path"]
 
 rpeak_detection_comparison_report_variables = ["rpeak_comparison_function_names", "rpeak_comparison_report_dezimal_places", 
@@ -255,7 +290,7 @@ ecg_validation_comparison_report_variables = ["ecg_validation_comparison_evaluat
 
 """
 --------------------------------
-CALIBRATION DATA
+CALIBRATION DATA SECTION
 --------------------------------
 
 In this section we will provide manually chosen calibration intervals for the ECG Validation.
@@ -320,8 +355,11 @@ def additional_section(run_section: bool):
 
         # plot the calibration data in the manually chosen calibration intervals
         names = ["perfect_ecg", "fluctuating_ecg", "noisy_ecg", "negative_peaks"]
-        sigbufs, sigfreqs, sigdims, duration = read_edf.get_edf_data(ECG_CALIBRATION_DATA_PATH)
-        ecg_data = sigbufs[parameters["ecg_key"]]
+        ecg_data, sample_frequency = read_edf.get_data_from_edf_channel(
+            file_path = ECG_CALIBRATION_DATA_PATH,
+            possible_channel_labels = parameters["ecg_keys"],
+            physical_dimension_correction_dictionary = parameters["physical_dimension_correction_dictionary"]
+        )
         for interval in manual_calibration_intervals:
             plot_helper.plot_calibration_data(
                 ecg_data[interval[0]:interval[1]], 
@@ -565,8 +603,8 @@ def main():
     #     xlim = x_lim
     #     )
 
-    additional_section(parameters["run_additionals_section"])
-    # preparation_section(parameters["run_preparation_section"])
+    # additional_section(parameters["run_additionals_section"])
+    preparation_section(parameters["run_preparation_section"])
 
     # rpeaks = load_from_pickle(PREPARATION_DIRECTORY + "RPeaks_wfdb.pkl")
     # print(rpeaks)
