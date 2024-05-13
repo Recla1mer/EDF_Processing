@@ -29,7 +29,8 @@ In this section we define the file/directory names.
 """
 
 # define directory and file names (will always be written in capital letters)
-DATA_DIRECTORY = "Data/GIF/SOMNOwatch/"
+HEAD_DATA_DIRECTORY = "Data/GIF/SOMNOwatch/"
+DATA_DIRECTORIES = ["Data/", "Data/GIF/SOMNOwatch/"]
 
 TEMPORARY_PICKLE_DIRECTORY = "Temporary_Pickles/"
 TEMPORARY_FIGURE_DIRECTORY = "Temporary_Figures/"
@@ -41,15 +42,17 @@ PREPARATION_DIRECTORY = "Preparation/"
 # ECG Validation
 ECG_CALIBRATION_DATA_PATH = "Calibration_Data/Somnowatch_Messung.edf"
 ECG_VALIDATION_THRESHOLDS_PATH = PREPARATION_DIRECTORY + "ECG_Validation_Thresholds.pkl"
-VALID_ECG_REGIONS_PATH = PREPARATION_DIRECTORY + "Valid_ECG_Regions.pkl"
+
+VALID_ECG_REGIONS_NAME = "Valid_ECG_Regions.pkl" # name of the pickle file where the valid regions for the ECG data are saved
 
 # R peak detection
-CERTAIN_RPEAKS_PATH = PREPARATION_DIRECTORY + "Certain_Rpeaks.pkl"
-UNCERTAIN_PRIMARY_RPEAKS_PATH = PREPARATION_DIRECTORY + "Uncertain_Primary_Rpeaks.pkl"
-UNCERTAIN_SECONDARY_RPEAKS_PATH = PREPARATION_DIRECTORY + "Uncertain_Secondary_Rpeaks.pkl"
+CERTAIN_RPEAKS_NAME = "Certain_Rpeaks.pkl" # name of the pickle file where the certain R peaks are saved (detected by both methods)
+UNCERTAIN_PRIMARY_RPEAKS_NAME = "Uncertain_Primary_Rpeaks.pkl" # name of the pickle file where the uncertain primary R peaks are saved (remaining R peaks from the primary method)
+UNCERTAIN_SECONDARY_RPEAKS_NAME = "Uncertain_Secondary_Rpeaks.pkl" # name of the pickle file where the uncertain secondary R peaks are saved (remaining R peaks from the secondary method)
+
 
 # MAD calculation
-MAD_VALUES_PATH = PREPARATION_DIRECTORY + "MAD_Values.pkl"
+MAD_VALUES_NAME = "MAD_Values.pkl" # name of the pickle file where the MAD values are saved
 
 # paths for ADDITIONALS SECTION
 # ------------------------------
@@ -147,7 +150,6 @@ settings_params = {
 
 # file parameters:
 file_params = {
-    "data_directory": DATA_DIRECTORY, # directory where the data is stored
     "valid_file_types": [".edf"], # valid file types in the data directory
     "ecg_keys": ["ECG"], # possible labels for the ECG data in the data files
     "wrist_acceleration_keys": [["X"], ["Y"], ["Z"]], # possible labels for the wrist acceleration data in the data files
@@ -160,14 +162,13 @@ file_params = {
 # parameters for the ECG Validation
 valid_ecg_regions_params = {
     "ecg_calibration_file_path": ECG_CALIBRATION_DATA_PATH, # path to the EDF file for threshold calibration
+    "ecg_thresholds_save_path": ECG_VALIDATION_THRESHOLDS_PATH, # path to the pickle file where the thresholds are saved
     "ecg_thresholds_multiplier": 0.5, # multiplier for the thresholds in check_data.check_ecg() (between 0 and 1, the higher the more strict the thresholds are)
     "ecg_thresholds_dezimal_places": 2, # number of dezimal places for the check ecg thresholds in the pickle files
-    "ecg_thresholds_save_path": ECG_VALIDATION_THRESHOLDS_PATH, # path to the pickle file where the thresholds are saved
     "check_ecg_time_interval_seconds": 10, # time interval considered when determining the valid regions for the ECG data
     "check_ecg_overlapping_interval_steps": 5, # number of times the interval needs to be shifted to the right until the next check_ecg_time_interval_seconds is reached
     "check_ecg_min_valid_length_minutes": 5, # minimum length of valid data in minutes
     "check_ecg_allowed_invalid_region_length_seconds": 30, # data region (see directly above) still considered valid if the invalid part is shorter than this
-    "valid_ecg_regions_path": VALID_ECG_REGIONS_PATH, # path to the pickle file where the valid regions for the ECG data are saved
 }
 
 # parameters for the R peak detection
@@ -177,15 +178,11 @@ detect_rpeaks_params = {
     "rpeak_name_primary": "wfdb", # name of the primary R peak detection function
     "rpeak_name_secondary": "ecgdetectors", # name of the secondary R peak detection function
     "rpeak_distance_threshold_seconds": 0.05, # If R peaks in the two functions differ by this value, they are still considered the same (max 50ms)
-    "certain_rpeaks_path": CERTAIN_RPEAKS_PATH, # path to the pickle file where the certain R peaks are saved (detected by both methods)
-    "uncertain_primary_rpeaks_path": UNCERTAIN_PRIMARY_RPEAKS_PATH, # path to the pickle file where the uncertain primary R peaks are saved (remaining R peaks from the primary method)
-    "uncertain_secondary_rpeaks_path": UNCERTAIN_SECONDARY_RPEAKS_PATH, # path to the pickle file where the uncertain secondary R peaks are saved (remaining R peaks from the secondary method)
 }
 
 # parameters for the MAD calculation
 calculate_MAD_params = {
     "mad_time_period_seconds": 10, # time period in seconds over which the MAD will be calculated
-    "mad_values_path": MAD_VALUES_PATH, # path to the pickle file where the MAD values are saved
 }
 
 # parameters for the ADDITIONALS SECTION
@@ -248,41 +245,36 @@ validate_parameter_settings(parameters)
 # list for the PREPARATION SECTION
 # --------------------------------
 
-ecg_thresholds_variables = ["ecg_calibration_file_path", "ecg_keys", "physical_dimension_correction_dictionary",
-                            "ecg_thresholds_multiplier", "ecg_thresholds_dezimal_places", "ecg_thresholds_save_path"]
+ecg_thresholds_variables = ["ecg_thresholds_save_path", "ecg_calibration_file_path", "ecg_keys", 
+        "physical_dimension_correction_dictionary","ecg_thresholds_multiplier", "ecg_thresholds_dezimal_places"]
 
-determine_ecg_region_variables = ["data_directory", "valid_file_types", "ecg_keys", 
-            "physical_dimension_correction_dictionary", "valid_ecg_regions_path",
+determine_ecg_region_variables = ["valid_file_types", "ecg_keys", "physical_dimension_correction_dictionary",
             "check_ecg_std_min_threshold", "check_ecg_distance_std_ratio_threshold", 
             "check_ecg_time_interval_seconds", "check_ecg_overlapping_interval_steps", 
             "check_ecg_min_valid_length_minutes", "check_ecg_allowed_invalid_region_length_seconds"]
 
-detect_rpeaks_variables = ["data_directory", "valid_file_types", "ecg_keys", 
-                           "physical_dimension_correction_dictionary", "valid_ecg_regions_path"]
+detect_rpeaks_variables = ["valid_file_types", "ecg_keys", "physical_dimension_correction_dictionary"]
 
-combine_detected_rpeaks_variables = ["data_directory", "valid_file_types", "ecg_keys",
-                        "rpeak_distance_threshold_seconds", "certain_rpeaks_path", 
-                        "uncertain_primary_rpeaks_path", "uncertain_secondary_rpeaks_path"]
+combine_detected_rpeaks_variables = ["valid_file_types", "ecg_keys", "rpeak_distance_threshold_seconds"]
 
-calculate_MAD_variables = ["data_directory", "valid_file_types", "wrist_acceleration_keys", 
-            "physical_dimension_correction_dictionary", "mad_time_period_seconds", "mad_values_path"]
+calculate_MAD_variables = ["valid_file_types", "wrist_acceleration_keys", 
+            "physical_dimension_correction_dictionary", "mad_time_period_seconds"]
 
 
 # lists for the ADDITIONALS SECTION
 # ---------------------------------
 
-read_rpeak_classification_variables = ["data_directory", "valid_file_types", "rpeaks_values_directory", 
-        "valid_rpeak_values_file_types", "include_rpeak_value_classifications"]
+read_rpeak_classification_variables = ["valid_file_types", "rpeaks_values_directory", 
+                    "valid_rpeak_values_file_types", "include_rpeak_value_classifications"]
 
-rpeak_detection_comparison_variables = ["data_directory", "valid_file_types", "ecg_keys",
+rpeak_detection_comparison_variables = ["valid_file_types", "ecg_keys",
                     "rpeak_distance_threshold_seconds", "rpeak_comparison_evaluation_path"]
 
 rpeak_detection_comparison_report_variables = ["rpeak_comparison_function_names", "rpeak_comparison_report_dezimal_places", 
                                    "rpeak_comparison_report_path", "rpeak_comparison_evaluation_path"]
 
 ecg_validation_comparison_variables = ["ecg_classification_values_directory", 
-        "ecg_classification_file_types", "ecg_validation_comparison_evaluation_path",
-        "valid_ecg_regions_path"]
+        "ecg_classification_file_types", "ecg_validation_comparison_evaluation_path"]
 
 ecg_validation_comparison_report_variables = ["ecg_validation_comparison_evaluation_path", 
             "ecg_validation_comparison_report_path", "ecg_validation_comparison_report_dezimal_places"]
@@ -369,28 +361,24 @@ def additional_section(run_section: bool):
     
     # perform ecg validation if needed
     if parameters["perform_rpeak_comparison"] or parameters["perform_ecg_validation_comparison"]:
-        parameters["ecg_thresholds_save_path"] = ADDITIONALS_DIRECTORY + get_file_name_from_path(parameters["ecg_thresholds_save_path"])
         # create arguments for ecg thresholds evaluation and calculate them
         ecg_thresholds_args = create_sub_dict(parameters, ecg_thresholds_variables)
         ecg_thresholds_args["ecg_calibration_intervals"] = manual_calibration_intervals
         check_data.create_ecg_thresholds(**ecg_thresholds_args)
-        del ecg_thresholds_args
 
         # load the ecg thresholds to the parameters dictionary
         ecg_validation_thresholds_dict = load_from_pickle(parameters["ecg_thresholds_save_path"])
         parameters.update(ecg_validation_thresholds_dict)
-        del ecg_validation_thresholds_dict
-        del manual_calibration_intervals
-
-        # change the data paths to where the ECG classification is stored
-        store_old_data_directory = copy.deepcopy(parameters["data_directory"])
-        parameters["data_directory"] = parameters["ecg_validation_comparison_raw_data_directory"]
-        parameters["valid_ecg_regions_path"] = ADDITIONALS_DIRECTORY + get_file_name_from_path(parameters["valid_ecg_regions_path"])
 
         # create arguments for the valid ecg regions evaluation and calculate them
         determine_ecg_region_args = create_sub_dict(parameters, determine_ecg_region_variables)
+
+        # change the data paths to where the ECG classification is stored
+        determine_ecg_region_args["data_directory"] = parameters["ecg_validation_comparison_raw_data_directory"]
+        determine_ecg_region_args["valid_ecg_regions_path"] = ADDITIONALS_DIRECTORY + VALID_ECG_REGIONS_NAME
+
         check_data.determine_valid_ecg_regions(**determine_ecg_region_args)
-        del determine_ecg_region_args
+        del manual_calibration_intervals, ecg_thresholds_args, ecg_validation_thresholds_dict, determine_ecg_region_args
     
     """
     --------------------------------
@@ -404,6 +392,7 @@ def additional_section(run_section: bool):
             os.mkdir(ECG_VALIDATION_COMPARISON_DIRECTORY)
         # create arguments for the ECG validation comparison and perform it
         ecg_validation_comparison_args = create_sub_dict(parameters, ecg_validation_comparison_variables)
+        ecg_validation_comparison_args["valid_ecg_regions_path"] = ADDITIONALS_DIRECTORY + VALID_ECG_REGIONS_NAME
         check_data.ecg_validation_comparison(**ecg_validation_comparison_args)
         del ecg_validation_comparison_args
 
@@ -422,15 +411,11 @@ def additional_section(run_section: bool):
         # create directory to save comparison results if it does not exist
         if not os.path.isdir(RPEAK_COMPARISON_DIRECTORY):
             os.mkdir(RPEAK_COMPARISON_DIRECTORY)
-        
-        # change the data paths to where the R peak classifications are stored
-        if len(parameters["rpeak_classification_functions"]) > 0:
-            parameters["data_directory"] = parameters["rpeaks_classification_raw_data_directory"]
-        else:
-            parameters["data_directory"] = store_old_data_directory
 
         # create arguments for the R peak detection evaluation
         detect_rpeaks_args = create_sub_dict(parameters, detect_rpeaks_variables)
+        detect_rpeaks_args["data_directory"] = parameters["ecg_validation_comparison_raw_data_directory"]
+        detect_rpeaks_args["valid_ecg_regions_path"] = ADDITIONALS_DIRECTORY + VALID_ECG_REGIONS_NAME
 
         # create paths to where the detected R peaks will be saved
         compare_rpeaks_paths = []
@@ -450,6 +435,7 @@ def additional_section(run_section: bool):
 
         # read r peaks from the classification files if they are needed
         read_rpeak_classification_args = create_sub_dict(parameters, read_rpeak_classification_variables)
+        read_rpeak_classification_args["data_directory"] = parameters["ecg_validation_comparison_raw_data_directory"]
         for i in range(len(parameters["rpeak_classification_functions"])):
             read_rpeak_classification_args["rpeak_path"] = compare_rpeaks_paths[classification_index_offset + i]
             rpeak_detection.read_rpeaks_from_rri_files(**read_rpeak_classification_args)
@@ -457,6 +443,7 @@ def additional_section(run_section: bool):
 
         # create arguments for the R peak comparison evaluation and perform it
         rpeak_detection_comparison_args = create_sub_dict(parameters, rpeak_detection_comparison_variables)
+        rpeak_detection_comparison_args["data_directory"] = parameters["ecg_validation_comparison_raw_data_directory"]
         rpeak_detection_comparison_args["compare_rpeaks_paths"] = compare_rpeaks_paths
         rpeak_detection.rpeak_detection_comparison(**rpeak_detection_comparison_args)
         del rpeak_detection_comparison_args
@@ -499,18 +486,25 @@ def preparation_section(run_section: bool):
         ecg_thresholds_args = create_sub_dict(parameters, ecg_thresholds_variables)
         ecg_thresholds_args["ecg_calibration_intervals"] = manual_calibration_intervals
         check_data.create_ecg_thresholds(**ecg_thresholds_args)
-        del ecg_thresholds_args
-        del manual_calibration_intervals
+        del manual_calibration_intervals, ecg_thresholds_args
 
     # load the ecg thresholds to the parameters dictionary
-    ecg_validation_thresholds_dict = load_from_pickle(parameters["ecg_thresholds_save_path"])
+    ecg_validation_thresholds_dict = load_from_pickle(ECG_VALIDATION_THRESHOLDS_PATH)
     parameters.update(ecg_validation_thresholds_dict)
     del ecg_validation_thresholds_dict
 
     # evaluate valid regions for the ECG data
     if parameters["determine_valid_ecg_regions"]:
         determine_ecg_region_args = create_sub_dict(parameters, determine_ecg_region_variables)
-        check_data.determine_valid_ecg_regions(**determine_ecg_region_args)
+        for DATA_DIRECTORY in DATA_DIRECTORIES:
+            # create save directory
+            SAVE_DIRECTORY = PREPARATION_DIRECTORY + create_save_path_from_directory_name(DATA_DIRECTORY)
+            if not os.path.isdir(SAVE_DIRECTORY):
+                os.mkdir(SAVE_DIRECTORY)
+
+            determine_ecg_region_args["data_directory"] = DATA_DIRECTORY
+            determine_ecg_region_args["valid_ecg_regions_path"] = SAVE_DIRECTORY + VALID_ECG_REGIONS_NAME
+            check_data.determine_valid_ecg_regions(**determine_ecg_region_args)
         del determine_ecg_region_args
     
     """
@@ -524,25 +518,35 @@ def preparation_section(run_section: bool):
         # create arguments for the R peak detection
         detect_rpeaks_args = create_sub_dict(parameters, detect_rpeaks_variables)
         
-        # detect R peaks using the primary function
-        detect_rpeaks_args["rpeak_function"] = parameters["rpeak_primary_function"]
-        detect_rpeaks_args["rpeak_function_name"] = parameters["rpeak_name_primary"]
-        rpeak_primary_path = create_rpeaks_pickle_path(PREPARATION_DIRECTORY, parameters["rpeak_name_primary"])
-        detect_rpeaks_args["rpeak_path"] = rpeak_primary_path
-        rpeak_detection.detect_rpeaks(**detect_rpeaks_args)
+        for DATA_DIRECTORY in DATA_DIRECTORIES:
+            # create save directory, we don't have to check if its already created, because it is created in the previous step
+            SAVE_DIRECTORY = PREPARATION_DIRECTORY + create_save_path_from_directory_name(DATA_DIRECTORY)
+            detect_rpeaks_args["data_directory"] = DATA_DIRECTORY
+            detect_rpeaks_args["valid_ecg_regions_path"] = SAVE_DIRECTORY + VALID_ECG_REGIONS_NAME
 
-        # detect R peaks using the secondary function
-        detect_rpeaks_args["rpeak_function"] = parameters["rpeak_secondary_function"]
-        detect_rpeaks_args["rpeak_function_name"] = parameters["rpeak_name_secondary"]
-        rpeak_secondary_path = create_rpeaks_pickle_path(PREPARATION_DIRECTORY, parameters["rpeak_name_secondary"])
-        detect_rpeaks_args["rpeak_path"] = rpeak_secondary_path
-        rpeak_detection.detect_rpeaks(**detect_rpeaks_args)
+            # detect R peaks using the primary function
+            detect_rpeaks_args["rpeak_function"] = parameters["rpeak_primary_function"]
+            detect_rpeaks_args["rpeak_function_name"] = parameters["rpeak_name_primary"]
+            rpeak_primary_path = create_rpeaks_pickle_path(SAVE_DIRECTORY, parameters["rpeak_name_primary"])
+            detect_rpeaks_args["rpeak_path"] = rpeak_primary_path
+            rpeak_detection.detect_rpeaks(**detect_rpeaks_args)
 
-        # combine the detected R peaks into certain and uncertain R peaks
-        combine_detected_rpeaks_args = create_sub_dict(parameters, combine_detected_rpeaks_variables)
-        combine_detected_rpeaks_args["rpeak_primary_path"] = rpeak_primary_path
-        combine_detected_rpeaks_args["rpeak_secondary_path"] = rpeak_secondary_path
-        rpeak_detection.combine_detected_rpeaks(**combine_detected_rpeaks_args)
+            # detect R peaks using the secondary function
+            detect_rpeaks_args["rpeak_function"] = parameters["rpeak_secondary_function"]
+            detect_rpeaks_args["rpeak_function_name"] = parameters["rpeak_name_secondary"]
+            rpeak_secondary_path = create_rpeaks_pickle_path(SAVE_DIRECTORY, parameters["rpeak_name_secondary"])
+            detect_rpeaks_args["rpeak_path"] = rpeak_secondary_path
+            rpeak_detection.detect_rpeaks(**detect_rpeaks_args)
+
+            # combine the detected R peaks into certain and uncertain R peaks
+            combine_detected_rpeaks_args = create_sub_dict(parameters, combine_detected_rpeaks_variables)
+            combine_detected_rpeaks_args["data_directory"] = DATA_DIRECTORY
+            combine_detected_rpeaks_args["rpeak_primary_path"] = rpeak_primary_path
+            combine_detected_rpeaks_args["rpeak_secondary_path"] = rpeak_secondary_path
+            combine_detected_rpeaks_args["certain_rpeaks_path"] = PREPARATION_DIRECTORY + create_save_path_from_directory_name(DATA_DIRECTORY) + CERTAIN_RPEAKS_NAME
+            combine_detected_rpeaks_args["uncertain_primary_rpeaks_path"] = PREPARATION_DIRECTORY + create_save_path_from_directory_name(DATA_DIRECTORY) + UNCERTAIN_PRIMARY_RPEAKS_NAME
+            combine_detected_rpeaks_args["uncertain_secondary_rpeaks_path"] = PREPARATION_DIRECTORY + create_save_path_from_directory_name(DATA_DIRECTORY) + UNCERTAIN_SECONDARY_RPEAKS_NAME
+            rpeak_detection.combine_detected_rpeaks(**combine_detected_rpeaks_args)
 
         del detect_rpeaks_args, combine_detected_rpeaks_args, rpeak_primary_path, rpeak_secondary_path
     
@@ -554,7 +558,10 @@ def preparation_section(run_section: bool):
     # calculate MAD in the wrist acceleration data
     if parameters["calculate_MAD"]:
         calculate_MAD_args = create_sub_dict(parameters, calculate_MAD_variables)
-        MAD.calculate_MAD_in_acceleration_data(**calculate_MAD_args)
+        for DATA_DIRECTORY in DATA_DIRECTORIES:
+            calculate_MAD_args["data_directory"] = DATA_DIRECTORY
+            calculate_MAD_args["mad_values_path"] = PREPARATION_DIRECTORY + create_save_path_from_directory_name(DATA_DIRECTORY) + MAD_VALUES_NAME
+            MAD.calculate_MAD_in_acceleration_data(**calculate_MAD_args)
         del calculate_MAD_args
 
 

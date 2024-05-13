@@ -26,8 +26,6 @@ def validate_parameter_settings(parameters):
     None, but raises an error if a parameter is invalid
     """
     # file parameters:
-    if not isinstance(parameters["data_directory"], str):
-        raise ValueError("'data_directory' parameter must be a string.")
     if not isinstance(parameters["valid_file_types"], list):
         raise ValueError("'valid_file_types' parameter must be a list.")
     if not isinstance(parameters["ecg_keys"], list):
@@ -60,8 +58,6 @@ def validate_parameter_settings(parameters):
         raise ValueError("'check_ecg_min_valid_length_minutes' parameter must be an integer.")
     if not isinstance(parameters["check_ecg_allowed_invalid_region_length_seconds"], int):
         raise ValueError("'check_ecg_allowed_invalid_region_length_seconds' parameter must be an integer.")
-    if not isinstance(parameters["valid_ecg_regions_path"], str):
-        raise ValueError("'valid_ecg_regions_path' parameter must be a string.")
 
     # parameters for the R peak detection
     if not callable(parameters["rpeak_primary_function"]):
@@ -74,18 +70,10 @@ def validate_parameter_settings(parameters):
         raise ValueError("'rpeak_name_secondary' parameter must be a string.")
     if not isinstance(parameters["rpeak_distance_threshold_seconds"], float):
         raise ValueError("'rpeak_distance_threshold_seconds' parameter must be a float.")
-    if not isinstance(parameters["certain_rpeaks_path"], str):
-        raise ValueError("'certain_rpeaks_path' parameter must be a string.")
-    if not isinstance(parameters["uncertain_primary_rpeaks_path"], str):
-        raise ValueError("'uncertain_primary_rpeaks_path' parameter must be a string.")
-    if not isinstance(parameters["uncertain_secondary_rpeaks_path"], str):
-        raise ValueError("'uncertain_secondary_rpeaks_path' parameter must be a string.")
 
     # parameters for the MAD calculation
     if not isinstance(parameters["mad_time_period_seconds"], int):
         raise ValueError("'mad_time_period_seconds' parameter must be an integer.")
-    if not isinstance(parameters["mad_values_path"], str):
-        raise ValueError("'mad_values_path' parameter must be a string.")
     
     """
     --------------------------------------
@@ -132,7 +120,25 @@ def validate_parameter_settings(parameters):
 
 def progress_bar(index, total, bar_len=50, title='Please wait'):
     """
-    Source: https://stackoverflow.com/questions/6169217/replace-console-output-in-python
+    Prints a progress bar in the console.
+
+    Idea partially taken from:
+    https://stackoverflow.com/questions/6169217/replace-console-output-in-python
+
+    ARGUMENTS:
+    --------------------------------
+    index: int
+        current index
+    total: int
+        total number
+    bar_len: int
+        length of the progress bar
+    title: str
+        title of the progress bar
+
+    RETURNS:
+    --------------------------------
+    None, but prints the progress bar to the console
     """
     percent_done = index/total*100
     rounded_percent_done = round(percent_done, 1)
@@ -151,9 +157,20 @@ def progress_bar(index, total, bar_len=50, title='Please wait'):
 
 def retrieve_all_subdirectories_with_valid_files(directory: str, valid_file_types: list):
     """
-    Search given directory and every subdirectory for files with the given file types and
-    return their paths in a nested list. Each sublist contains the paths of the files in one
-    subdirectory.
+    Search given directory and every subdirectory for files with the given file types. If 
+    wanted files present in a directory, return the path of the directory.
+    
+    ARGUMENTS:
+    --------------------------------
+    directory: str
+        path to the head directory
+    valid_file_types: list
+        list of valid file types
+    
+    RETURNS:
+    --------------------------------
+    all_paths: list
+        list of paths to directories containing valid files
     """
     all_files = os.listdir(directory)
     valid_files = [file for file in all_files if get_file_type(file) in valid_file_types]
@@ -172,16 +189,43 @@ def retrieve_all_subdirectories_with_valid_files(directory: str, valid_file_type
     return all_paths
 
 
-def create_missing_paths_in_save_directory(save_directory: str, all_file_paths: list):
+def create_save_path_from_directory_name(directory: str):
     """
-    In retrieve_all_file_paths, we get the paths of all valid files in a directory and its subdirectories.
-    Because we create files in the main project for every directory, we need to create the directories
-    in the save directory as well. This function creates all directories that are needed to save the files
+    We will save the results calculated in main.py seperated by the directory name the data
+    is stored in. This function creates a save path from the directory name to save the results
+    in a structured way.
+
+    ARGUMENTS:
+    --------------------------------
+    directory: str
+        path to the directory
+    
+    RETURNS:
+    --------------------------------
+    save_path: str
+        path to the save directory
     """
-    for file_path in all_file_paths:
-        file_directory = os.path.dirname(file_path)
-        if not os.path.exists(save_directory + file_directory):
-            os.makedirs(save_directory + file_directory)
+    count_slash = 0
+    for i in range(len(directory)):
+        if directory[i] == "/":
+            count_slash += 1
+    
+    if count_slash <= 1:
+        removed_first_directory = directory
+    else:
+        for i in range(len(directory)):
+            if directory[i] == "/":
+                removed_first_directory = directory[i+1:]
+                break
+    
+    new_directory_name = ""
+    for i in range(len(removed_first_directory)):
+        if removed_first_directory[i] == "/" and i != len(removed_first_directory)-1:
+            new_directory_name += "_"
+        else:
+            new_directory_name += removed_first_directory[i]
+        
+    return new_directory_name
 
 
 def run_function_on_all_content(directory: str, valid_file_types: list, function):

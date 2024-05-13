@@ -1214,3 +1214,26 @@ def get_edf_data(file_name):
     f._close()
     
     return sigbufs, sigfreqs, sigdims, duration
+
+
+def get_all_dim_signal_labels():
+    """
+    """
+    try_directory = "Data/"
+    # print(get_dimensions_and_signal_labels(try_directory))
+    txt_file = open("Additions/Dimensions_and_Labels/dim_and_labels.txt", "w")
+    all_directories = retrieve_all_subdirectories_with_valid_files(try_directory, [".edf"])
+    print(all_directories)
+
+    for directory in all_directories:
+        labels, dimensions = get_dimensions_and_signal_labels(directory)
+        txt_file.write(directory + "\n")
+        txt_file.write("-"*len(directory) + "\n")
+        for i in np.arange(len(labels)):
+            txt_file.write(labels[i] + ": ")
+            for dim in dimensions[i]:
+                txt_file.write("\"" + dim + "\", ")
+            txt_file.write("\n")
+        txt_file.write("\n")
+
+    txt_file.close()

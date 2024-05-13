@@ -197,7 +197,7 @@ def calculate_MAD_in_acceleration_data(
     MAD_values = dict()
 
     # calculate MAD in the wrist acceleration data
-    print("Calculating MAD in the wrist acceleration data in %i files:" % total_files)
+    print("\nCalculating MAD in the wrist acceleration data in %i files:" % total_files)
     for file in valid_files:
         # show progress
         progress_bar(progressed_files, total_files)
