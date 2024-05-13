@@ -8,6 +8,7 @@ other ones. Their purpose is to keep them a little cleaner and more intuitive.
 # IMPORTS
 import os
 import pickle
+import numpy as np
 
 
 def validate_parameter_settings(parameters):
@@ -146,6 +147,57 @@ def progress_bar(index, total, bar_len=50, title='Please wait'):
 
     if percent_done == 100:
         print('\t✅')
+
+
+def retrieve_all_subdirectories_with_valid_files(directory: str, valid_file_types: list):
+    """
+    Search given directory and every subdirectory for files with the given file types and
+    return their paths in a nested list. Each sublist contains the paths of the files in one
+    subdirectory.
+    """
+    all_files = os.listdir(directory)
+    valid_files = [file for file in all_files if get_file_type(file) in valid_file_types]
+
+    all_paths = []
+    if len(valid_files) > 0:
+        # all_paths.append([directory + file for file in valid_files])
+        all_paths.append(directory)
+
+    for file in all_files:
+        if os.path.isdir(directory + file):
+            these_paths = retrieve_all_subdirectories_with_valid_files(directory + file + "/", valid_file_types)
+            for paths in these_paths:
+                all_paths.append(paths)
+
+    return all_paths
+
+
+def create_missing_paths_in_save_directory(save_directory: str, all_file_paths: list):
+    """
+    In retrieve_all_file_paths, we get the paths of all valid files in a directory and its subdirectories.
+    Because we create files in the main project for every directory, we need to create the directories
+    in the save directory as well. This function creates all directories that are needed to save the files
+    """
+    for file_path in all_file_paths:
+        file_directory = os.path.dirname(file_path)
+        if not os.path.exists(save_directory + file_directory):
+            os.makedirs(save_directory + file_directory)
+
+
+def run_function_on_all_content(directory: str, valid_file_types: list, function):
+    """
+    Search given directory and every subdirectory for files with the given file types and
+    run the given function on them.
+    """
+    all_paths = retrieve_all_subdirectories_with_valid_files(directory, valid_file_types)
+
+    # total_files = len(valid_files)
+    # progressed_files = 0
+
+    # for file in valid_files:
+    #     function(directory + file)
+    #     progressed_files += 1
+    #     progress_bar(progressed_files, total_files)
 
 
 def clear_directory(directory):

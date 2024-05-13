@@ -285,53 +285,21 @@ def library_overview(file_name):
     del f
 
 
-def get_edf_data(file_name):
-    """
-    Reads data from an EDF file.
-
-    ARGUMENTS:
-    --------------------------------
-    file_name: str
-        path to the EDF file
-    
-    RETURNS:
-    --------------------------------
-    sigbufs: dict
-        dictionary containing the signals
-    sigfreqs: dict
-        dictionary containing the frequencies of the signals
-    sigdims: dict
-        dictionary containing the physical dimensions of the signals
-    duration: float
-        duration of the EDF file in seconds
-
-    The keys of the dictionaries are the signal labels.
-
-    ATTENTION: 
-    --------------------------------
-    In the actual EDF file, the signals are shown in blocks over time. This was 
-    previously not considered in the pyedflib library. Now it seems to be fixed.
-    """
-
-    f = pyedflib.EdfReader(file_name)
-
-    duration = f.file_duration
-
-    n = f.signals_in_file
-    signal_labels = f.getSignalLabels()
-    sigbufs = dict()
-    sigfreqs = dict()
-    sigdims = dict()
-
-    for i in np.arange(n):
-        this_signal = f.readSignal(i)
-        sigbufs[signal_labels[i]] = this_signal
-        sigfreqs[signal_labels[i]] = f.getSampleFrequency(i)
-        sigdims[signal_labels[i]] = f.getPhysicalDimension(i)
-    f._close()
-    
-    return sigbufs, sigfreqs, sigdims, duration
-
-
-# try_directory = "Data/GIF/SOMNOwatch/"
+try_directory = "Data/"
 # print(get_dimensions_and_signal_labels(try_directory))
+txt_file =  open("Additions/Dimensions_and_Labels/dim_and_labels.txt", "w")
+all_directories = retrieve_all_subdirectories_with_valid_files(try_directory, [".edf"])
+print(all_directories)
+
+for directory in all_directories:
+    labels, dimensions = get_dimensions_and_signal_labels(directory)
+    txt_file.write(directory + "\n")
+    txt_file.write("-"*len(directory) + "\n")
+    for i in np.arange(len(labels)):
+        txt_file.write(labels[i] + ": ")
+        for dim in dimensions[i]:
+            txt_file.write("\"" + dim + "\", ")
+        txt_file.write("\n")
+    txt_file.write("\n")
+
+txt_file.close()

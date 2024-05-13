@@ -1166,3 +1166,51 @@ def check_ecg_more_mistakes(
                     continue
     
     return valid_regions
+
+
+def get_edf_data(file_name):
+    """
+    Reads data from an EDF file.
+
+    ARGUMENTS:
+    --------------------------------
+    file_name: str
+        path to the EDF file
+    
+    RETURNS:
+    --------------------------------
+    sigbufs: dict
+        dictionary containing the signals
+    sigfreqs: dict
+        dictionary containing the frequencies of the signals
+    sigdims: dict
+        dictionary containing the physical dimensions of the signals
+    duration: float
+        duration of the EDF file in seconds
+
+    The keys of the dictionaries are the signal labels.
+
+    ATTENTION: 
+    --------------------------------
+    In the actual EDF file, the signals are shown in blocks over time. This was 
+    previously not considered in the pyedflib library. Now it seems to be fixed.
+    """
+
+    f = pyedflib.EdfReader(file_name)
+
+    duration = f.file_duration
+
+    n = f.signals_in_file
+    signal_labels = f.getSignalLabels()
+    sigbufs = dict()
+    sigfreqs = dict()
+    sigdims = dict()
+
+    for i in np.arange(n):
+        this_signal = f.readSignal(i)
+        sigbufs[signal_labels[i]] = this_signal
+        sigfreqs[signal_labels[i]] = f.getSampleFrequency(i)
+        sigdims[signal_labels[i]] = f.getPhysicalDimension(i)
+    f._close()
+    
+    return sigbufs, sigfreqs, sigdims, duration
