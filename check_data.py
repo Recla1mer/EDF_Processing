@@ -238,6 +238,9 @@ def check_ecg(
                     else:
                         break
             was_valid = False
+    
+    if len(overlapping_valid_regions) == 0:
+        return []
 
     # concatenate neighbouring intervals
     concatenated_intervals = []
@@ -413,21 +416,22 @@ def determine_valid_ecg_regions(
                 possible_channel_labels = ecg_keys,
                 physical_dimension_correction_dictionary = physical_dimension_correction_dictionary
             )
+
+            # calculate the valid regions
+            valid_regions[file] = check_ecg(
+                ECG = ecg_signal, 
+                frequency = ecg_sampling_frequency, 
+                check_ecg_std_min_threshold = check_ecg_std_min_threshold, 
+                check_ecg_distance_std_ratio_threshold = check_ecg_distance_std_ratio_threshold,
+                time_interval_seconds = check_ecg_time_interval_seconds, 
+                overlapping_interval_steps = check_ecg_overlapping_interval_steps,
+                min_valid_length_minutes = check_ecg_min_valid_length_minutes,
+                allowed_invalid_region_length_seconds = check_ecg_allowed_invalid_region_length_seconds,
+                )
         except:
             unprocessable_files.append(data_directory + file)
             continue
 
-        # calculate the valid regions
-        valid_regions[file] = check_ecg(
-            ECG = ecg_signal, 
-            frequency = ecg_sampling_frequency, 
-            check_ecg_std_min_threshold = check_ecg_std_min_threshold, 
-            check_ecg_distance_std_ratio_threshold = check_ecg_distance_std_ratio_threshold,
-            time_interval_seconds = check_ecg_time_interval_seconds, 
-            overlapping_interval_steps = check_ecg_overlapping_interval_steps,
-            min_valid_length_minutes = check_ecg_min_valid_length_minutes,
-            allowed_invalid_region_length_seconds = check_ecg_allowed_invalid_region_length_seconds,
-            )
 
     progress_bar(progressed_files, total_files)
     
@@ -597,8 +601,14 @@ def compare_ecg_validations(
     """
 
     # get points considered valid and invalid by the ECG classification
-    classification_invalid_points = ecg_classification["1"]
-    classification_valid_points = ecg_classification["0"]
+    try:
+        classification_invalid_points = ecg_classification["1"]
+    except:
+        classification_invalid_points = []
+    try:
+        classification_valid_points = ecg_classification["0"]
+    except:
+        classification_valid_points = []
 
     # create lists to save the intersecting points and the wrong classified points
     intersecting_invalid_points = []
@@ -632,11 +642,23 @@ def compare_ecg_validations(
             intersecting_invalid_points.append(point)
 
     # calculate the ratios and return them
-    correct_valid_ratio = len(intersecting_valid_points) / len(classification_valid_points)
-    correct_invalid_ratio = len(intersecting_invalid_points) / len(classification_invalid_points)
+    try:
+        correct_valid_ratio = len(intersecting_valid_points) / len(classification_valid_points)
+    except:
+        correct_valid_ratio = 1.0
+    try:
+        correct_invalid_ratio = len(intersecting_invalid_points) / len(classification_invalid_points)
+    except:
+        correct_invalid_ratio = 1.0
 
-    valid_wrong_ratio = len(valid_points_wrong) / len(classification_valid_points)
-    invalid_wrong_ratio = len(invalid_points_wrong) / len(classification_invalid_points)
+    try:
+        valid_wrong_ratio = len(valid_points_wrong) / len(classification_valid_points)
+    except:
+        valid_wrong_ratio = 1.0
+    try:
+        invalid_wrong_ratio = len(invalid_points_wrong) / len(classification_invalid_points)
+    except:
+        invalid_wrong_ratio = 1.0
 
     return correct_valid_ratio, correct_invalid_ratio, valid_wrong_ratio, invalid_wrong_ratio
 
@@ -691,10 +713,13 @@ def ecg_validation_comparison(
     total_data_files = len(determined_ecg_validation_dictionary)
     progressed_data_files = 0
 
+    # create lists to store unprocessable files
+    unprocessable_files = []
+
     # create dictionary to store the ECG Validation comparison values for all files
     all_files_ecg_validation_comparison = dict()
     
-    # calculate the R peak comparison values
+    # calculate the ECG Validation comparison values for all files
     print("\nCalculating ECG validation comparison values for %i files:" % total_data_files)
     for file_key in determined_ecg_validation_dictionary:
         # show progress
@@ -710,8 +735,8 @@ def ecg_validation_comparison(
                 this_classification_file = clfc_file
         try:
             ecg_classification_dictionary = get_ecg_classification_from_txt_file(ecg_classification_values_directory + this_classification_file)
-        except ValueError:
-            print("ECG classification is missing for %s. Skipping this file." % file_key)
+        except:
+            unprocessable_files.append(file_key)
             continue
         
         # compare the differnt ECG validations
@@ -727,6 +752,11 @@ def ecg_validation_comparison(
     
     # save the comparison values to a pickle file
     save_to_pickle(all_files_ecg_validation_comparison, ecg_validation_comparison_evaluation_path)
+
+    # print the files that could not be processed
+    if len(unprocessable_files) > 0:
+        print("\nThe following files could not be processed for ECG Validation Comparison, most likely because no corresponding classification file was found:")
+        print(unprocessable_files)
 
 
 def ecg_validation_comparison_report(

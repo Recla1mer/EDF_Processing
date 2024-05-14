@@ -162,7 +162,7 @@ def detect_rpeaks(
         valid_ecg_regions_path: str
     ):
     """
-    Detect R peaks in the valid ecg regions for all valid file types in the given data
+    Detect r-peaks in the valid ecg regions for all valid file types in the given data
     directory.
 
     ARGUMENTS:
@@ -176,11 +176,11 @@ def detect_rpeaks(
     physical_dimension_correction_dictionary: dict
         dictionary needed to check and correct the physical dimension of all signals
     rpeak_function: function
-        function to detect the R peaks
+        function to detect the r-peaks
     rpeak_function_name: str
-        name of the R peak detection function
+        name of the r-peak detection function
     rpeak_path: str
-        path where the R peaks should be saved
+        path where the r-peaks should be saved
     valid_ecg_regions_path: str
         path to the valid ECG regions
 
@@ -193,9 +193,9 @@ def detect_rpeaks(
     }
     """
 
-    # check if R peaks already exist and if yes: ask for permission to override
+    # check if r-peaks already exist and if yes: ask for permission to override
     user_answer = ask_for_permission_to_override(file_path = rpeak_path,
-                            message = "\nDetected R peaks already exist in: " + rpeak_path)
+                            message = "\nWith " + rpeak_function_name + " detected r-peaks already exist in: " + rpeak_path)
     
      # cancel if user does not want to override
     if user_answer == "n":
@@ -212,14 +212,14 @@ def detect_rpeaks(
     # create lists to store files with missing valid ecg regions
     files_with_missing_regions = []
 
-    # create dictionary to save the R peaks
+    # create dictionary to save the r-peaks
     all_rpeaks = dict()
 
     # load valid ecg regions
     valid_ecg_regions = load_from_pickle(valid_ecg_regions_path)
 
     # detect rpeaks in the valid regions of the ECG data
-    print("\nDetecting R peaks of the ECG data in %i files from \"%s\" using %s:" % (total_files, data_directory, rpeak_function_name))
+    print("\nDetecting r-peaks of the ECG data in %i files from \"%s\" using %s:" % (total_files, data_directory, rpeak_function_name))
     for file in valid_files:
         # show progress
         progress_bar(progressed_files, total_files)
@@ -243,7 +243,7 @@ def detect_rpeaks(
             # exception should obviously not occur, but just in case
             continue
 
-        # detect the R peaks in the valid ecg regions
+        # detect the r-peaks in the valid ecg regions
         this_rpeaks = np.array([], dtype = int)
         for interval in detection_intervals:
             this_result = rpeak_function(
@@ -257,12 +257,12 @@ def detect_rpeaks(
     
     progress_bar(progressed_files, total_files)
     
-    # save the R peaks to a pickle file
+    # save the r-peaks to a pickle file
     save_to_pickle(all_rpeaks, rpeak_path)
 
     # print files with missing valid ecg regions
     if len(files_with_missing_regions) > 0:
-        print("\nFor the following files the R peaks could not be detected because the valid ecg regions were missing:")
+        print("\nFor the following files the r-peaks could not be detected because the valid ecg regions were missing:")
         print(files_with_missing_regions)
 
 
@@ -366,9 +366,9 @@ def combine_detected_rpeaks(
         uncertain_secondary_rpeaks_path: str,
     ):
     """
-    Load detected R peaks from two different methods and combine them as described in
+    Load detected r-peaks from two different methods and combine them as described in
     the function combine_rpeaks(). The certain (detected by both methods) and uncertain
-    (detected by only one method) R peaks are saved to pickle files.
+    (detected by only one method) r-peaks are saved to pickle files.
 
     ARGUMENTS:
     --------------------------------
@@ -379,21 +379,21 @@ def combine_detected_rpeaks(
     ecg_keys: list
         list of possible labels for the ECG data
     rpeak_primary_path: str
-        path to the R peaks detected by the primary method
+        path to the r-peaks detected by the primary method
     rpeak_secondary_path: str
-        path to the R peaks detected by the secondary method
+        path to the r-peaks detected by the secondary method
     rpeak_distance_threshold_seconds: float
         threshold for the distance between two R-peaks to be considered as the same
     certain_rpeaks_path: str
-        path where the R peaks that were detected by both methods are saved
+        path where the r-peaks that were detected by both methods are saved
     uncertain_primary_rpeaks_path: str
-        path where the R peaks that were only detected by the primary method are saved
+        path where the r-peaks that were only detected by the primary method are saved
     uncertain_secondary_rpeaks_path: str
-        path where the R peaks that were only detected by the secondary method are saved
+        path where the r-peaks that were only detected by the secondary method are saved
 
     RETURNS:
     --------------------------------
-    None, but the R peaks are saved as dictionarys to pickle files in the following formats:
+    None, but the r-peaks are saved as dictionarys to pickle files in the following formats:
     certain_rpeaks: {
                     "file_name_1": certain_rpeaks_1,
                     ...
@@ -408,9 +408,9 @@ def combine_detected_rpeaks(
                     }
     """
 
-    # check if the R peaks were already combined and if yes: ask for permission to override
+    # check if the r-peaks were already combined and if yes: ask for permission to override
     user_answer = ask_for_permission_to_override(file_path = certain_rpeaks_path,
-                                    message = "\nDetected R peaks were already combined.")
+                                    message = "\nDetected r-peaks were already combined.")
     
     # cancel if user does not want to override
     if user_answer == "n":
@@ -431,17 +431,17 @@ def combine_detected_rpeaks(
     total_files = len(valid_files)
     progressed_files = 0
 
-    # create dictionaries to save the R peaks
+    # create dictionaries to save the r-peaks
     certain_rpeaks = dict()
     uncertain_primary_rpeaks = dict()
     uncertain_secondary_rpeaks = dict()
 
-    # load detected R peaks
+    # load detected r-peaks
     all_rpeaks_primary = load_from_pickle(rpeak_primary_path)
     all_rpeaks_secondary = load_from_pickle(rpeak_secondary_path)
 
-    # combine detected R peaks
-    print("\nCombining detected R peaks for %i files from \"%s\":" % (total_files, data_directory))
+    # combine detected r-peaks
+    print("\nCombining detected r-peaks for %i files from \"%s\":" % (total_files, data_directory))
     for file in valid_files:
         # show progress
         progress_bar(progressed_files, total_files)
@@ -453,7 +453,7 @@ def combine_detected_rpeaks(
             possible_channel_labels = ecg_keys
         )
 
-        # combine the R peaks
+        # combine the r-peaks
         these_combined_rpeaks = combine_rpeaks(
             rpeaks_primary = all_rpeaks_primary[file],
             rpeaks_secondary = all_rpeaks_secondary[file],
@@ -461,14 +461,14 @@ def combine_detected_rpeaks(
             rpeak_distance_threshold_seconds = rpeak_distance_threshold_seconds
             )
         
-        # save the R peaks to the dictionaries
+        # save the r-peaks to the dictionaries
         certain_rpeaks[file] = these_combined_rpeaks[0]
         uncertain_primary_rpeaks[file] = these_combined_rpeaks[1]
         uncertain_secondary_rpeaks[file] = these_combined_rpeaks[2]
     
     progress_bar(progressed_files, total_files)
     
-    # save the R peaks to pickle files
+    # save the r-peaks to pickle files
     save_to_pickle(certain_rpeaks, certain_rpeaks_path)
     save_to_pickle(uncertain_primary_rpeaks, uncertain_primary_rpeaks_path)
     save_to_pickle(uncertain_secondary_rpeaks, uncertain_secondary_rpeaks_path)
@@ -476,7 +476,7 @@ def combine_detected_rpeaks(
 
 """
 Following code won't be used for the final implementation, but is useful for testing and
-comparing the results of different R-peak detection methods. R peaks are also already
+comparing the results of different R-peak detection methods. r-peaks are also already
 available for the GIF data. They might or might not have been calculated automatically and
 later checked manually.
 
@@ -522,11 +522,11 @@ def compare_rpeak_detections(
     # convert the threshold from seconds to iterations
     distance_threshold_iterations = int(rpeak_distance_threshold_seconds * frequency)
 
-    # lists to store the r peaks that are considered as the same (distance < threshold, distance != 0)
+    # lists to store the r-peaks that are considered as the same (distance < threshold, distance != 0)
     analog_value_in_first = []
     analog_value_in_second = []
 
-    # list to store the r peaks that are the same (distance = 0)
+    # list to store the r-peaks that are the same (distance = 0)
     same_values = []
 
     # if two R-peaks are closer than the threshold, they are considered as the same
@@ -588,7 +588,7 @@ def compare_rpeak_detections(
 def rri_string_evaluation(string):
     """
     Appearance of string entrys in the .rri file: "integer letter".
-    The integer shows the R peak position and the letter classifies the R peak.
+    The integer shows the r-peak position and the letter classifies the r-peak.
 
     This functions returns the first integer and letter in the string. If either the letter
     or the integer does not exist, they are set to " ".
@@ -601,14 +601,14 @@ def rri_string_evaluation(string):
     RETURNS:
     --------------------------------
     rpeak: int
-        R peak position
+        r-peak position
     letter: str
-        classification of the R peak
+        classification of the r-peak
 
     """
     # set default values if the integer or the letter do not exist
     rpeak = " "
-    letter = " "
+    letter = 0
 
     was_number = False
     for i in range(len(string)):
@@ -695,35 +695,35 @@ def read_rpeaks_from_rri_files(
         add_offset_to_classification: int,
     ):
     """
-    Read the R peak values from all .rri files in the rpeaks_values_dirextory and save them
+    Read the r-peak values from all .rri files in the rpeaks_values_dirextory and save them
 
     ARGUMENTS:
     --------------------------------
     data_directory: str
-        directory where the raw data is stored, to which we have R peak values
+        directory where the raw data is stored, to which we have r-peak values
     valid_file_types: list
         valid file types in the data directory
     rpeaks_values_directory: str
-        directory where the R peak values are stored
+        directory where the r-peak values are stored
     valid_rpeak_values_file_types: list
         valid file types in the rpeaks_values_directory
     include_rpeak_value_classifications: list
-        list of the R peak classifications that should be included in the "R peak detection"
+        list of the r-peak classifications that should be included in the "r-peak detection"
     rpeak_path: str
-        path where the R peaks should be saved
+        path where the r-peaks should be saved
     add_offset_to_classification: int
         offset that should be added to the R-peaks (classifications are slightly shifted for some reason)
     
     RETURNS:
     --------------------------------
-    None, but the R peak values are saved as dictionary to a pickle file in following format:
+    None, but the r-peak values are saved as dictionary to a pickle file in following format:
     {
         "file_name": np.array of R-peaks of this file,
         ...
     }
     """
 
-    # check if the R peaks were already read and if yes: ask for permission to override
+    # check if the r-peaks were already read and if yes: ask for permission to override
     user_answer = ask_for_permission_to_override(file_path = rpeak_path,
                                     message = "\nR-peak classification reading already exists in " + rpeak_path + ".")
     
@@ -746,10 +746,10 @@ def read_rpeaks_from_rri_files(
     # create lists to store files with missing r-peaks
     files_with_missing_rpeaks = []
 
-    # create dictionary to store the R peak values for all files
+    # create dictionary to store the r-peak values for all files
     all_rpeaks = dict()
     
-    # read the R peaks from the files
+    # read the r-peaks from the files
     print("\nReading r-peak values from %i files from \"%s\":" % (total_data_files, data_directory))
     for file in valid_data_files:
         # show progress
@@ -759,7 +759,7 @@ def read_rpeaks_from_rri_files(
         # get the file name without the file type
         this_file_name = os.path.splitext(file)[0]
 
-        # get corresponding R peak value file name for this file
+        # get corresponding r-peak value file name for this file
         for value_file in valid_values_files:
             if this_file_name in value_file:
                 this_value_file = value_file
@@ -772,7 +772,7 @@ def read_rpeaks_from_rri_files(
             files_with_missing_rpeaks.append(file)
             continue
 
-        # save R peak values with wanted classification to the dictionary
+        # save r-peak values with wanted classification to the dictionary
         all_rpeaks[file] = np.array([], dtype = int)
         for classification in include_rpeak_value_classifications:
             try:
@@ -782,10 +782,10 @@ def read_rpeaks_from_rri_files(
     
     progress_bar(progressed_data_files, total_data_files)
 
-    # save the R peak values to a pickle file
+    # save the r-peak values to a pickle file
     save_to_pickle(all_rpeaks, rpeak_path)
 
-    # print files with missing R peaks
+    # print files with missing r-peaks
     if len(files_with_missing_rpeaks) > 0:
         print("\nFor the following files the r-peaks could not be read:")
         print(files_with_missing_rpeaks)
@@ -800,22 +800,22 @@ def rpeak_detection_comparison(
         rpeak_comparison_evaluation_path: str
     ):
     """
-    Evaluate the comparison of the R peak detection methods.
+    Evaluate the comparison of the r-peak detection methods.
 
     ARGUMENTS:
     --------------------------------
     data_directory: str
-        directory where the raw ECG data is stored to which we have R peaks
+        directory where the raw ECG data is stored to which we have r-peaks
     valid_file_types: list
         valid file types in the data_directory
     ecg_keys: list
         list of possible labels for the ECG data
     compare_rpeaks_paths: list
-        paths to the R peaks that should be compared with each other
+        paths to the r-peaks that should be compared with each other
     rpeak_distance_threshold_seconds: float
-        time period in seconds over which two different R peaks are still considered the same
+        time period in seconds over which two different r-peaks are still considered the same
     rpeak_comparison_evaluation_path: str
-        path where the R peak comparison values should be saved
+        path where the r-peak comparison values should be saved
     
     RETURNS:
     --------------------------------
@@ -832,7 +832,7 @@ def rpeak_detection_comparison(
 
     # check if the evaluation already exists and if yes: ask for permission to override
     user_answer = ask_for_permission_to_override(file_path = rpeak_comparison_evaluation_path,
-                        message = "\nEvaluation of R peak detection comparison already exists in " + rpeak_comparison_evaluation_path + ".")
+                        message = "\nEvaluation of r-peak detection comparison already exists in " + rpeak_comparison_evaluation_path + ".")
     
     # cancel if user does not want to override
     if user_answer == "n":
@@ -846,17 +846,17 @@ def rpeak_detection_comparison(
     total_data_files = len(valid_data_files)
     progressed_data_files = 0
 
-    # create dictionary to store the R peak comparison values of all detection methods for all files
+    # create dictionary to store the r-peak comparison values of all detection methods for all files
     all_files_rpeak_comparison = dict()
     
-    # calculate the R peak comparison values
-    print("\nCalculating R peak comparison values for %i files from \"%s\":" % (total_data_files, data_directory))
+    # calculate the r-peak comparison values
+    print("\nCalculating r-peak comparison values for %i files from \"%s\":" % (total_data_files, data_directory))
     for file in valid_data_files:
         # show progress
         progress_bar(progressed_data_files, total_data_files)
         progressed_data_files += 1
 
-        # create list to store the R peak comparison values for all detection methods as list
+        # create list to store the r-peak comparison values for all detection methods as list
         this_file_rpeak_comparison = []
         
         # get the frequency of the ECG data
@@ -865,21 +865,21 @@ def rpeak_detection_comparison(
             possible_channel_labels = ecg_keys
         )
         
-        # compare the R peaks of the different detection methods
+        # compare the r-peaks of the different detection methods
         for path_index in range(len(compare_rpeaks_paths)):
-            # load dictionaries with detected R peaks (contains R peaks of all files)
+            # load dictionaries with detected r-peaks (contains r-peaks of all files)
             first_rpeaks_all_files = load_from_pickle(compare_rpeaks_paths[path_index])
             second_rpeaks_all_files = load_from_pickle(compare_rpeaks_paths[path_index-1])
 
-            # get the R peaks of the current file
+            # get the r-peaks of the current file
             first_rpeaks = first_rpeaks_all_files[file]
             second_rpeaks = second_rpeaks_all_files[file]
 
-            # get the number of detected R peaks
+            # get the number of detected r-peaks
             number_first_rpeaks = len(first_rpeaks)
             number_second_rpeaks = len(second_rpeaks)
 
-            # calculate the R peak comparison values
+            # calculate the r-peak comparison values
             rmse_without_same, rmse_with_same, len_same_values, len_analog_values = compare_rpeak_detections(
                 first_rpeaks = first_rpeaks, 
                 second_rpeaks = second_rpeaks,
@@ -887,15 +887,15 @@ def rpeak_detection_comparison(
                 rpeak_distance_threshold_seconds = rpeak_distance_threshold_seconds,
                 )
             
-            # append list of R peak comparison values for these two detection methods to the list
+            # append list of r-peak comparison values for these two detection methods to the list
             this_file_rpeak_comparison.append([rmse_without_same, rmse_with_same, len_same_values, len_analog_values, number_first_rpeaks, number_second_rpeaks])
         
-        # save the R peak comparison values for this file to the dictionary
+        # save the r-peak comparison values for this file to the dictionary
         all_files_rpeak_comparison[file] = this_file_rpeak_comparison
     
     progress_bar(progressed_data_files, total_data_files)
     
-    # save the R peak comparison values to a pickle file
+    # save the r-peak comparison values to a pickle file
     save_to_pickle(all_files_rpeak_comparison, rpeak_comparison_evaluation_path)
 
 
@@ -906,28 +906,28 @@ def rpeak_detection_comparison_report(
         rpeak_comparison_evaluation_path: str
     ):
     """
-    Save the results of the R peak comparison evaluation as a report to a text file.
+    Save the results of the r-peak comparison evaluation as a report to a text file.
 
     ARGUMENTS:
     --------------------------------
     rpeak_comparison_function_names: list
-        names of the R peak detection methods
+        names of the r-peak detection methods
     rpeak_comparison_report_dezimal_places: int
         number of dezimal places in the report
     rpeak_comparison_report_path: str
-        path where the R peak comparison report should be saved
+        path where the r-peak comparison report should be saved
     rpeak_comparison_evaluation_path: str
-        path to the R peak comparison evaluation values (created by rpeak_detection_comparison())
+        path to the r-peak comparison evaluation values (created by rpeak_detection_comparison())
     
     RETURNS:
     --------------------------------
-    None, but the R peak comparison report is saved to a text file in the given path
+    None, but the r-peak comparison report is saved to a text file in the given path
     Format of the report: Table showing results for each file
     """
 
     # check if the report already exists and if yes: ask for permission to override
     user_answer = ask_for_permission_to_override(file_path = rpeak_comparison_report_path,
-            message = "\nR peak comparison report already exists in " + rpeak_comparison_report_path + ".")
+            message = "\nR-peak comparison report already exists in " + rpeak_comparison_report_path + ".")
 
     # cancel if user does not want to override
     if user_answer == "n":
@@ -937,7 +937,7 @@ def rpeak_detection_comparison_report(
     comparison_file = open(rpeak_comparison_report_path, "w")
 
     # write the file header
-    message = "R PEAK COMPARISON REPORT"
+    message = "R-PEAK COMPARISON REPORT"
     comparison_file.write(message + "\n")
     comparison_file.write("=" * len(message) + "\n\n\n")
 
@@ -950,7 +950,7 @@ def rpeak_detection_comparison_report(
     RMSE_INC_MEAN = "RMSE_inc: "
     SAME_VALUES_RATIO_MEAN = "Same Ratio: "
     ANALOG_VALUES_MEAN = "Analog Ratio: "
-    TOTAL_DISTANCE_MEAN = "R peak distance: "
+    TOTAL_DISTANCE_MEAN = "R-peak distance: "
     TOTAL_DISTANCE_RATIO_MEAN = "      |-> Ratio: "
     mean_value_captions = [RMSE_EX_MEAN, RMSE_INC_MEAN, SAME_VALUES_RATIO_MEAN, ANALOG_VALUES_MEAN, TOTAL_DISTANCE_MEAN, TOTAL_DISTANCE_RATIO_MEAN]
     max_mean_value_caption_length = max([len(value) for value in mean_value_captions])
@@ -981,16 +981,16 @@ def rpeak_detection_comparison_report(
             this_rmse_exc.append(all_files_rpeak_comparison[file][funcs_index][0])
             this_rmse_inc.append(all_files_rpeak_comparison[file][funcs_index][1])
             
-            # collect distance of number of detected R peaks
+            # collect distance of number of detected r-peaks
             this_rpeaks_distance.append(abs(all_files_rpeak_comparison[file][funcs_index][4] - all_files_rpeak_comparison[file][funcs_index][5]))
 
-            # collect ratio of distance of number of detected R peaks
+            # collect ratio of distance of number of detected r-peaks
             this_rpeaks_distance_ratio.append([this_rpeaks_distance[funcs_index] / all_files_rpeak_comparison[file][funcs_index][4], this_rpeaks_distance[funcs_index] / all_files_rpeak_comparison[file][funcs_index][5]])
 
-            # collect ratio of analog values to number of r peaks
+            # collect ratio of analog values to number of r-peaks
             this_analogue_values_ratio.append([all_files_rpeak_comparison[file][funcs_index][3] / all_files_rpeak_comparison[file][funcs_index][4], all_files_rpeak_comparison[file][funcs_index][3] / all_files_rpeak_comparison[file][funcs_index][5]])
 
-            # collect ratio of same values to number of r peaks
+            # collect ratio of same values to number of r-peaks
             this_same_values_ratio.append([all_files_rpeak_comparison[file][funcs_index][2] / all_files_rpeak_comparison[file][funcs_index][4], all_files_rpeak_comparison[file][funcs_index][2] / all_files_rpeak_comparison[file][funcs_index][5]])
         
         collect_rmse_exc.append(this_rmse_exc)
@@ -1036,7 +1036,7 @@ def rpeak_detection_comparison_report(
     SAME_VALUES_RATIO_CAPTION = "  |-> Ratio: "
     ANALOG_VALUES_CAPTION = "Analog Values: "
     ANALOG_VALUES_RATIO_CAPTION = "    |-> Ratio: "
-    TOTAL_LENGTH_CAPTION = "R peaks: "
+    TOTAL_LENGTH_CAPTION = "R-peaks: "
     value_captions = [RMSE_EX_CAPTION, RMSE_INC_CAPTION, TOTAL_LENGTH_CAPTION, SAME_VALUES_CAPTION, SAME_VALUES_RATIO_CAPTION, ANALOG_VALUES_CAPTION, ANALOG_VALUES_RATIO_CAPTION]
     max_value_caption_length = max([len(value) for value in value_captions])
     max_value_caption_length = max(max_value_caption_length, max_mean_value_caption_length)
@@ -1054,22 +1054,22 @@ def rpeak_detection_comparison_report(
     for funcs_index in range(len(rpeak_comparison_function_names)):
         this_column = []
         for file in all_files_rpeak_comparison:
-            # RMSE excluding same R peaks:
+            # RMSE excluding same r-peaks:
             this_column.append(str(all_files_rpeak_comparison[file][funcs_index][0]))
-            # RMSE including same R peaks:
+            # RMSE including same r-peaks:
             this_column.append(str(all_files_rpeak_comparison[file][funcs_index][1]))
-            # Total number of R peaks:
+            # Total number of r-peaks:
             this_column.append(str(all_files_rpeak_comparison[file][funcs_index][4]) + " / " + str(all_files_rpeak_comparison[file][funcs_index][5]))
-            # Number of R peaks that are the same:
+            # Number of r-peaks that are the same:
             this_column.append(str(all_files_rpeak_comparison[file][funcs_index][2]))
-            # Ratio of same values to number of r peaks:
+            # Ratio of same values to number of r-peaks:
             key_to_index = list(all_files_rpeak_comparison.keys()).index(file)
             same_val_ratio_1 = round(collect_same_values_ratio[key_to_index][funcs_index][0], rpeak_comparison_report_dezimal_places)
             same_val_ratio_2 = round(collect_same_values_ratio[key_to_index][funcs_index][1], rpeak_comparison_report_dezimal_places)
             this_column.append(str(same_val_ratio_1) + " / " + str(same_val_ratio_2))
-            # Number of R peaks that are considered as the same (difference < threshold):
+            # Number of r-peaks that are considered as the same (difference < threshold):
             this_column.append(str(all_files_rpeak_comparison[file][funcs_index][3]))
-            # Ratio of analog values to number of r peaks:
+            # Ratio of analog values to number of r-peaks:
             analog_val_ratio_1 = round(collect_analogue_values_ratio[key_to_index][funcs_index][0], rpeak_comparison_report_dezimal_places)
             analog_val_ratio_2 = round(collect_analogue_values_ratio[key_to_index][funcs_index][1], rpeak_comparison_report_dezimal_places)
             this_column.append(str(analog_val_ratio_1) + " / " + str(analog_val_ratio_2))
@@ -1091,11 +1091,11 @@ def rpeak_detection_comparison_report(
     message = "Legend:"
     comparison_file.write(message + "\n")
     comparison_file.write("-" * len(message) + "\n\n")
-    comparison_file.write(RMSE_EX_CAPTION + "RMSE of analog values excluding same R peaks\n")
-    comparison_file.write(RMSE_INC_CAPTION + "RMSE of analog values including same R peaks\n")
-    comparison_file.write(SAME_VALUES_CAPTION +  "Number of R peaks that are the same\n")
-    comparison_file.write(ANALOG_VALUES_CAPTION + "Number of R peaks that are considered as the same (difference < threshold)\n")
-    comparison_file.write(TOTAL_LENGTH_CAPTION + "Total number of R peaks\n\n\n")
+    comparison_file.write(RMSE_EX_CAPTION + "RMSE of analog values excluding same r-peaks\n")
+    comparison_file.write(RMSE_INC_CAPTION + "RMSE of analog values including same r-peaks\n")
+    comparison_file.write(SAME_VALUES_CAPTION +  "Number of r-peaks that are the same\n")
+    comparison_file.write(ANALOG_VALUES_CAPTION + "Number of r-peaks that are considered as the same (difference < threshold)\n")
+    comparison_file.write(TOTAL_LENGTH_CAPTION + "Total number of r-peaks\n\n\n")
 
     message = "Table with comparison values for each file:"
     comparison_file.write(message + "\n")

@@ -177,7 +177,6 @@ def retrieve_all_subdirectories_containing_valid_files(directory: str, valid_fil
 
     all_paths = []
     if len(valid_files) > 0:
-        # all_paths.append([directory + file for file in valid_files])
         all_paths.append(directory)
 
     for file in all_files:
@@ -434,3 +433,19 @@ def print_left_aligned(string: str, length: int):
     """
     len_string = len(string)
     return string + " " * (length - len_string)
+
+
+a = 0
+b = 1
+
+file_name = "a.pkl"
+
+with open(file_name, "wb") as f:
+    pickle.dump(a, f)
+    pickle.dump(b, f)
+
+with open(file_name, "rb") as f:
+    data = pickle.load(f)
+    print(data)
+    data = pickle.load(f)
+    print(data)
