@@ -29,8 +29,10 @@ In this section we define the file/directory names.
 """
 
 # define directory and file names (will always be written in capital letters)
-HEAD_DATA_DIRECTORY = "Data/GIF/SOMNOwatch/"
-DATA_DIRECTORIES = ["Data/", "Data/GIF/SOMNOwatch/"]
+# ----------------------------------------------------------------------------
+
+HEAD_DATA_DIRECTORY = "Data/GIF/SOMNOwatch/" # head directory which should be searched for every subdirectory containing valid data files, only needed if automatic search for DATA_DIRECTORIES is used
+DATA_DIRECTORIES = ["Data/", "Data/GIF/SOMNOwatch/"] # manually chosen directories that contain the data files
 
 TEMPORARY_PICKLE_DIRECTORY = "Temporary_Pickles/"
 TEMPORARY_FIGURE_DIRECTORY = "Temporary_Figures/"
@@ -42,14 +44,12 @@ PREPARATION_DIRECTORY = "Preparation/"
 # ECG Validation
 ECG_CALIBRATION_DATA_PATH = "Calibration_Data/Somnowatch_Messung.edf"
 ECG_VALIDATION_THRESHOLDS_PATH = PREPARATION_DIRECTORY + "ECG_Validation_Thresholds.pkl"
-
 VALID_ECG_REGIONS_NAME = "Valid_ECG_Regions.pkl" # name of the pickle file where the valid regions for the ECG data are saved
 
 # R peak detection
 CERTAIN_RPEAKS_NAME = "Certain_Rpeaks.pkl" # name of the pickle file where the certain R peaks are saved (detected by both methods)
 UNCERTAIN_PRIMARY_RPEAKS_NAME = "Uncertain_Primary_Rpeaks.pkl" # name of the pickle file where the uncertain primary R peaks are saved (remaining R peaks from the primary method)
 UNCERTAIN_SECONDARY_RPEAKS_NAME = "Uncertain_Secondary_Rpeaks.pkl" # name of the pickle file where the uncertain secondary R peaks are saved (remaining R peaks from the secondary method)
-
 
 # MAD calculation
 MAD_VALUES_NAME = "MAD_Values.pkl" # name of the pickle file where the MAD values are saved
@@ -129,6 +129,12 @@ This is because it should usually be run only once, while you might want to run 
 sections multiple times.
 """
 
+# data source settings
+data_source_settings = {
+    # set if DATA_DIRECTORIES should be searched automatically or if the manually chosen ones are used
+    "use_manually_chosen_data_directories": True, # if True, the manually chosen directories will be used, if False, the DATA_DIRECTORIES will be evaluated automatically from the HEAD_DATA_DIRECTORY
+}
+
 # dictionary that will store all parameters that are used within the project
 parameters = dict()
 
@@ -197,6 +203,7 @@ rpeak_comparison_params = {
     #
     "rpeak_comparison_functions": [rpeak_detection.get_rpeaks_wfdb, rpeak_detection.get_rpeaks_old], # R peak detection functions
     "rpeak_classification_functions": [rpeak_detection.read_rpeaks_from_rri_files], # functions to read the R peak classifications
+    "add_offset_to_classification": -1, #  offset that should be added to the r-peaks (classifications are slightly shifted for some reason)
     "rpeak_comparison_evaluation_path": RPEAK_COMPARISON_EVALUATION_PATH, # path to the pickle file where the evaluation results are saved
     #
     "rpeak_comparison_function_names": ["wfdb", "ecgdetectors", "gif_classification"], # names of all used R peak functions
@@ -213,6 +220,13 @@ ecg_validation_comparison_params = {
     "ecg_validation_comparison_report_path": ECG_VALIDATION_COMPARISON_REPORT_PATH, # path to the text file that stores the comparison report
     "ecg_validation_comparison_report_dezimal_places": 4, # number of dezimal places in the comparison report
 }
+
+# automatically find data directories if user requested it
+if data_source_settings["use_manually_chosen_data_directories"]:
+    DATA_DIRECTORIES = retrieve_all_subdirectories_containing_valid_files(
+        directory = HEAD_DATA_DIRECTORY, 
+        valid_file_types = file_params["valid_file_types"]
+    )
 
 # add all parameters to the parameters dictionary, so we can access them later more easily
 if settings_params["perform_rpeak_comparison"] and settings_params["run_additionals_section"]:
@@ -265,7 +279,8 @@ calculate_MAD_variables = ["valid_file_types", "wrist_acceleration_keys",
 # ---------------------------------
 
 read_rpeak_classification_variables = ["valid_file_types", "rpeaks_values_directory", 
-                    "valid_rpeak_values_file_types", "include_rpeak_value_classifications"]
+                    "valid_rpeak_values_file_types", "include_rpeak_value_classifications",
+                    "add_offset_to_classification"]
 
 rpeak_detection_comparison_variables = ["valid_file_types", "ecg_keys",
                     "rpeak_distance_threshold_seconds", "rpeak_comparison_evaluation_path"]

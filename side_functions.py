@@ -11,7 +11,7 @@ import pickle
 import numpy as np
 
 
-def validate_parameter_settings(parameters):
+def validate_parameter_settings(parameters: dict):
     """
     In the main file, we have a dictionary with all the parameters. 
     This function checks if the parameters are valid.
@@ -118,11 +118,11 @@ def validate_parameter_settings(parameters):
         raise ValueError("'ecg_validation_comparison_report_dezimal_places' parameter must be an integer.")
 
 
-def progress_bar(index, total, bar_len=50, title='Please wait'):
+def progress_bar(index: int, total: int, bar_len=50, title="Please wait"):
     """
     Prints a progress bar in the console.
 
-    Idea partially taken from:
+    Idea taken from:
     https://stackoverflow.com/questions/6169217/replace-console-output-in-python
 
     ARGUMENTS:
@@ -155,7 +155,7 @@ def progress_bar(index, total, bar_len=50, title='Please wait'):
         print('\t✅')
 
 
-def retrieve_all_subdirectories_with_valid_files(directory: str, valid_file_types: list):
+def retrieve_all_subdirectories_containing_valid_files(directory: str, valid_file_types: list):
     """
     Search given directory and every subdirectory for files with the given file types. If 
     wanted files present in a directory, return the path of the directory.
@@ -182,7 +182,7 @@ def retrieve_all_subdirectories_with_valid_files(directory: str, valid_file_type
 
     for file in all_files:
         if os.path.isdir(directory + file):
-            these_paths = retrieve_all_subdirectories_with_valid_files(directory + file + "/", valid_file_types)
+            these_paths = retrieve_all_subdirectories_containing_valid_files(directory + file + "/", valid_file_types)
             for paths in these_paths:
                 all_paths.append(paths)
 
@@ -191,9 +191,13 @@ def retrieve_all_subdirectories_with_valid_files(directory: str, valid_file_type
 
 def create_save_path_from_directory_name(directory: str):
     """
-    We will save the results calculated in main.py seperated by the directory name the data
-    is stored in. This function creates a save path from the directory name to save the results
-    in a structured way.
+    We will save the results calculated in main.py in equally named directories the data 
+    is stored in. This function creates a directory name that can be associated with the 
+    path of the data directory.
+
+    Example:
+        data_directory = "data/NAKO/ECG_Data/"
+        save_directory = "<direcotry_that_stores_results>/data_NAKO_ECG_Data/"
 
     ARGUMENTS:
     --------------------------------
@@ -205,46 +209,18 @@ def create_save_path_from_directory_name(directory: str):
     save_path: str
         path to the save directory
     """
-    count_slash = 0
-    for i in range(len(directory)):
-        if directory[i] == "/":
-            count_slash += 1
-    
-    if count_slash <= 1:
-        removed_first_directory = directory
-    else:
-        for i in range(len(directory)):
-            if directory[i] == "/":
-                removed_first_directory = directory[i+1:]
-                break
     
     new_directory_name = ""
-    for i in range(len(removed_first_directory)):
-        if removed_first_directory[i] == "/" and i != len(removed_first_directory)-1:
+    for i in range(len(directory)):
+        if directory[i] == "/" and i != len(directory)-1:
             new_directory_name += "_"
         else:
-            new_directory_name += removed_first_directory[i]
+            new_directory_name += directory[i]
         
     return new_directory_name
 
 
-def run_function_on_all_content(directory: str, valid_file_types: list, function):
-    """
-    Search given directory and every subdirectory for files with the given file types and
-    run the given function on them.
-    """
-    all_paths = retrieve_all_subdirectories_with_valid_files(directory, valid_file_types)
-
-    # total_files = len(valid_files)
-    # progressed_files = 0
-
-    # for file in valid_files:
-    #     function(directory + file)
-    #     progressed_files += 1
-    #     progress_bar(progressed_files, total_files)
-
-
-def clear_directory(directory):
+def clear_directory(directory: str):
     """
     Clear the given directory of all files and subdirectories.
 
@@ -268,7 +244,7 @@ def clear_directory(directory):
             print(e)
 
 
-def get_file_type(file_name):
+def get_file_type(file_name: str):
     """
     Get the file type/extension of a file.
 
@@ -285,7 +261,7 @@ def get_file_type(file_name):
     return os.path.splitext(file_name)[1]
 
 
-def get_file_name_from_path(file_path):
+def get_file_name_from_path(file_path: str):
     """
     Separate the file name (including the type/extension) from the file path.
 
@@ -323,7 +299,7 @@ def save_to_pickle(data, file_name):
         pickle.dump(data, f)
 
 
-def load_from_pickle(file_name):
+def load_from_pickle(file_name: str):
     """
     Load data from a pickle file.
 
@@ -381,7 +357,7 @@ def ask_for_permission_to_override(file_path: str, message: str):
     return user_answer
 
 
-def create_sub_dict(dictionary, keys):
+def create_sub_dict(dictionary: dict, keys: list):
     """
     Create a sub dictionary of the main one with the given keys.
 
@@ -400,7 +376,7 @@ def create_sub_dict(dictionary, keys):
     return {key: dictionary[key] for key in keys}
 
 
-def create_rpeaks_pickle_path(Directory, rpeak_function_name):
+def create_rpeaks_pickle_path(directory: str, rpeak_function_name: str):
     """
     Create the path for the pickle file where the rpeaks are saved for each method.
 
@@ -416,7 +392,7 @@ def create_rpeaks_pickle_path(Directory, rpeak_function_name):
     str
         path to the pickle file
     """
-    return Directory + "RPeaks_" + rpeak_function_name + ".pkl"
+    return directory + "RPeaks_" + rpeak_function_name + ".pkl"
 
 
 def print_in_middle(string: str, length: int):

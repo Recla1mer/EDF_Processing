@@ -399,7 +399,7 @@ def determine_valid_ecg_regions(
     # create dictionary to save the valid regions
     valid_regions = dict()
 
-    print("\nCalculating valid regions for the ECG data in %i files:" % total_files)
+    print("\nCalculating valid regions for the ECG data in %i files from \"%s\":" % (total_files, data_directory))
 
     for file in valid_files:
         # show progress

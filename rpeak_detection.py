@@ -219,7 +219,7 @@ def detect_rpeaks(
     valid_ecg_regions = load_from_pickle(valid_ecg_regions_path)
 
     # detect rpeaks in the valid regions of the ECG data
-    print("\nDetecting R peaks in the ECG data in %i files using %s:" % (total_files, rpeak_function_name))
+    print("\nDetecting R peaks of the ECG data in %i files from \"%s\" using %s:" % (total_files, data_directory, rpeak_function_name))
     for file in valid_files:
         # show progress
         progress_bar(progressed_files, total_files)
@@ -441,7 +441,7 @@ def combine_detected_rpeaks(
     all_rpeaks_secondary = load_from_pickle(rpeak_secondary_path)
 
     # combine detected R peaks
-    print("\nCombining detected R peaks for %i files:" % total_files)
+    print("\nCombining detected R peaks for %i files from \"%s\":" % (total_files, data_directory))
     for file in valid_files:
         # show progress
         progress_bar(progressed_files, total_files)
@@ -628,7 +628,7 @@ def rri_string_evaluation(string):
     return rpeak, letter
 
 
-def get_rpeaks_classification_from_rri_file(file_path: str):
+def get_rpeaks_classification_from_rri_file(file_path: str, add_offset: int):
     """
     Get R-peak classification from an .rri file.
 
@@ -636,6 +636,8 @@ def get_rpeaks_classification_from_rri_file(file_path: str):
     --------------------------------
     file_path: str
         path to the .rri file
+    add_offset: int
+        offset that should be added to the R-peaks (classifications are slightly shifted for some reason)
 
     RETURNS:
     --------------------------------
@@ -670,6 +672,7 @@ def get_rpeaks_classification_from_rri_file(file_path: str):
     for i in range(start, len(rri)):
         this_rpeak, letter = rri_string_evaluation(rri[i])
         if isinstance(this_rpeak, int) and letter.isalpha():
+            this_rpeak += add_offset
             if letter in rpeaks:
                 rpeaks[letter].append(this_rpeak)
             else:
@@ -688,7 +691,8 @@ def read_rpeaks_from_rri_files(
         rpeaks_values_directory: str,
         valid_rpeak_values_file_types: list,
         include_rpeak_value_classifications: list,
-        rpeak_path: str
+        rpeak_path: str,
+        add_offset_to_classification: int,
     ):
     """
     Read the R peak values from all .rri files in the rpeaks_values_dirextory and save them
@@ -707,6 +711,8 @@ def read_rpeaks_from_rri_files(
         list of the R peak classifications that should be included in the "R peak detection"
     rpeak_path: str
         path where the R peaks should be saved
+    add_offset_to_classification: int
+        offset that should be added to the R-peaks (classifications are slightly shifted for some reason)
     
     RETURNS:
     --------------------------------
@@ -719,7 +725,7 @@ def read_rpeaks_from_rri_files(
 
     # check if the R peaks were already read and if yes: ask for permission to override
     user_answer = ask_for_permission_to_override(file_path = rpeak_path,
-                                    message = "\nRead R peak classification already exists in " + rpeak_path + ".")
+                                    message = "\nR-peak classification reading already exists in " + rpeak_path + ".")
     
     # cancel if user does not want to override
     if user_answer == "n":
@@ -737,11 +743,14 @@ def read_rpeaks_from_rri_files(
     total_data_files = len(valid_data_files)
     progressed_data_files = 0
 
+    # create lists to store files with missing r-peaks
+    files_with_missing_rpeaks = []
+
     # create dictionary to store the R peak values for all files
     all_rpeaks = dict()
     
     # read the R peaks from the files
-    print("\nReading R peak values from %i files:" % total_data_files)
+    print("\nReading r-peak values from %i files from \"%s\":" % (total_data_files, data_directory))
     for file in valid_data_files:
         # show progress
         progress_bar(progressed_data_files, total_data_files)
@@ -755,9 +764,12 @@ def read_rpeaks_from_rri_files(
             if this_file_name in value_file:
                 this_value_file = value_file
         try:
-            rpeaks_values = get_rpeaks_classification_from_rri_file(rpeaks_values_directory + this_value_file)
-        except ValueError:
-            print("R peaks are missing for %s. Skipping this file." % file)
+            rpeaks_values = get_rpeaks_classification_from_rri_file(
+                file_path = rpeaks_values_directory + this_value_file,
+                add_offset = add_offset_to_classification
+            )
+        except:
+            files_with_missing_rpeaks.append(file)
             continue
 
         # save R peak values with wanted classification to the dictionary
@@ -772,6 +784,11 @@ def read_rpeaks_from_rri_files(
 
     # save the R peak values to a pickle file
     save_to_pickle(all_rpeaks, rpeak_path)
+
+    # print files with missing R peaks
+    if len(files_with_missing_rpeaks) > 0:
+        print("\nFor the following files the r-peaks could not be read:")
+        print(files_with_missing_rpeaks)
 
 
 def rpeak_detection_comparison(
@@ -833,7 +850,7 @@ def rpeak_detection_comparison(
     all_files_rpeak_comparison = dict()
     
     # calculate the R peak comparison values
-    print("\nCalculating R peak comparison values for %i files:" % total_data_files)
+    print("\nCalculating R peak comparison values for %i files from \"%s\":" % (total_data_files, data_directory))
     for file in valid_data_files:
         # show progress
         progress_bar(progressed_data_files, total_data_files)
