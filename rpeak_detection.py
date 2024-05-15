@@ -153,7 +153,6 @@ def get_rpeaks_wfdb(
 
 def detect_rpeaks(
         data_directory: str,
-        valid_file_types: list,
         ecg_keys: list,
         physical_dimension_correction_dictionary: dict,
         rpeak_function,
@@ -169,8 +168,6 @@ def detect_rpeaks(
     --------------------------------
     data_directory: str
         directory where the data is stored
-    valid_file_types: list
-        valid file types in the data directory
     ecg_keys: list
         list of possible labels for the ECG data
     physical_dimension_correction_dictionary: dict
@@ -201,36 +198,26 @@ def detect_rpeaks(
     if user_answer == "n":
         return
 
-    # get all valid files
-    all_files = os.listdir(data_directory)
-    valid_files = [file for file in all_files if get_file_type(file) in valid_file_types]
-
     # create variables to track progress
-    total_files = len(valid_files)
+    total_files = get_pickle_length(valid_ecg_regions_path)
     progressed_files = 0
 
-    # create lists to store files with missing valid ecg regions
-    files_with_missing_regions = []
-
-    # create dictionary to save the r-peaks
-    all_rpeaks = dict()
+    # create lists to store unprocessable files
+    unprocessable_files = []
 
     # load valid ecg regions
-    valid_ecg_regions = load_from_pickle(valid_ecg_regions_path)
+    valid_ecg_regions_generator = load_from_pickle(valid_ecg_regions_path)
 
     # detect rpeaks in the valid regions of the ECG data
     print("\nDetecting r-peaks of the ECG data in %i files from \"%s\" using %s:" % (total_files, data_directory, rpeak_function_name))
-    for file in valid_files:
+    for generator_entry in valid_ecg_regions_generator:
         # show progress
         progress_bar(progressed_files, total_files)
         progressed_files += 1
 
-        # get the valid regions for the ECG data, if they do not exist: skip this file
-        try:
-            detection_intervals = valid_ecg_regions[file]
-        except KeyError:
-            files_with_missing_regions.append(file)
-            continue
+        # get the valid regions for the ECG data
+        file = list(generator_entry.keys())[0]
+        detection_intervals = generator_entry[file]
 
         # try to load the data and correct the physical dimension if needed
         try:
@@ -239,31 +226,29 @@ def detect_rpeaks(
                 possible_channel_labels = ecg_keys,
                 physical_dimension_correction_dictionary = physical_dimension_correction_dictionary
             )
+
+            # detect the r-peaks in the valid ecg regions
+            this_rpeaks = np.array([], dtype = int)
+            for interval in detection_intervals:
+                this_result = rpeak_function(
+                    ECG = ecg_signal,
+                    frequency = ecg_sampling_frequency,
+                    detection_interval = interval
+                    )
+                this_rpeaks = np.append(this_rpeaks, this_result)
         except:
-            # exception should obviously not occur, but just in case
+            unprocessable_files.append(file)
             continue
 
-        # detect the r-peaks in the valid ecg regions
-        this_rpeaks = np.array([], dtype = int)
-        for interval in detection_intervals:
-            this_result = rpeak_function(
-                ECG = ecg_signal,
-                frequency = ecg_sampling_frequency,
-                detection_interval = interval
-                )
-            this_rpeaks = np.append(this_rpeaks, this_result)
-        
-        all_rpeaks[file] = this_rpeaks
+        # save the r-peaks to a pickle file
+        append_to_pickle({file: this_rpeaks}, rpeak_path)
     
     progress_bar(progressed_files, total_files)
-    
-    # save the r-peaks to a pickle file
-    save_to_pickle(all_rpeaks, rpeak_path)
 
-    # print files with missing valid ecg regions
-    if len(files_with_missing_regions) > 0:
-        print("\nFor the following files the r-peaks could not be detected because the valid ecg regions were missing:")
-        print(files_with_missing_regions)
+    # print unprocessable files
+    if len(unprocessable_files) > 0:
+        print("\nFor the following files the r-peaks could not be detected:")
+        print(unprocessable_files)
 
 
 def combine_rpeaks(
@@ -356,7 +341,6 @@ def combine_rpeaks(
 
 def combine_detected_rpeaks(
         data_directory: str,
-        valid_file_types: list,
         ecg_keys: list,
         rpeak_primary_path: str,
         rpeak_secondary_path: str,
@@ -423,55 +407,67 @@ def combine_detected_rpeaks(
     except FileNotFoundError:
         pass
 
-    # get all valid files
-    all_files = os.listdir(data_directory)
-    valid_files = [file for file in all_files if get_file_type(file) in valid_file_types]
-
     # create variables to track progress
-    total_files = len(valid_files)
+    total_files = get_pickle_length(rpeak_primary_path)
     progressed_files = 0
 
-    # create dictionaries to save the r-peaks
-    certain_rpeaks = dict()
-    uncertain_primary_rpeaks = dict()
-    uncertain_secondary_rpeaks = dict()
+    # create lists to store unprocessable files
+    unprocessable_files = []
 
     # load detected r-peaks
-    all_rpeaks_primary = load_from_pickle(rpeak_primary_path)
-    all_rpeaks_secondary = load_from_pickle(rpeak_secondary_path)
+    all_rpeaks_primary_generator = load_from_pickle(rpeak_primary_path)
+    all_rpeaks_secondary_generator = load_from_pickle(rpeak_secondary_path)
 
     # combine detected r-peaks
     print("\nCombining detected r-peaks for %i files from \"%s\":" % (total_files, data_directory))
-    for file in valid_files:
+    for _ in range(total_files):
         # show progress
         progress_bar(progressed_files, total_files)
         progressed_files += 1
-        
-        # get the frequency
-        sampling_frequency = read_edf.get_frequency_from_edf_channel(
-            file_path = data_directory + file,
-            possible_channel_labels = ecg_keys
-        )
 
-        # combine the r-peaks
-        these_combined_rpeaks = combine_rpeaks(
-            rpeaks_primary = all_rpeaks_primary[file],
-            rpeaks_secondary = all_rpeaks_secondary[file],
-            frequency = sampling_frequency,
-            rpeak_distance_threshold_seconds = rpeak_distance_threshold_seconds
-            )
+        # get the file name and the r-peaks detected by both methods
+        primary_generator_entry = next(all_rpeaks_primary_generator)
+        secondary_generator_entry = next(all_rpeaks_secondary_generator)
+
+        file = list(primary_generator_entry.keys())[0]
+        if file != list(secondary_generator_entry.keys())[0]:
+            unprocessable_files.append(file)
+            continue
+
+        all_rpeaks_primary = primary_generator_entry[file]
+        all_rpeaks_secondary = secondary_generator_entry[file]
         
-        # save the r-peaks to the dictionaries
-        certain_rpeaks[file] = these_combined_rpeaks[0]
-        uncertain_primary_rpeaks[file] = these_combined_rpeaks[1]
-        uncertain_secondary_rpeaks[file] = these_combined_rpeaks[2]
+        try:
+            # get the frequency
+            sampling_frequency = read_edf.get_frequency_from_edf_channel(
+                file_path = data_directory + file,
+                possible_channel_labels = ecg_keys
+            )
+
+            # combine the r-peaks
+            these_combined_rpeaks = combine_rpeaks(
+                rpeaks_primary = all_rpeaks_primary,
+                rpeaks_secondary = all_rpeaks_secondary,
+                frequency = sampling_frequency,
+                rpeak_distance_threshold_seconds = rpeak_distance_threshold_seconds
+                )
+        except:
+            unprocessable_files.append(file)
+            continue
+        
+        # save the r-peaks to pickle files
+        append_to_pickle({file: these_combined_rpeaks[0]}, certain_rpeaks_path)
+        append_to_pickle({file: these_combined_rpeaks[1]}, uncertain_primary_rpeaks_path)
+        append_to_pickle({file: these_combined_rpeaks[2]}, uncertain_secondary_rpeaks_path)
     
     progress_bar(progressed_files, total_files)
-    
-    # save the r-peaks to pickle files
-    save_to_pickle(certain_rpeaks, certain_rpeaks_path)
-    save_to_pickle(uncertain_primary_rpeaks, uncertain_primary_rpeaks_path)
-    save_to_pickle(uncertain_secondary_rpeaks, uncertain_secondary_rpeaks_path)
+
+    # print unprocessable files
+    if len(unprocessable_files) > 0:
+        print("\nFor the following files the r-peaks could not be combined:")
+        print(unprocessable_files)
+        print("Possible reason:")
+        print(" "*5 + "- The files are not in the same order in the primary and secondary r-peak detection")
 
 
 """
@@ -745,9 +741,6 @@ def read_rpeaks_from_rri_files(
 
     # create lists to store files with missing r-peaks
     files_with_missing_rpeaks = []
-
-    # create dictionary to store the r-peak values for all files
-    all_rpeaks = dict()
     
     # read the r-peaks from the files
     print("\nReading r-peak values from %i files from \"%s\":" % (total_data_files, data_directory))
@@ -772,18 +765,19 @@ def read_rpeaks_from_rri_files(
             files_with_missing_rpeaks.append(file)
             continue
 
-        # save r-peak values with wanted classification to the dictionary
-        all_rpeaks[file] = np.array([], dtype = int)
+        # get r-peak values with wanted classification
+        this_rpeaks = np.array([], dtype = int)
         for classification in include_rpeak_value_classifications:
             try:
-                all_rpeaks[file] = np.append(all_rpeaks[file], rpeaks_values[classification])
+                this_rpeaks = np.append(this_rpeaks, rpeaks_values[classification])
             except KeyError:
-                print("Classification %s is missing in %s. Skipping this classification." % (classification, file))
+                # print("Classification %s is missing in %s. Skipping this classification." % (classification, file))
+                pass
+        
+        # save the r-peak values to pickle file
+        append_to_pickle({file: this_rpeaks}, rpeak_path)
     
     progress_bar(progressed_data_files, total_data_files)
-
-    # save the r-peak values to a pickle file
-    save_to_pickle(all_rpeaks, rpeak_path)
 
     # print files with missing r-peaks
     if len(files_with_missing_rpeaks) > 0:
@@ -793,7 +787,6 @@ def read_rpeaks_from_rri_files(
 
 def rpeak_detection_comparison(
         data_directory: str,
-        valid_file_types: list,
         ecg_keys: list,
         compare_rpeaks_paths: list,
         rpeak_distance_threshold_seconds: float,
@@ -837,17 +830,14 @@ def rpeak_detection_comparison(
     # cancel if user does not want to override
     if user_answer == "n":
         return
-
-    # get all valid files
-    all_data_files = os.listdir(data_directory)
-    valid_data_files = [file for file in all_data_files if get_file_type(file) in valid_file_types]
+    
+    # get the valid files
+    random_rpeaks_generator = load_from_pickle(compare_rpeaks_paths[0])
+    valid_data_files = [list(generator_entry.keys())[0] for generator_entry in random_rpeaks_generator]
 
     # create variables to track progress
-    total_data_files = len(valid_data_files)
+    total_data_files = get_pickle_length(compare_rpeaks_paths[0])
     progressed_data_files = 0
-
-    # create dictionary to store the r-peak comparison values of all detection methods for all files
-    all_files_rpeak_comparison = dict()
     
     # calculate the r-peak comparison values
     print("\nCalculating r-peak comparison values for %i files from \"%s\":" % (total_data_files, data_directory))
@@ -868,10 +858,17 @@ def rpeak_detection_comparison(
         # compare the r-peaks of the different detection methods
         for path_index in range(len(compare_rpeaks_paths)):
             # load dictionaries with detected r-peaks (contains r-peaks of all files)
-            first_rpeaks_all_files = load_from_pickle(compare_rpeaks_paths[path_index])
-            second_rpeaks_all_files = load_from_pickle(compare_rpeaks_paths[path_index-1])
+            first_rpeaks_all_files_generator = load_from_pickle(compare_rpeaks_paths[path_index])
+            second_rpeaks_all_files_generator = load_from_pickle(compare_rpeaks_paths[path_index-1])
 
-            # get the r-peaks of the current file
+            # get the r-peaks of the current file (i know this is not efficient, but i did not want to restructure the code, as it is still fast compared to r-peak detection)
+            for _ in range(total_data_files):
+                first_rpeaks_all_files = next(first_rpeaks_all_files_generator)
+                second_rpeaks_all_files = next(second_rpeaks_all_files_generator)
+                key = list(first_rpeaks_all_files.keys())[0]
+                if key == file:
+                    break
+
             first_rpeaks = first_rpeaks_all_files[file]
             second_rpeaks = second_rpeaks_all_files[file]
 
@@ -890,13 +887,10 @@ def rpeak_detection_comparison(
             # append list of r-peak comparison values for these two detection methods to the list
             this_file_rpeak_comparison.append([rmse_without_same, rmse_with_same, len_same_values, len_analog_values, number_first_rpeaks, number_second_rpeaks])
         
-        # save the r-peak comparison values for this file to the dictionary
-        all_files_rpeak_comparison[file] = this_file_rpeak_comparison
+        # save the r-peak comparison values for this file to the pickle file
+        append_to_pickle({file: this_file_rpeak_comparison}, rpeak_comparison_evaluation_path)
     
     progress_bar(progressed_data_files, total_data_files)
-    
-    # save the r-peak comparison values to a pickle file
-    save_to_pickle(all_files_rpeak_comparison, rpeak_comparison_evaluation_path)
 
 
 def rpeak_detection_comparison_report(
@@ -942,7 +936,10 @@ def rpeak_detection_comparison_report(
     comparison_file.write("=" * len(message) + "\n\n\n")
 
     # load the data
-    all_files_rpeak_comparison = load_from_pickle(rpeak_comparison_evaluation_path)
+    all_files_rpeak_comparison_generator = load_from_pickle(rpeak_comparison_evaluation_path)
+    all_files_rpeak_comparison = dict()
+    for generator_entry in all_files_rpeak_comparison_generator:
+        all_files_rpeak_comparison.update(generator_entry)
 
     # create mean row captions
     MEAN_ROW_CAPTION = "Mean Values:"
@@ -985,13 +982,37 @@ def rpeak_detection_comparison_report(
             this_rpeaks_distance.append(abs(all_files_rpeak_comparison[file][funcs_index][4] - all_files_rpeak_comparison[file][funcs_index][5]))
 
             # collect ratio of distance of number of detected r-peaks
-            this_rpeaks_distance_ratio.append([this_rpeaks_distance[funcs_index] / all_files_rpeak_comparison[file][funcs_index][4], this_rpeaks_distance[funcs_index] / all_files_rpeak_comparison[file][funcs_index][5]])
+            try:
+                this_first_ratio = this_rpeaks_distance[funcs_index] / all_files_rpeak_comparison[file][funcs_index][4]
+            except:
+                this_first_ratio = 1.0
+            try:
+                this_second_ratio = this_rpeaks_distance[funcs_index] / all_files_rpeak_comparison[file][funcs_index][5]
+            except:
+                this_second_ratio = 1.0
+            this_rpeaks_distance_ratio.append([this_first_ratio, this_second_ratio])
 
             # collect ratio of analog values to number of r-peaks
-            this_analogue_values_ratio.append([all_files_rpeak_comparison[file][funcs_index][3] / all_files_rpeak_comparison[file][funcs_index][4], all_files_rpeak_comparison[file][funcs_index][3] / all_files_rpeak_comparison[file][funcs_index][5]])
+            try:
+                this_first_ratio = all_files_rpeak_comparison[file][funcs_index][3] / all_files_rpeak_comparison[file][funcs_index][4]
+            except:
+                this_first_ratio = 1.0
+            try:
+                this_second_ratio = all_files_rpeak_comparison[file][funcs_index][3] / all_files_rpeak_comparison[file][funcs_index][5]
+            except:
+                this_second_ratio = 1.0
+            this_analogue_values_ratio.append([this_first_ratio, this_second_ratio])
 
             # collect ratio of same values to number of r-peaks
-            this_same_values_ratio.append([all_files_rpeak_comparison[file][funcs_index][2] / all_files_rpeak_comparison[file][funcs_index][4], all_files_rpeak_comparison[file][funcs_index][2] / all_files_rpeak_comparison[file][funcs_index][5]])
+            try:
+                this_first_ratio = all_files_rpeak_comparison[file][funcs_index][2] / all_files_rpeak_comparison[file][funcs_index][4]
+            except:
+                this_first_ratio = 1.0
+            try:
+                this_second_ratio = all_files_rpeak_comparison[file][funcs_index][2] / all_files_rpeak_comparison[file][funcs_index][5]
+            except:
+                this_second_ratio = 1.0
+            this_same_values_ratio.append([this_first_ratio, this_second_ratio])
         
         collect_rmse_exc.append(this_rmse_exc)
         collect_rmse_inc.append(this_rmse_inc)

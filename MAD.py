@@ -193,9 +193,6 @@ def calculate_MAD_in_acceleration_data(
     # create list to store unprocessable files
     unprocessable_files = []
 
-    # create dictionary to save the MAD values
-    MAD_values = dict()
-
     # calculate MAD in the wrist acceleration data
     print("\nCalculating MAD in the wrist acceleration data in %i files from \"%s\":" % (total_files, data_directory))
     for file in valid_files:
@@ -224,20 +221,23 @@ def calculate_MAD_in_acceleration_data(
             unprocessable_files.append(data_directory + file)
             continue
 
-        # caculate MAD values
-        MAD_values[file] = calc_mad(
+        # calculate MAD values
+        this_MAD_values = calc_mad(
             acceleration_data_lists = acceleration_data,
             frequencies = acceleration_data_frequencies,
             time_period = mad_time_period_seconds, 
             )
+        
+        # save MAD values
+        append_to_pickle({file: this_MAD_values}, mad_values_path)
     
     progress_bar(progressed_files, total_files)
 
-    # save MAD values
-    save_to_pickle(MAD_values, mad_values_path)
-
     # print unprocessable files
     if len(unprocessable_files) > 0:
-        print("\nThe following files could not be processed:")
+        print("\nFor the following files the MAD values could not be calculated:")
         print(unprocessable_files)
-        print("Possible reasons: no matching label in wrist_acceleration_keys and the files, physical dimension of label is unknown")
+        print("Possible reasons:")
+        print(" "*5 + "- ECG file contains format errors")
+        print(" "*5 + "- No matching label in wrist_acceleration_keys and the files")
+        print(" "*5 + "- Physical dimension of label is unknown")

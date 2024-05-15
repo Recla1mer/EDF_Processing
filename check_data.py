@@ -152,7 +152,7 @@ def create_ecg_thresholds(
     check_ecg_thresholds["check_ecg_std_min_threshold"] = threshold_values[0]
     check_ecg_thresholds["check_ecg_distance_std_ratio_threshold"] = threshold_values[1]
     
-    save_to_pickle(check_ecg_thresholds, ecg_thresholds_save_path)
+    append_to_pickle(check_ecg_thresholds, ecg_thresholds_save_path)
 
 
 def check_ecg(
@@ -399,9 +399,6 @@ def determine_valid_ecg_regions(
     # create list to store files that could not be processed
     unprocessable_files = []
 
-    # create dictionary to save the valid regions
-    valid_regions = dict()
-
     print("\nCalculating valid regions for the ECG data in %i files from \"%s\":" % (total_files, data_directory))
 
     for file in valid_files:
@@ -418,7 +415,7 @@ def determine_valid_ecg_regions(
             )
 
             # calculate the valid regions
-            valid_regions[file] = check_ecg(
+            this_valid_regions = check_ecg(
                 ECG = ecg_signal, 
                 frequency = ecg_sampling_frequency, 
                 check_ecg_std_min_threshold = check_ecg_std_min_threshold, 
@@ -428,21 +425,24 @@ def determine_valid_ecg_regions(
                 min_valid_length_minutes = check_ecg_min_valid_length_minutes,
                 allowed_invalid_region_length_seconds = check_ecg_allowed_invalid_region_length_seconds,
                 )
+            
+            # save the valid regions for this file
+            append_to_pickle({file: this_valid_regions}, valid_ecg_regions_path)
         except:
             unprocessable_files.append(data_directory + file)
             continue
 
 
     progress_bar(progressed_files, total_files)
-    
-    # save the valid regions
-    save_to_pickle(valid_regions, valid_ecg_regions_path)
 
     # print the files that could not be processed
     if len(unprocessable_files) > 0:
         print("\nThe following files could not be processed for ECG Validation:")
         print(unprocessable_files)
         print("Possible reasons: no matching label in ecg_keys and the files, physical dimension of label is unknown")
+        print(" "*5 + "- ECG file contains format errors")
+        print(" "*5 + "- No matching label in ecg_keys and the files")
+        print(" "*5 + "- Physical dimension of label is unknown")
 
 
 def valid_total_ratio(ECG: list, valid_regions: list):
@@ -588,7 +588,7 @@ def compare_ecg_validations(
     ecg_classification: dict
         dictionary containing the ECG classification
     
-    RETURNS:
+    RETURNS (list):
     --------------------------------
     correct_valid_ratio: float
         ratio of correctly classified valid points
@@ -660,7 +660,7 @@ def compare_ecg_validations(
     except:
         invalid_wrong_ratio = 1.0
 
-    return correct_valid_ratio, correct_invalid_ratio, valid_wrong_ratio, invalid_wrong_ratio
+    return [correct_valid_ratio, correct_invalid_ratio, valid_wrong_ratio, invalid_wrong_ratio]
 
 
 def ecg_validation_comparison(
@@ -703,28 +703,28 @@ def ecg_validation_comparison(
         return
 
     # get all determined ECG Validation files
-    determined_ecg_validation_dictionary = load_from_pickle(valid_ecg_regions_path)
+    determined_ecg_validation_generator = load_from_pickle(valid_ecg_regions_path)
 
     # get all ECG classification files
     all_classification_files = os.listdir(ecg_classification_values_directory)
     valid_classification_files = [file for file in all_classification_files if get_file_type(file) in ecg_classification_file_types]
 
     # create variables to track progress
-    total_data_files = len(determined_ecg_validation_dictionary)
+    total_data_files = get_pickle_length(valid_ecg_regions_path)
     progressed_data_files = 0
 
     # create lists to store unprocessable files
     unprocessable_files = []
-
-    # create dictionary to store the ECG Validation comparison values for all files
-    all_files_ecg_validation_comparison = dict()
     
     # calculate the ECG Validation comparison values for all files
     print("\nCalculating ECG validation comparison values for %i files:" % total_data_files)
-    for file_key in determined_ecg_validation_dictionary:
+    for generator_entry in determined_ecg_validation_generator:
         # show progress
         progress_bar(progressed_data_files, total_data_files)
         progressed_data_files += 1
+
+        # get the file key and the validated ECG regions
+        file_key = list(generator_entry.keys())[0]
 
         # get the file name without the file type
         this_file_name = os.path.splitext(file_key)[0]
@@ -741,22 +741,21 @@ def ecg_validation_comparison(
         
         # compare the differnt ECG validations
         this_file_comparison_values = compare_ecg_validations(
-            validated_intervals = determined_ecg_validation_dictionary[file_key],
+            validated_intervals = generator_entry[file_key],
             ecg_classification = ecg_classification_dictionary
             )
         
-        # save the comparison values for this file to the dictionary
-        all_files_ecg_validation_comparison[file_key] = [comparison_value for comparison_value in this_file_comparison_values]
+        # save the comparison values for this file
+        append_to_pickle({file_key: this_file_comparison_values}, ecg_validation_comparison_evaluation_path)
     
     progress_bar(progressed_data_files, total_data_files)
-    
-    # save the comparison values to a pickle file
-    save_to_pickle(all_files_ecg_validation_comparison, ecg_validation_comparison_evaluation_path)
 
     # print the files that could not be processed
     if len(unprocessable_files) > 0:
-        print("\nThe following files could not be processed for ECG Validation Comparison, most likely because no corresponding classification file was found:")
+        print("\nThe following files could not be processed for ECG Validation Comparison:")
         print(unprocessable_files)
+        print("Possible reasons: no corresponding classification file found in the directory")
+        print(" "*5 + "- No corresponding classification file was found")
 
 
 def ecg_validation_comparison_report(
@@ -793,7 +792,10 @@ def ecg_validation_comparison_report(
     comparison_file = open(ecg_validation_comparison_report_path, "w")
 
     # load the data
-    all_files_ecg_validation_comparison = load_from_pickle(ecg_validation_comparison_evaluation_path)
+    all_files_ecg_validation_generator = load_from_pickle(ecg_validation_comparison_evaluation_path)
+    all_files_ecg_validation_comparison = dict()
+    for generator_entry in all_files_ecg_validation_generator:
+        all_files_ecg_validation_comparison.update(generator_entry)
 
     # write the file header
     message = "ECG VALIDATION COMPARISON REPORT"

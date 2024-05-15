@@ -281,7 +281,7 @@ def get_file_name_from_path(file_path: str):
 
 def save_to_pickle(data, file_name):
     """
-    Save data to a pickle file.
+    Save data to a pickle file, overwriting the file if it already exists.
 
     ARGUMENTS:
     --------------------------------
@@ -298,9 +298,55 @@ def save_to_pickle(data, file_name):
         pickle.dump(data, f)
 
 
+def append_to_pickle(data, file_name):
+    """
+    Append data to a pickle file, without deleting previous data.
+
+    ARGUMENTS:
+    --------------------------------
+    data: any
+        data to be saved
+    file_name: str
+        path to the pickle file
+    
+    RETURNS:
+    --------------------------------
+    None
+    """
+    with open(file_name, "ab") as f:
+        pickle.dump(data, f)
+
+
 def load_from_pickle(file_name: str):
     """
-    Load data from a pickle file.
+    Load data from a pickle file as a generator.
+
+    ARGUMENTS:
+    --------------------------------
+    file_name: str
+        path to the pickle file
+    key: str
+        key of the data to be loaded
+    
+    RETURNS:
+    --------------------------------
+    any
+        data from the pickle file
+    """
+    # with open(file_name, "rb") as f:
+    #     data = pickle.load(f)
+    # return data
+    with open(file_name, "rb") as f:
+        while True:
+            try:
+                yield pickle.load(f)
+            except EOFError:
+                break
+
+
+def get_pickle_length(file_name: str):
+    """
+    Get the number of items in a pickle file.
 
     ARGUMENTS:
     --------------------------------
@@ -309,12 +355,18 @@ def load_from_pickle(file_name: str):
     
     RETURNS:
     --------------------------------
-    any
-        data from the pickle file
+    int
+        number of items in the pickle file
     """
     with open(file_name, "rb") as f:
-        data = pickle.load(f)
-    return data
+        counter = 0
+        while True:
+            try:
+                pickle.load(f)
+                counter += 1
+            except EOFError:
+                break
+    return counter
 
 
 def ask_for_permission_to_override(file_path: str, message: str):
@@ -433,19 +485,3 @@ def print_left_aligned(string: str, length: int):
     """
     len_string = len(string)
     return string + " " * (length - len_string)
-
-
-a = 0
-b = 1
-
-file_name = "a.pkl"
-
-with open(file_name, "wb") as f:
-    pickle.dump(a, f)
-    pickle.dump(b, f)
-
-with open(file_name, "rb") as f:
-    data = pickle.load(f)
-    print(data)
-    data = pickle.load(f)
-    print(data)

@@ -273,9 +273,9 @@ determine_ecg_region_variables = ["valid_file_types", "ecg_keys", "physical_dime
             "check_ecg_time_interval_seconds", "check_ecg_overlapping_interval_steps", 
             "check_ecg_min_valid_length_minutes", "check_ecg_allowed_invalid_region_length_seconds"]
 
-detect_rpeaks_variables = ["valid_file_types", "ecg_keys", "physical_dimension_correction_dictionary"]
+detect_rpeaks_variables = ["ecg_keys", "physical_dimension_correction_dictionary"]
 
-combine_detected_rpeaks_variables = ["valid_file_types", "ecg_keys", "rpeak_distance_threshold_seconds"]
+combine_detected_rpeaks_variables = ["ecg_keys", "rpeak_distance_threshold_seconds"]
 
 calculate_MAD_variables = ["valid_file_types", "wrist_acceleration_keys", 
             "physical_dimension_correction_dictionary", "mad_time_period_seconds"]
@@ -288,8 +288,7 @@ read_rpeak_classification_variables = ["valid_file_types", "rpeaks_values_direct
                     "valid_rpeak_values_file_types", "include_rpeak_value_classifications",
                     "add_offset_to_classification"]
 
-rpeak_detection_comparison_variables = ["valid_file_types", "ecg_keys",
-                    "rpeak_distance_threshold_seconds", "rpeak_comparison_evaluation_path"]
+rpeak_detection_comparison_variables = ["ecg_keys", "rpeak_distance_threshold_seconds", "rpeak_comparison_evaluation_path"]
 
 rpeak_detection_comparison_report_variables = ["rpeak_comparison_function_names", "rpeak_comparison_report_dezimal_places", 
                                    "rpeak_comparison_report_path", "rpeak_comparison_evaluation_path"]
@@ -390,8 +389,9 @@ def additional_section(run_section: bool):
             check_data.create_ecg_thresholds(**ecg_thresholds_args)
 
             # load the ecg thresholds to the parameters dictionary
-            ecg_validation_thresholds_dict = load_from_pickle(parameters["ecg_thresholds_save_path"])
-            parameters.update(ecg_validation_thresholds_dict)
+            ecg_validation_thresholds_generator = load_from_pickle(parameters["ecg_thresholds_save_path"])
+            for generator_entry in ecg_validation_thresholds_generator:
+                parameters.update(generator_entry)
 
         # create arguments for the valid ecg regions evaluation and calculate them
         determine_ecg_region_args = create_sub_dict(parameters, determine_ecg_region_variables)
@@ -401,7 +401,7 @@ def additional_section(run_section: bool):
         determine_ecg_region_args["valid_ecg_regions_path"] = ADDITIONALS_DIRECTORY + VALID_ECG_REGIONS_NAME
 
         check_data.determine_valid_ecg_regions(**determine_ecg_region_args)
-        del manual_calibration_intervals, ecg_thresholds_args, ecg_validation_thresholds_dict, determine_ecg_region_args
+        del manual_calibration_intervals, ecg_thresholds_args, determine_ecg_region_args
     
     """
     --------------------------------
@@ -513,9 +513,9 @@ def preparation_section(run_section: bool):
 
     # load the ecg thresholds to the parameters dictionary
     if not parameters["use_manually_chosen_ecg_thresholds"]:
-        ecg_validation_thresholds_dict = load_from_pickle(ECG_VALIDATION_THRESHOLDS_PATH)
-        parameters.update(ecg_validation_thresholds_dict)
-        del ecg_validation_thresholds_dict
+        ecg_validation_thresholds_generator = load_from_pickle(ECG_VALIDATION_THRESHOLDS_PATH)
+        for generator_entry in ecg_validation_thresholds_generator:
+            parameters.update(generator_entry)
 
     # evaluate valid regions for the ECG data
     if parameters["determine_valid_ecg_regions"]:
@@ -636,7 +636,6 @@ def main():
     #     )
 
     # additional_section(parameters["run_additionals_section"])
-    print(DATA_DIRECTORIES)
     preparation_section(parameters["run_preparation_section"])
 
     # rpeaks = load_from_pickle(PREPARATION_DIRECTORY + "RPeaks_wfdb.pkl")
