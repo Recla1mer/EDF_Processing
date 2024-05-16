@@ -183,8 +183,9 @@ manually_chosen_ecg_thresholds = {
     "check_ecg_distance_std_ratio_threshold": 1.99, # if the ratio of the distance between two peaks and twice the standard deviation of the ECG data is above this threshold, the data is considered invalid
 }
 
-if settings_params["use_manually_chosen_ecg_thresholds"] and settings_params["calculate_ecg_thresholds"]:
-    settings_params["calculate_ecg_thresholds"] = False
+if settings_params["use_manually_chosen_ecg_thresholds"]:
+    if settings_params["calculate_ecg_thresholds"]:
+        settings_params["calculate_ecg_thresholds"] = False
     valid_ecg_regions_params.update(manually_chosen_ecg_thresholds)
     print("\nThe manually chosen ECG thresholds will be used. If you want to recalculate the thresholds, please set the 'use_manually_chosen_ecg_thresholds' parameter to False in the settings section of the script\n")
 
@@ -193,7 +194,7 @@ del manually_chosen_ecg_thresholds
 # parameters for the r-peak detection
 detect_rpeaks_params = {
     "rpeak_primary_function": rpeak_detection.get_rpeaks_wfdb, # primary r-peak detection function
-    "rpeak_secondary_function": rpeak_detection.get_rpeaks_old, # secondary r-peak detection function
+    "rpeak_secondary_function": rpeak_detection.get_rpeaks_ecgdetectors, # secondary r-peak detection function
     "rpeak_name_primary": "wfdb", # name of the primary r-peak detection function
     "rpeak_name_secondary": "ecgdetectors", # name of the secondary r-peak detection function
     "rpeak_distance_threshold_seconds": 0.05, # If r-peaks in the two functions differ by this value, they are still considered the same (max 50ms)
@@ -214,12 +215,12 @@ rpeak_comparison_params = {
     "valid_rpeak_values_file_types": [".rri"], # file types that store the r-peak classification data
     "include_rpeak_value_classifications": ["N"], # classifications that should be included in the evaluation
     #
-    "rpeak_comparison_functions": [rpeak_detection.get_rpeaks_wfdb, rpeak_detection.get_rpeaks_old], # r-peak detection functions
+    "rpeak_comparison_functions": [rpeak_detection.get_rpeaks_wfdb, rpeak_detection.get_rpeaks_ecgdetectors, rpeak_detection.get_rpeaks_hamilton, rpeak_detection.get_rpeaks_christov], # r-peak detection functions
     "rpeak_classification_functions": [rpeak_detection.read_rpeaks_from_rri_files], # functions to read the r-peak classifications
     "add_offset_to_classification": -1, #  offset that should be added to the r-peaks (classifications are slightly shifted for some reason)
     "rpeak_comparison_evaluation_path": RPEAK_COMPARISON_EVALUATION_PATH, # path to the pickle file where the evaluation results are saved
     #
-    "rpeak_comparison_function_names": ["wfdb", "ecgdetectors", "gif_classification"], # names of all used r-peak functions
+    "rpeak_comparison_function_names": ["wfdb", "ecgdetectors", "hamilton", "christov", "gif_classification"], # names of all used r-peak functions
     "rpeak_comparison_report_dezimal_places": 4, # number of dezimal places in the comparison report
     "rpeak_comparison_report_path": RPEAK_COMPARISON_REPORT_PATH, # path to the text file that stores the comparison report
 }
@@ -393,6 +394,8 @@ def additional_section(run_section: bool):
             for generator_entry in ecg_validation_thresholds_generator:
                 parameters.update(generator_entry)
 
+            del ecg_thresholds_args
+
         # create arguments for the valid ecg regions evaluation and calculate them
         determine_ecg_region_args = create_sub_dict(parameters, determine_ecg_region_variables)
 
@@ -401,7 +404,7 @@ def additional_section(run_section: bool):
         determine_ecg_region_args["valid_ecg_regions_path"] = ADDITIONALS_DIRECTORY + VALID_ECG_REGIONS_NAME
 
         check_data.determine_valid_ecg_regions(**determine_ecg_region_args)
-        del manual_calibration_intervals, ecg_thresholds_args, determine_ecg_region_args
+        del manual_calibration_intervals, determine_ecg_region_args
     
     """
     --------------------------------
@@ -511,8 +514,7 @@ def preparation_section(run_section: bool):
         check_data.create_ecg_thresholds(**ecg_thresholds_args)
         del manual_calibration_intervals, ecg_thresholds_args
 
-    # load the ecg thresholds to the parameters dictionary
-    if not parameters["use_manually_chosen_ecg_thresholds"]:
+        # load the ecg thresholds to the parameters dictionary
         ecg_validation_thresholds_generator = load_from_pickle(ECG_VALIDATION_THRESHOLDS_PATH)
         for generator_entry in ecg_validation_thresholds_generator:
             parameters.update(generator_entry)
@@ -635,8 +637,24 @@ def main():
     #     xlim = x_lim
     #     )
 
-    # additional_section(parameters["run_additionals_section"])
-    preparation_section(parameters["run_preparation_section"])
+    additional_section(parameters["run_additionals_section"])
+    # preparation_section(parameters["run_preparation_section"])
+
+    regions = load_from_pickle(ADDITIONALS_DIRECTORY + "Valid_ECG_Regions.pkl")
+    for i in regions:
+        key = list(i.keys())[0]
+        print(key)
+        print(i[key])
+        print(len(i[key]))
+        break
+
+    peaks = load_from_pickle(ADDITIONALS_DIRECTORY + "RPeak_Comparison/RPeaks_wfdb.pkl")
+    for i in peaks:
+        key = list(i.keys())[0]
+        print(key)
+        print(i[key])
+        print(len(i[key]))
+        break
 
     # rpeaks = load_from_pickle(PREPARATION_DIRECTORY + "RPeaks_wfdb.pkl")
     # print(rpeaks)

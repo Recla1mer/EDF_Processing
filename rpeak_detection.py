@@ -12,6 +12,7 @@ import time
 # import libraries for rpeak detection
 import neurokit2
 import wfdb.processing
+from biosppy.signals.ecg import christov_segmenter, hamilton_segmenter
 
 # import old code used for rpeak detection
 import old_code.rpeak_detection as old_rpeak
@@ -21,7 +22,93 @@ import read_edf
 from side_functions import *
 
 
-def get_rpeaks_old(
+def get_rpeaks_hamilton(
+        ECG: list,
+        frequency: int,
+        detection_interval: list
+    ):
+    """
+    Detect R-peaks in ECG data using the biosppy library.
+
+    ARGUMENTS:
+    --------------------------------
+    ECG: list
+        list containing the ECG data
+    frequency: int
+        sampling frequency of the ECG data
+    detection_interval: list
+        interval in which the R-peaks should be detected
+        if None, the whole ECG data will be used
+
+    RETURNS:
+    --------------------------------
+    rpeaks_corrected: 1D numpy array
+        list of R-peak locations
+    """
+
+    # get the ECG data in the detection interval
+    if detection_interval is None:
+        ecg_signal = ECG
+    else:
+        ecg_signal = ECG[detection_interval[0]:detection_interval[1]]
+
+    # detect the R-peaks
+    rpeaks_hamilton = hamilton_segmenter(ecg_signal, frequency)['rpeaks']
+    rpeaks_corrected = wfdb.processing.correct_peaks(
+        ecg_signal, rpeaks_hamilton, search_radius=36, smooth_window_size=50, peak_dir="up"
+    )
+    
+    # if not the whole ECG data is used, the R-peaks are shifted by the start of the detection interval and need to be corrected
+    if detection_interval is not None:
+        rpeaks_hamilton += detection_interval[0]
+    
+    return rpeaks_corrected
+
+
+def get_rpeaks_christov(
+        ECG: list,
+        frequency: int,
+        detection_interval: list
+    ):
+    """
+    Detect R-peaks in ECG data using the biosppy library.
+
+    ARGUMENTS:
+    --------------------------------
+    ECG: list
+        list containing the ECG data
+    frequency: int
+        sampling frequency of the ECG data
+    detection_interval: list
+        interval in which the R-peaks should be detected
+        if None, the whole ECG data will be used
+
+    RETURNS:
+    --------------------------------
+    rpeaks_corrected: 1D numpy array
+        list of R-peak locations
+    """
+
+    # get the ECG data in the detection interval
+    if detection_interval is None:
+        ecg_signal = ECG
+    else:
+        ecg_signal = ECG[detection_interval[0]:detection_interval[1]]
+
+    # detect the R-peaks
+    rpeaks_christov = christov_segmenter(ecg_signal, frequency)['rpeaks']
+    rpeaks_corrected = wfdb.processing.correct_peaks(
+        ecg_signal, rpeaks_christov, search_radius=36, smooth_window_size=50, peak_dir="up"
+    )
+    
+    # if not the whole ECG data is used, the R-peaks are shifted by the start of the detection interval and need to be corrected
+    if detection_interval is not None:
+        rpeaks_christov += detection_interval[0]
+    
+    return rpeaks_corrected
+
+
+def get_rpeaks_ecgdetectors(
         ECG: list, 
         frequency: int, 
         detection_interval: list
@@ -183,11 +270,10 @@ def detect_rpeaks(
 
     RETURNS:
     --------------------------------
-    None, but the rpeaks are saved to a pickle file in the following format:
-    {
-        "file_name_1": rpeaks_1,
+    None, but the rpeaks are saved as dictionaries to a pickle file in the following format:
+    {"file_name_1": rpeaks_1}
+    {"file_name_2": rpeaks_2}
         ...
-    }
     """
 
     # check if r-peaks already exist and if yes: ask for permission to override
@@ -377,19 +463,19 @@ def combine_detected_rpeaks(
 
     RETURNS:
     --------------------------------
-    None, but the r-peaks are saved as dictionarys to pickle files in the following formats:
-    certain_rpeaks: {
-                    "file_name_1": certain_rpeaks_1,
+    None, but the r-peaks are saved as dictionaries to pickle files in the following formats:
+    certain_rpeaks: 
+                    {"file_name_1": certain_rpeaks_1}
+                    {"file_name_2": certain_rpeaks_2}
                     ...
-                    }
-    uncertain_primary_rpeaks: {
-                    "file_name_1": uncertain_primary_rpeaks_1,
+    uncertain_primary_rpeaks: 
+                    {"file_name_1": uncertain_primary_rpeaks_1}
+                    {"file_name_2": uncertain_primary_rpeaks_2}
                     ...
-                    }
-    uncertain_secondary_rpeaks: {
-                    "file_name_1": uncertain_secondary_rpeaks_1,
+    uncertain_secondary_rpeaks:
+                    {"file_name_1": uncertain_secondary_rpeaks_1}
+                    {"file_name_2": uncertain_secondary_rpeaks_2}
                     ...
-                    }
     """
 
     # check if the r-peaks were already combined and if yes: ask for permission to override
@@ -712,11 +798,10 @@ def read_rpeaks_from_rri_files(
     
     RETURNS:
     --------------------------------
-    None, but the r-peak values are saved as dictionary to a pickle file in following format:
-    {
-        "file_name": np.array of R-peaks of this file,
+    None, but the r-peak values are saved as dictionaries to a pickle file in following format:
+        {"file_name_1": np.array of R-peaks of this file}
+        {"file_name_2": np.array of R-peaks of this file}
         ...
-    }
     """
 
     # check if the r-peaks were already read and if yes: ask for permission to override
@@ -812,11 +897,10 @@ def rpeak_detection_comparison(
     
     RETURNS:
     --------------------------------
-    None, but the comparison values are saved as dictionary to a pickle file in following format:
-    {
-        "file_name": [ [compare values function 1 / n], [compare values function 2 / 1], ... [compare values function n / (n-1)]],
+    None, but the comparison values are saved as dictionaries to a pickle file in following format:
+        {"file_name_1": [ [compare values function 1 / n], [compare values function 2 / 1], ... [compare values function n / (n-1)]]}
+        {"file_name_2": ... }
         ...
-    }
     with compare values being:  rmse_without_same, rmse_with_same, number_of_same_values, 
                                 number_of_values_considered_as_same, total_rpeaks_first_function, 
                                 total_rpeaks_second_function
@@ -856,36 +940,37 @@ def rpeak_detection_comparison(
         )
         
         # compare the r-peaks of the different detection methods
-        for path_index in range(len(compare_rpeaks_paths)):
-            # load dictionaries with detected r-peaks (contains r-peaks of all files)
-            first_rpeaks_all_files_generator = load_from_pickle(compare_rpeaks_paths[path_index])
-            second_rpeaks_all_files_generator = load_from_pickle(compare_rpeaks_paths[path_index-1])
+        for path_index_first in range(len(compare_rpeaks_paths)):
+            for path_index_second in range(path_index_first+1, len(compare_rpeaks_paths)):
+                # load dictionaries with detected r-peaks (contains r-peaks of all files)
+                first_rpeaks_all_files_generator = load_from_pickle(compare_rpeaks_paths[path_index_first])
+                second_rpeaks_all_files_generator = load_from_pickle(compare_rpeaks_paths[path_index_second])
 
-            # get the r-peaks of the current file (i know this is not efficient, but i did not want to restructure the code, as it is still fast compared to r-peak detection)
-            for _ in range(total_data_files):
-                first_rpeaks_all_files = next(first_rpeaks_all_files_generator)
-                second_rpeaks_all_files = next(second_rpeaks_all_files_generator)
-                key = list(first_rpeaks_all_files.keys())[0]
-                if key == file:
-                    break
+                # get the r-peaks of the current file (i know this is not efficient, but i did not want to restructure the code, as it is still fast compared to r-peak detection)
+                for _ in range(total_data_files):
+                    first_rpeaks_all_files = next(first_rpeaks_all_files_generator)
+                    second_rpeaks_all_files = next(second_rpeaks_all_files_generator)
+                    key = list(first_rpeaks_all_files.keys())[0]
+                    if key == file:
+                        break
 
-            first_rpeaks = first_rpeaks_all_files[file]
-            second_rpeaks = second_rpeaks_all_files[file]
+                first_rpeaks = first_rpeaks_all_files[file]
+                second_rpeaks = second_rpeaks_all_files[file]
 
-            # get the number of detected r-peaks
-            number_first_rpeaks = len(first_rpeaks)
-            number_second_rpeaks = len(second_rpeaks)
+                # get the number of detected r-peaks
+                number_first_rpeaks = len(first_rpeaks)
+                number_second_rpeaks = len(second_rpeaks)
 
-            # calculate the r-peak comparison values
-            rmse_without_same, rmse_with_same, len_same_values, len_analog_values = compare_rpeak_detections(
-                first_rpeaks = first_rpeaks, 
-                second_rpeaks = second_rpeaks,
-                frequency = sampling_frequency,
-                rpeak_distance_threshold_seconds = rpeak_distance_threshold_seconds,
-                )
-            
-            # append list of r-peak comparison values for these two detection methods to the list
-            this_file_rpeak_comparison.append([rmse_without_same, rmse_with_same, len_same_values, len_analog_values, number_first_rpeaks, number_second_rpeaks])
+                # calculate the r-peak comparison values
+                rmse_without_same, rmse_with_same, len_same_values, len_analog_values = compare_rpeak_detections(
+                    first_rpeaks = first_rpeaks, 
+                    second_rpeaks = second_rpeaks,
+                    frequency = sampling_frequency,
+                    rpeak_distance_threshold_seconds = rpeak_distance_threshold_seconds,
+                    )
+                
+                # append list of r-peak comparison values for these two detection methods to the list
+                this_file_rpeak_comparison.append([rmse_without_same, rmse_with_same, len_same_values, len_analog_values, number_first_rpeaks, number_second_rpeaks])
         
         # save the r-peak comparison values for this file to the pickle file
         append_to_pickle({file: this_file_rpeak_comparison}, rpeak_comparison_evaluation_path)
@@ -969,7 +1054,7 @@ def rpeak_detection_comparison_report(
         this_analogue_values_ratio = []
         this_same_values_ratio = []
 
-        for funcs_index in range(len(rpeak_comparison_function_names)):
+        for funcs_index in range(len(all_files_rpeak_comparison[file])):
             # round rmse values
             all_files_rpeak_comparison[file][funcs_index][0] = round(all_files_rpeak_comparison[file][funcs_index][0], rpeak_comparison_report_dezimal_places)
             all_files_rpeak_comparison[file][funcs_index][1] = round(all_files_rpeak_comparison[file][funcs_index][1], rpeak_comparison_report_dezimal_places)
@@ -1031,7 +1116,7 @@ def rpeak_detection_comparison_report(
 
     mean_row_values = []
     mean_row_lengths = []
-    for funcs_index in range(len(rpeak_comparison_function_names)):
+    for funcs_index in range(len(mean_rmse_exc)):
         this_column = []
         this_column.append(str(round(mean_rmse_exc[funcs_index], rpeak_comparison_report_dezimal_places)))
         this_column.append(str(round(mean_rmse_inc[funcs_index], rpeak_comparison_report_dezimal_places)))
@@ -1047,8 +1132,9 @@ def rpeak_detection_comparison_report(
     # create table column captions
     FILE_CAPTION = "File"
     column_captions = [FILE_CAPTION]
-    for funcs_index in range(len(rpeak_comparison_function_names)):
-        column_captions.append(rpeak_comparison_function_names[funcs_index] + " / " + rpeak_comparison_function_names[funcs_index-1])
+    for index_first in range(len(rpeak_comparison_function_names)):
+        for index_second in range(index_first+1, len(rpeak_comparison_function_names)):
+            column_captions.append(rpeak_comparison_function_names[index_first] + " / " + rpeak_comparison_function_names[index_second])
     
     # create column value captions
     RMSE_EX_CAPTION = "RMSE_exc: "

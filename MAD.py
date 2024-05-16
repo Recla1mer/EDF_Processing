@@ -167,11 +167,9 @@ def calculate_MAD_in_acceleration_data(
     --------------------------------
     None, but the MAD values are saved to a pickle file as a dictionary in the following
     format:
-        {
-            "file_name_1": MAD_values_1,
-            "file_name_2": MAD_values_2,
+        {"file_name_1": MAD_values_1}
+        {"file_name_2": MAD_values_2}
             ...
-        }
     """
 
     # check if MAD values already exist and if yes ask for permission to override

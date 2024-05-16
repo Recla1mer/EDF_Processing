@@ -370,13 +370,11 @@ def determine_valid_ecg_regions(
 
     RETURNS:
     --------------------------------
-    None, but the valid regions are saved as dictionary to a pickle file in the following
+    None, but the valid regions are saved as dictionaries to a pickle file in the following
     format:
-        {
-            "file_name_1": valid_regions_1,
-            "file_name_2": valid_regions_2,
+        {"file_name_1": valid_regions_1}
+        {"file_name_2": valid_regions_2}
             ...
-        }
     See check_ecg() for the format of the valid_regions.
     """
 
@@ -685,13 +683,11 @@ def ecg_validation_comparison(
     
     RETURNS:
     --------------------------------
-    None, but the evaluation is saved as dictionary to a pickle file in the following
+    None, but the evaluation is saved as dictionaries to a pickle file in the following
     format:
-        {
-            "file_name_1": [correct_valid_ratio, correct_invalid_ratio, valid_wrong_ratio, invalid_wrong_ratio],
-            "file_name_2": [correct_valid_ratio, correct_invalid_ratio, valid_wrong_ratio, invalid_wrong_ratio],
+        {"file_name_1": [correct_valid_ratio, correct_invalid_ratio, valid_wrong_ratio, invalid_wrong_ratio]}
+        {"file_name_2": [correct_valid_ratio, correct_invalid_ratio, valid_wrong_ratio, invalid_wrong_ratio]}
             ...
-        }
     """
     
     # check if the evaluation already exists and if yes: ask for permission to override
