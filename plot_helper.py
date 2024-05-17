@@ -61,41 +61,42 @@ def plot_calibration_data(data_y, data_x, save_path, **kwargs):
     plt.savefig(save_path)
 
 
-def plot_valid_regions(data: dict, valid_regions: list, ecg_key: str, **kwargs):
+def plot_valid_regions(ECG: list, valid_regions: list, **kwargs):
     """
     Plot the valid regions of the ECG data.
 
     ARGUMENTS:
     --------------------------------
-    data: dict
-        dictionary containing the data arrays
+    ECG: list
+        list of ECG data
     valid_regions: list
         list of valid regions: valid_regions[i] = [start, end]
-    ecg_key: str
-        key of the ECG data in the data dictionary
     
     RETURNS:
     --------------------------------
     None, but the plot is shown
     """
 
-    # get the ECG data
-    ecg_data = data[ecg_key]
-
     # Set default values
+
+    # figure
     kwargs.setdefault("figsize", [3.4, 2.7])
     kwargs.setdefault("title", "ECG Data")
     kwargs.setdefault("x_label", "time (in iterations)")
     kwargs.setdefault("y_label", "uV")
     kwargs.setdefault("legend", ["Valid", "Invalid"])
     kwargs.setdefault("color", ["green", "red"])
+
+    # line plot
     kwargs.setdefault("linewidth", 2)
     kwargs.setdefault("line_alpha", 1)
     kwargs.setdefault("linestyle", "-")
-    kwargs.setdefault("xlim", [0, len(ecg_data)])
 
-    y_min = min(ecg_data[kwargs["xlim"][0]:kwargs["xlim"][1]])
-    y_max = max(ecg_data[kwargs["xlim"][0]:kwargs["xlim"][1]])
+    # xlim and ylim
+    kwargs.setdefault("xlim", [0, len(ECG)])
+
+    y_min = min(ECG[kwargs["xlim"][0]:kwargs["xlim"][1]])
+    y_max = max(ECG[kwargs["xlim"][0]:kwargs["xlim"][1]])
     kwargs.setdefault("ylim", [y_min-abs(0.2*y_max), y_max+abs(0.2*y_max)])
 
     # create arguments for plotting
@@ -110,8 +111,8 @@ def plot_valid_regions(data: dict, valid_regions: list, ecg_key: str, **kwargs):
         invalid_regions.append([0, valid_regions[0][0]])
     for i in range(1, len(valid_regions)):
         invalid_regions.append([valid_regions[i - 1][1], valid_regions[i][0]])
-    if valid_regions[-1][1] != len(ecg_data):
-        invalid_regions.append([valid_regions[-1][1], len(ecg_data)])
+    if valid_regions[-1][1] != len(ECG):
+        invalid_regions.append([valid_regions[-1][1], len(ECG)])
     
     # crop data to fasten plotting
     cropped_valid_regions = []
@@ -140,25 +141,26 @@ def plot_valid_regions(data: dict, valid_regions: list, ecg_key: str, **kwargs):
     valid_regions = copy.deepcopy(cropped_valid_regions)
     invalid_regions = copy.deepcopy(cropped_invalid_regions)
     
-    # plot the data
+    # create plot
     fig, ax = plt.subplots(figsize=kwargs["figsize"])
     ax.set_xlabel(kwargs["x_label"])
     ax.set_ylabel(kwargs["y_label"])
     ax.set_title(kwargs["title"])
 
+    # plot the ECG data
     skip_label = False
     for region in valid_regions:
         if skip_label:
             ax.plot(
                 np.arange(region[0], region[1]), 
-                ecg_data[region[0] : region[1]], 
+                ECG[region[0] : region[1]], 
                 color=kwargs["color"][0],
                 **local_plot_kwargs
             )
         else:
             ax.plot(
                 np.arange(region[0], region[1]), 
-                ecg_data[region[0] : region[1]], 
+                ECG[region[0] : region[1]], 
                 label=kwargs["legend"][0], 
                 color=kwargs["color"][0],
                 **local_plot_kwargs
@@ -170,14 +172,14 @@ def plot_valid_regions(data: dict, valid_regions: list, ecg_key: str, **kwargs):
         if skip_label:
             ax.plot(
                 np.arange(region[0], region[1]), 
-                ecg_data[region[0] : region[1]], 
+                ECG[region[0] : region[1]], 
                 color=kwargs["color"][1],
                 **local_plot_kwargs
             )
         else:
             ax.plot(
                 np.arange(region[0], region[1]), 
-                ecg_data[region[0] : region[1]], 
+                ECG[region[0] : region[1]], 
                 label=kwargs["legend"][1], 
                 color=kwargs["color"][1],
                 **local_plot_kwargs
@@ -191,13 +193,9 @@ def plot_valid_regions(data: dict, valid_regions: list, ecg_key: str, **kwargs):
 
 
 def plot_rpeak_detection(
-        data: dict, 
-        ecg_key: str,
-        certain_peaks: list, 
-        uncertain_primary_peaks: list, 
-        uncertain_secondary_peaks: list, 
-        name_primary: str,
-        name_secondary: str,
+        ECG: list, 
+        rpeaks: list, 
+        rpeaks_name: list,
         **kwargs
     ):
     """
@@ -205,45 +203,45 @@ def plot_rpeak_detection(
 
     ARGUMENTS:
     --------------------------------
-    data: dict
-        dictionary containing the data arrays
-    ecg_key: str
-        key of the ECG data in the data dictionary
-    certain_peaks: list
-        list of indices of the certain peaks
-    uncertain_primary_peaks: list
-        list of indices of the uncertain primary peaks
-    uncertain_secondary_peaks: list
-        list of indices of the uncertain secondary peaks
-    name_primary: str
-        name of the primary peak
-    name_secondary: str
-        name of the secondary peak
+    ECG: list
+        list of ECG data
+    rpeaks: list
+        nested list of R-peaks: rpeaks[i] = [R-peak indices]
+    rpeaks_name: list
+        list of names for the R-peak detection methods
 
     RETURNS:
     --------------------------------
     None, but the plot is shown
     """
 
-    # get the ECG data
-    ecg_data = data[ecg_key]
-
     # Set default values
+
+    # figure
     kwargs.setdefault("figsize", [3.4, 2.7])
     kwargs.setdefault("title", "ECG Data")
     kwargs.setdefault("x_label", "time (in iterations)")
     kwargs.setdefault("y_label", "uV")
-    kwargs.setdefault("legend", ["ECG", "both", name_primary, name_secondary])
+    kwargs.setdefault("legend", ["ECG"])
+
+    for name in rpeaks_name:
+        kwargs["legend"].append(name)
+
+    # line plot
     kwargs.setdefault("linewidth", 2)
     kwargs.setdefault("line_alpha", 1)
     kwargs.setdefault("linestyle", "-")
-    kwargs.setdefault("xlim", [0, len(ecg_data)])
-    kwargs.setdefault("marker_size", 10)
+
+    # scatter plot
+    kwargs.setdefault("scatter_s", 10)
     kwargs.setdefault("scatter_alpha", 1)
     kwargs.setdefault("scatter_zorder", 2)
+
+    # xlim and ylim
+    kwargs.setdefault("xlim", [0, len(ECG)])
     
-    y_min = min(ecg_data[kwargs["xlim"][0]:kwargs["xlim"][1]])
-    y_max = max(ecg_data[kwargs["xlim"][0]:kwargs["xlim"][1]])
+    y_min = min(ECG[kwargs["xlim"][0]:kwargs["xlim"][1]])
+    y_max = max(ECG[kwargs["xlim"][0]:kwargs["xlim"][1]])
     kwargs.setdefault("ylim", [y_min-abs(0.2*y_max), y_max+abs(0.2*y_max)])
 
     # create arguments for line plotting
@@ -254,41 +252,36 @@ def plot_rpeak_detection(
 
     # create arguments for scatter plotting
     local_scatter_kwargs = dict()
-    local_scatter_kwargs["s"] = kwargs["marker_size"]
+    local_scatter_kwargs["s"] = kwargs["scatter_s"]
     local_scatter_kwargs["alpha"] = kwargs["scatter_alpha"]
     local_scatter_kwargs["zorder"] = kwargs["scatter_zorder"]
 
-    # plot the data
+    # create plot
     fig, ax = plt.subplots(figsize=kwargs["figsize"])
     ax.set_xlabel(kwargs["x_label"])
     ax.set_ylabel(kwargs["y_label"])
     ax.set_title(kwargs["title"])
 
+    # plot the ECG data
     ax.plot(
         np.arange(kwargs["xlim"][0], kwargs["xlim"][1]), 
-        ecg_data[kwargs["xlim"][0]:kwargs["xlim"][1]], 
+        ECG[kwargs["xlim"][0]:kwargs["xlim"][1]], 
         label=kwargs["legend"][0], 
         **local_plot_kwargs
         )
+    
+    # plot empty scatter to shift the color cycle
     ax.scatter([],[])
-    ax.scatter(
-        certain_peaks, 
-        ecg_data[certain_peaks], 
-        label=kwargs["legend"][1],
-        **local_scatter_kwargs
-        )
-    ax.scatter(
-        uncertain_primary_peaks, 
-        ecg_data[uncertain_primary_peaks], 
-        label=kwargs["legend"][2],
-        **local_scatter_kwargs
-        )
-    ax.scatter(
-        uncertain_secondary_peaks, 
-        ecg_data[uncertain_secondary_peaks], 
-        label=kwargs["legend"][3],
-        **local_scatter_kwargs
-        )
+
+    # plot the R-peaks
+    for i in range(len(rpeaks)):
+        ax.scatter(
+            rpeaks[i], 
+            ECG[rpeaks[i]], 
+            label=kwargs["legend"][i+1],
+            **local_scatter_kwargs
+            )
+    
     ax.legend(loc="best")
     ax.set_xlim(kwargs["xlim"])
     ax.set_ylim(kwargs["ylim"])

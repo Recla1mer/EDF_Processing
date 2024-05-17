@@ -144,7 +144,7 @@ settings_params = {
     "run_additionals_section": True, # if True, the ADDITIONALS SECTION will be executed
     "run_preparation_section": True, # if True, the PREPARATION SECTION will be executed
     # set what parts of the ADDITIONALS SECTION should be executed
-    "show_calibration_data": True, # if True, the calibration data in the manually chosen intervals will be plotted and saved to the SHOW_CALIBRATION_DATA_DIRECTORY
+    "show_calibration_data": False, # if True, the calibration data in the manually chosen intervals will be plotted and saved to the SHOW_CALIBRATION_DATA_DIRECTORY
     "perform_rpeak_comparison": True, # if True, the r-peak detection functions will be compared
     "perform_ecg_validation_comparison": True, # if True, the ECG validations will be compared
     # set what parts of the PREPARATION SECTION should be executed
@@ -637,7 +637,7 @@ def main():
     #     xlim = x_lim
     #     )
 
-    additional_section(parameters["run_additionals_section"])
+    # additional_section(parameters["run_additionals_section"])
     # preparation_section(parameters["run_preparation_section"])
 
     regions = load_from_pickle(ADDITIONALS_DIRECTORY + "Valid_ECG_Regions.pkl")

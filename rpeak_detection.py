@@ -942,6 +942,7 @@ def rpeak_detection_comparison(
         # compare the r-peaks of the different detection methods
         for path_index_first in range(len(compare_rpeaks_paths)):
             for path_index_second in range(path_index_first+1, len(compare_rpeaks_paths)):
+                print("currently here:", path_index_first, path_index_second)
                 # load dictionaries with detected r-peaks (contains r-peaks of all files)
                 first_rpeaks_all_files_generator = load_from_pickle(compare_rpeaks_paths[path_index_first])
                 second_rpeaks_all_files_generator = load_from_pickle(compare_rpeaks_paths[path_index_second])
@@ -1003,6 +1004,10 @@ def rpeak_detection_comparison_report(
     None, but the r-peak comparison report is saved to a text file in the given path
     Format of the report: Table showing results for each file
     """
+    num_of_comparisons = 0
+    for index_first in range(len(rpeak_comparison_function_names)):
+        for index_second in range(index_first+1, len(rpeak_comparison_function_names)):
+            num_of_comparisons += 1
 
     # check if the report already exists and if yes: ask for permission to override
     user_answer = ask_for_permission_to_override(file_path = rpeak_comparison_report_path,
@@ -1054,7 +1059,7 @@ def rpeak_detection_comparison_report(
         this_analogue_values_ratio = []
         this_same_values_ratio = []
 
-        for funcs_index in range(len(all_files_rpeak_comparison[file])):
+        for funcs_index in range(num_of_comparisons):
             # round rmse values
             all_files_rpeak_comparison[file][funcs_index][0] = round(all_files_rpeak_comparison[file][funcs_index][0], rpeak_comparison_report_dezimal_places)
             all_files_rpeak_comparison[file][funcs_index][1] = round(all_files_rpeak_comparison[file][funcs_index][1], rpeak_comparison_report_dezimal_places)
@@ -1116,7 +1121,7 @@ def rpeak_detection_comparison_report(
 
     mean_row_values = []
     mean_row_lengths = []
-    for funcs_index in range(len(mean_rmse_exc)):
+    for funcs_index in range(num_of_comparisons):
         this_column = []
         this_column.append(str(round(mean_rmse_exc[funcs_index], rpeak_comparison_report_dezimal_places)))
         this_column.append(str(round(mean_rmse_inc[funcs_index], rpeak_comparison_report_dezimal_places)))
@@ -1158,7 +1163,7 @@ def rpeak_detection_comparison_report(
     all_columns = []
     all_column_lengths = []
 
-    for funcs_index in range(len(rpeak_comparison_function_names)):
+    for funcs_index in range(num_of_comparisons):
         this_column = []
         for file in all_files_rpeak_comparison:
             # RMSE excluding same r-peaks:
@@ -1229,10 +1234,10 @@ def rpeak_detection_comparison_report(
             comparison_file.write(print_in_middle(MEAN_ROW_CAPTION, max_column_length[0] + max_value_caption_length) + " | ")
         else:
             comparison_file.write(print_in_middle("", max_column_length[0] + max_value_caption_length) + " | ")
-        for funcs_index in range(len(rpeak_comparison_function_names)):
+        for funcs_index in range(num_of_comparisons):
             comparison_file.write(print_left_aligned(mean_value_captions[value_index], max_value_caption_length))
             comparison_file.write(print_left_aligned(str(mean_row_values[funcs_index][value_index]), max_column_length[funcs_index+1]))
-            if funcs_index != len(rpeak_comparison_function_names) - 1:
+            if funcs_index != num_of_comparisons - 1:
                 comparison_file.write(" | ")
         comparison_file.write("\n")
     comparison_file.write("-" * total_length + "\n")
@@ -1248,10 +1253,10 @@ def rpeak_detection_comparison_report(
                 comparison_file.write(print_in_middle(index_to_key, max_column_length[0] + max_value_caption_length) + " | ")
             else:
                 comparison_file.write(print_in_middle("", max_column_length[0] + max_value_caption_length) + " | ")
-            for funcs_index in range(len(rpeak_comparison_function_names)):
+            for funcs_index in range(num_of_comparisons):
                 comparison_file.write(print_left_aligned(value_captions[value_index], max_value_caption_length))
                 comparison_file.write(print_left_aligned(str(all_columns[funcs_index][file_index*number_of_values+value_index]), max_column_length[funcs_index+1]))
-                if funcs_index != len(rpeak_comparison_function_names) - 1:
+                if funcs_index != num_of_comparisons - 1:
                     comparison_file.write(" | ")
             comparison_file.write("\n")
         comparison_file.write("-" * total_length + "\n")
