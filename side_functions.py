@@ -8,6 +8,7 @@ other ones. Their purpose is to keep them a little cleaner and more intuitive.
 # IMPORTS
 import os
 import pickle
+import copy
 import numpy as np
 
 
@@ -64,10 +65,10 @@ def validate_parameter_settings(parameters: dict):
         raise ValueError("'rpeak_primary_function' parameter must be a function.")
     if not callable(parameters["rpeak_secondary_function"]):
         raise ValueError("'rpeak_secondary_function' parameter must be a function.")
-    if not isinstance(parameters["rpeak_name_primary"], str):
-        raise ValueError("'rpeak_name_primary' parameter must be a string.")
-    if not isinstance(parameters["rpeak_name_secondary"], str):
-        raise ValueError("'rpeak_name_secondary' parameter must be a string.")
+    if not isinstance(parameters["rpeak_primary_function_name"], str):
+        raise ValueError("'rpeak_primary_function_name' parameter must be a string.")
+    if not isinstance(parameters["rpeak_secondary_function_name"], str):
+        raise ValueError("'rpeak_secondary_function_name' parameter must be a string.")
     if not isinstance(parameters["rpeak_distance_threshold_seconds"], float):
         raise ValueError("'rpeak_distance_threshold_seconds' parameter must be a float.")
 
@@ -90,28 +91,18 @@ def validate_parameter_settings(parameters: dict):
         raise ValueError("'include_rpeak_value_classifications' parameter must be a list.")
     if not isinstance(parameters["rpeak_comparison_functions"], list):
         raise ValueError("'rpeak_comparison_functions' parameter must be a list.")
-    if not isinstance(parameters["rpeak_classification_functions"], list):
-        raise ValueError("'rpeak_classification_functions' parameter must be a list.")
-    if not isinstance(parameters["rpeak_comparison_evaluation_path"], str):
-        raise ValueError("'rpeak_comparison_evaluation_path' parameter must be a string.")
     if not isinstance(parameters["rpeak_comparison_function_names"], list):
         raise ValueError("'rpeak_comparison_function_names' parameter must be a list.")
     if not isinstance(parameters["rpeak_comparison_report_dezimal_places"], int):
         raise ValueError("'rpeak_comparison_report_dezimal_places' parameter must be an integer.")
     if not isinstance(parameters["rpeak_comparison_report_path"], str):
         raise ValueError("'rpeak_comparison_report_path' parameter must be a string.")
-    if not isinstance(parameters["rpeaks_classification_raw_data_directory"], str):
-        raise ValueError("'rpeaks_classification_raw_data_directory' parameter must be a string.")
 
     # parameters for the ECG Validation comparison
-    if not isinstance(parameters["ecg_validation_comparison_raw_data_directory"], str):
-        raise ValueError("'ecg_validation_comparison_raw_data_directory' parameter must be a string.")
     if not isinstance(parameters["ecg_classification_values_directory"], str):
         raise ValueError("'ecg_classification_values_directory' parameter must be a string.")
     if not isinstance(parameters["ecg_classification_file_types"], list):
         raise ValueError("'ecg_classification_file_types' parameter must be a list.")
-    if not isinstance(parameters["ecg_validation_comparison_evaluation_path"], str):
-        raise ValueError("'ecg_validation_comparison_evaluation_path' parameter must be a string.")
     if not isinstance(parameters["ecg_validation_comparison_report_path"], str):
         raise ValueError("'ecg_validation_comparison_report_path' parameter must be a string.")
     if not isinstance(parameters["ecg_validation_comparison_report_dezimal_places"], int):
@@ -279,6 +270,26 @@ def get_file_name_from_path(file_path: str):
             return file_path[i+1:]
 
 
+def get_path_without_filename(file_path: str):
+    """
+    Separate the path from the file name (including the type/extension).
+
+    ARGUMENTS:
+    --------------------------------
+    file_path: str
+        path to the file
+    
+    RETURNS:
+    --------------------------------
+    str
+        path without the file name
+    """
+    for i in range(len(file_path)-1, -1, -1):
+        if file_path[i] == "/":
+            return file_path[:i+1]
+    return ""
+
+
 def save_to_pickle(data, file_name):
     """
     Save data to a pickle file, overwriting the file if it already exists.
@@ -369,7 +380,58 @@ def get_pickle_length(file_name: str):
     return counter
 
 
-def ask_for_permission_to_override(file_path: str, message: str):
+def append_entry_to_dictionary_in_pickle_file(
+        file_path: str, 
+        append_to_file: str,
+        file_name_dictionary_key: str,
+        new_dictionary_entry: dict
+    ):
+    """
+    Append a dictionary entry to a certain dictionary in a pickle file.
+
+    ARGUMENTS:
+    --------------------------------
+    file_path: str
+        path to the pickle file
+    append_to_file: str
+        file name present in dictionary to which the new data should be appended
+    file_name_dictionary_key: str
+        key of the dictionary storing the file names
+    new_dictionary_entry: dict
+        new dictionary entry to be appended
+    
+    RETURNS:
+    --------------------------------
+    None, but the new dictionary entry is appended to the corresponding dictionary in the pickle file
+    """
+    temporary_file_path = get_path_without_filename(file_path) + "work_in_progress.pkl"
+
+    try:
+        results_directory_generator = load_from_pickle(file_path)
+    except:
+        results_directory_generator = []
+    dictionary_found = False
+
+    for results_directory in results_directory_generator:
+        try:
+            if append_to_file == results_directory[file_name_dictionary_key]:
+                results_directory.update(new_dictionary_entry)
+                dictionary_found = True
+        except:
+            pass
+
+        append_to_pickle(results_directory, temporary_file_path)
+    
+    if not dictionary_found:
+        new_dictionary = {file_name_dictionary_key: append_to_file}
+        new_dictionary.update(new_dictionary_entry)
+        append_to_pickle(new_dictionary, temporary_file_path)
+        
+    os.remove(file_path)
+    os.rename(temporary_file_path, file_path)
+
+
+def ask_for_permission_to_override_file(file_path: str, message: str):
     """
     If a file already exists, ask the user if they want to overwrite it.
     If the file does not exist, return "y". If the user wants to overwrite the file, delete it.
@@ -396,6 +458,67 @@ def ask_for_permission_to_override(file_path: str, message: str):
             if user_answer == "y":
                 os.remove(file_path)
                 break
+            elif user_answer == "n":
+                print("Existing Data was not overwritten. Continuing...")
+                break
+            else:
+                first_try = False
+                print("Answer not recognized.")
+    else:
+        user_answer = "y"
+    
+    return user_answer
+
+
+def ask_for_permission_to_override_dictionary_entry(
+        file_path: str, 
+        dictionary_entry: str, 
+        additionally_remove_entries = []
+    ):
+    """
+    Check if the directory that saves the results already contains dictionary entries with the
+    same name. If yes, ask the user if they want to override it. If the user wants to override
+    the dictionary entry, delete it.
+
+    ARGUMENTS:
+    --------------------------------
+    file_path: str
+        path to the pickle file
+    dictionary_entry: str
+        name of the dictionary entry
+    additionally_remove_entries: list
+        list of entries that should be removed additionally if user wants to overwrite
+
+    """
+    if not os.path.isfile(file_path):
+        return "no_file_found"
+
+    ask_to_override = False
+    results_directory_generator = load_from_pickle(file_path)
+    for results_directory in results_directory_generator:
+        if dictionary_entry in results_directory:
+            ask_to_override = True
+            break
+
+    if ask_to_override:
+        first_try = True
+        while True:
+            if first_try:
+                user_answer = input("At least one dictionary in " + file_path + " contains the key: \"" + dictionary_entry + "\". Are you sure you want to overwrite them? (y/n)")
+            else:
+                user_answer = input("Please answer with 'y' or 'n'.")
+            if user_answer == "y":
+                temporary_file_path = get_path_without_filename(file_path) + "work_in_progress.pkl"
+                results_directory_generator = load_from_pickle(file_path)
+                for results_directory in results_directory_generator:
+                    if dictionary_entry in results_directory:
+                        del results_directory[dictionary_entry]
+                    for add_entry in additionally_remove_entries:
+                        if add_entry in results_directory:
+                            del results_directory[add_entry]
+                    append_to_pickle(results_directory, temporary_file_path)
+                os.remove(file_path)
+                os.rename(temporary_file_path, file_path)
             elif user_answer == "n":
                 print("Existing Data was not overwritten. Continuing...")
                 break

@@ -142,7 +142,9 @@ def calculate_MAD_in_acceleration_data(
         wrist_acceleration_keys: list,
         physical_dimension_correction_dictionary: dict,
         mad_time_period_seconds: int,
-        mad_values_path: str
+        preparation_results_path: str,
+        file_name_dictionary_key: str,
+        MAD_dictionary_key: str,
     ):
     """
     Calculate the MAD values for the wrist acceleration data for all valid files in the
@@ -160,74 +162,139 @@ def calculate_MAD_in_acceleration_data(
         dictionary needed to check and correct the physical dimension of all signals
     mad_time_period_seconds: int
         time period in seconds over which the MAD will be calculated
-    mad_values_path: str
-        path where the MAD values will be saved
+    preparation_results_path: str
+        path to the pickle file where the MAD values are saved
+    file_name_dictionary_key: str
+        dictionary key to access the file name
+    MAD_dictionary_key: str
+        dictionary key to access the MAD values
 
     RETURNS:
     --------------------------------
     None, but the MAD values are saved to a pickle file as a dictionary in the following
     format:
-        {"file_name_1": MAD_values_1}
-        {"file_name_2": MAD_values_2}
+        {
+            file_name_dictionary_key: name of file 1,
+            MAD_dictionary_key: MAD values for file 1,
             ...
+        }
+        ...
     """
 
     # check if MAD values already exist and if yes ask for permission to override
-    user_answer = ask_for_permission_to_override(file_path = mad_values_path,
-                    message = "\nMAD Values for the wrist acceleration data already exist in " + mad_values_path + ".")
+    user_answer = ask_for_permission_to_override_dictionary_entry(
+        file_path = preparation_results_path,
+        dictionary_key = MAD_dictionary_key
+    )
     
     # cancel if user does not want to override
     if user_answer == "n":
         return
-
-    # get all valid files
-    all_files = os.listdir(data_directory)
-    valid_files = [file for file in all_files if get_file_type(file) in valid_file_types]
-
-    # create variables to track progress
-    total_files = len(valid_files)
-    progressed_files = 0
-
+    
+    # path to pickle file which will store results
+    temporary_file_path = get_path_without_filename(preparation_results_path) + "computation_in_progress.pkl"
+    
     # create list to store unprocessable files
     unprocessable_files = []
 
-    # calculate MAD in the wrist acceleration data
-    print("\nCalculating MAD in the wrist acceleration data in %i files from \"%s\":" % (total_files, data_directory))
-    for file in valid_files:
-        # show progress
-        progress_bar(progressed_files, total_files)
-        progressed_files += 1
+    if user_answer == "y":
+        # load existing results
+        preparation_results_generator = load_from_pickle(preparation_results_path)
 
-        # try to load the data and correct the physical dimension if needed
-        try:
-            # create lists to save the acceleration data and frequencies for each axis
-            acceleration_data = []
-            acceleration_data_frequencies = []
+        # create variables to track progress
+        total_files = get_pickle_length(preparation_results_path)
+        progressed_files = 0
 
-            # get the acceleration data and frequency for each axis
-            for possible_axis_keys in wrist_acceleration_keys:
-                this_axis_signal, this_axis_frequency = read_edf.get_data_from_edf_channel(
-                    file_path = data_directory + file,
-                    possible_channel_labels = possible_axis_keys,
-                    physical_dimension_correction_dictionary = physical_dimension_correction_dictionary
-                )
+        # calculate MAD in the wrist acceleration data
+        print("\nCalculating MAD in the wrist acceleration data in %i files from \"%s\":" % (total_files, data_directory))
+        for generator_entry in preparation_results_generator:
+            # show progress
+            progress_bar(progressed_files, total_files)
+            progressed_files += 1
 
-                # append data to corresponding lists
-                acceleration_data.append(this_axis_signal)
-                acceleration_data_frequencies.append(this_axis_frequency)
-        except:
-            unprocessable_files.append(data_directory + file)
-            continue
+            # try to load the data and correct the physical dimension if needed
+            try:
+                # create lists to save the acceleration data and frequencies for each axis
+                acceleration_data = []
+                acceleration_data_frequencies = []
 
-        # calculate MAD values
-        this_MAD_values = calc_mad(
-            acceleration_data_lists = acceleration_data,
-            frequencies = acceleration_data_frequencies,
-            time_period = mad_time_period_seconds, 
-            )
-        
-        # save MAD values
-        append_to_pickle({file: this_MAD_values}, mad_values_path)
+                # get the acceleration data and frequency for each axis
+                for possible_axis_keys in wrist_acceleration_keys:
+                    this_axis_signal, this_axis_frequency = read_edf.get_data_from_edf_channel(
+                        file_path = data_directory + file,
+                        possible_channel_labels = possible_axis_keys,
+                        physical_dimension_correction_dictionary = physical_dimension_correction_dictionary
+                    )
+
+                    # append data to corresponding lists
+                    acceleration_data.append(this_axis_signal)
+                    acceleration_data_frequencies.append(this_axis_frequency)
+                
+                # calculate MAD values
+                this_MAD_values = calc_mad(
+                    acceleration_data_lists = acceleration_data,
+                    frequencies = acceleration_data_frequencies,
+                    time_period = mad_time_period_seconds, 
+                    )
+            except:
+                unprocessable_files.append(data_directory + file)
+                continue
+            
+            # save MAD values
+            generator_entry[MAD_dictionary_key] = this_MAD_values
+            append_to_pickle(generator_entry, temporary_file_path)
+    
+    elif user_answer == "":
+        # get all valid files
+        all_files = os.listdir(data_directory)
+        valid_files = [file for file in all_files if get_file_type(file) in valid_file_types]
+
+        # create variables to track progress
+        total_files = len(valid_files)
+        progressed_files = 0
+
+        # calculate MAD in the wrist acceleration data
+        print("\nCalculating MAD in the wrist acceleration data in %i files from \"%s\":" % (total_files, data_directory))
+        for file in valid_files:
+            # show progress
+            progress_bar(progressed_files, total_files)
+            progressed_files += 1
+
+            # try to load the data and correct the physical dimension if needed
+            try:
+                # create lists to save the acceleration data and frequencies for each axis
+                acceleration_data = []
+                acceleration_data_frequencies = []
+
+                # get the acceleration data and frequency for each axis
+                for possible_axis_keys in wrist_acceleration_keys:
+                    this_axis_signal, this_axis_frequency = read_edf.get_data_from_edf_channel(
+                        file_path = data_directory + file,
+                        possible_channel_labels = possible_axis_keys,
+                        physical_dimension_correction_dictionary = physical_dimension_correction_dictionary
+                    )
+
+                    # append data to corresponding lists
+                    acceleration_data.append(this_axis_signal)
+                    acceleration_data_frequencies.append(this_axis_frequency)
+                
+                # calculate MAD values
+                this_MAD_values = calc_mad(
+                    acceleration_data_lists = acceleration_data,
+                    frequencies = acceleration_data_frequencies,
+                    time_period = mad_time_period_seconds, 
+                    )
+                
+            except:
+                unprocessable_files.append(data_directory + file)
+                continue
+
+            # save MAD values for this file
+            this_files_dictionary_entry = {
+                file_name_dictionary_key: file,
+                MAD_dictionary_key: this_MAD_values
+                }
+            append_to_pickle(this_files_dictionary_entry, temporary_file_path)
     
     progress_bar(progressed_files, total_files)
 
