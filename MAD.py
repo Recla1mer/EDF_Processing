@@ -184,7 +184,7 @@ def calculate_MAD_in_acceleration_data(
     # check if MAD values already exist and if yes ask for permission to override
     user_answer = ask_for_permission_to_override_dictionary_entry(
         file_path = preparation_results_path,
-        dictionary_key = MAD_dictionary_key
+        dictionary_entry = MAD_dictionary_key
     )
     
     # cancel if user does not want to override
@@ -211,6 +211,9 @@ def calculate_MAD_in_acceleration_data(
             # show progress
             progress_bar(progressed_files, total_files)
             progressed_files += 1
+
+            # get current file name
+            file = generator_entry[file_name_dictionary_key]
 
             # try to load the data and correct the physical dimension if needed
             try:
@@ -244,7 +247,7 @@ def calculate_MAD_in_acceleration_data(
             generator_entry[MAD_dictionary_key] = this_MAD_values
             append_to_pickle(generator_entry, temporary_file_path)
     
-    elif user_answer == "":
+    elif user_answer == "no_file_found":
         # get all valid files
         all_files = os.listdir(data_directory)
         valid_files = [file for file in all_files if get_file_type(file) in valid_file_types]
@@ -297,6 +300,13 @@ def calculate_MAD_in_acceleration_data(
             append_to_pickle(this_files_dictionary_entry, temporary_file_path)
     
     progress_bar(progressed_files, total_files)
+
+    # rename the file that stores the calculated data
+    try:
+        os.remove(preparation_results_path)
+    except:
+        pass
+    os.rename(temporary_file_path, preparation_results_path)
 
     # print unprocessable files
     if len(unprocessable_files) > 0:

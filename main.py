@@ -134,7 +134,7 @@ settings_params = {
     "run_additionals_section": True, # if True, the ADDITIONALS SECTION will be executed
     "run_preparation_section": True, # if True, the PREPARATION SECTION will be executed
     # set what parts of the ADDITIONALS SECTION should be executed
-    "show_calibration_data": False, # if True, the calibration data in the manually chosen intervals will be plotted and saved to the SHOW_CALIBRATION_DATA_DIRECTORY
+    "show_calibration_data": True, # if True, the calibration data in the manually chosen intervals will be plotted and saved to the SHOW_CALIBRATION_DATA_DIRECTORY
     "perform_rpeak_comparison": True, # if True, the r-peak detection functions will be compared
     "perform_ecg_validation_comparison": True, # if True, the ECG validations will be compared
     # set what parts of the PREPARATION SECTION should be executed
@@ -209,9 +209,8 @@ calculate_MAD_params = {
 # --------------------------------------
 
 additions_results_dictionary_key_params = {
-    "addition_results_path": ADDITIONS_RESULTS_PATH, # path to pickle file that stores the results for every file as individual dictionary
+    "additions_results_path": ADDITIONS_RESULTS_PATH, # path to pickle file that stores the results for every file as individual dictionary
     "ecg_validation_comparison_dictionary_key": "ecg_validation_comparison", # key that accesses the ECG validation comparison in the dictionaries
-    "rpeak_classification_dictionary_key": "rpeaks_classification", # key that accesses the r-peaks obtained from the classification in the dictionaries
     "rpeak_comparison_dictionary_key": "rpeak_comparison", # key that accesses the r-peak comparison values
 }
 
@@ -229,11 +228,13 @@ rpeak_comparison_params = {
     "valid_rpeak_values_file_types": [".rri"], # file types that store the r-peak classification data
     "include_rpeak_value_classifications": ["N"], # classifications that should be included in the evaluation
     #
-    "rpeak_comparison_functions": [rpeak_detection.get_rpeaks_wfdb, rpeak_detection.get_rpeaks_ecgdetectors, rpeak_detection.get_rpeaks_hamilton, rpeak_detection.get_rpeaks_christov], # r-peak detection functions
+    # "rpeak_comparison_functions": [rpeak_detection.get_rpeaks_wfdb, rpeak_detection.get_rpeaks_ecgdetectors, rpeak_detection.get_rpeaks_hamilton, rpeak_detection.get_rpeaks_christov], # r-peak detection functions
+    "rpeak_comparison_functions": [rpeak_detection.get_rpeaks_wfdb, rpeak_detection.get_rpeaks_ecgdetectors], # r-peak detection functions
     "rpeak_classification_function": rpeak_detection.read_rpeaks_from_rri_files, # functions to read the r-peak classifications
     "add_offset_to_classification": -1, #  offset that should be added to the r-peaks (classifications are slightly shifted for some reason)
     #
-    "rpeak_comparison_function_names": ["wfdb", "ecgdetectors", "hamilton", "christov", "gif_classification"], # names of all used r-peak functions
+    # "rpeak_comparison_function_names": ["wfdb", "ecgdetectors", "hamilton", "christov", "gif_classification"], # names of all used r-peak functions
+    "rpeak_comparison_function_names": ["wfdb", "ecgdetectors", "gif_classification"], # names of all used r-peak functions
     "rpeak_comparison_report_dezimal_places": 4, # number of dezimal places in the comparison report
     "rpeak_comparison_report_path": RPEAK_COMPARISON_REPORT_PATH, # path to the text file that stores the comparison report
 }
@@ -300,24 +301,25 @@ calculate_MAD_variables = ["data_directory", "valid_file_types", "wrist_accelera
 # lists for the ADDITIONALS SECTION
 # ---------------------------------
 
-read_rpeak_classification_variables = ["data_directory", "valid_file_types", "rpeaks_values_directory", 
-    "valid_rpeak_values_file_types", "include_rpeak_value_classifications", "add_offset_to_classification"
-    "additions_results_path", "file_name_dictionary_key", "rpeak_classification_dictionary_key"]
-
-rpeak_detection_comparison_variables = ["data_directory", "ecg_keys", "rpeak_distance_threshold_seconds", 
-    "additions_results_path", "compare_rpeak_function_names", "rpeak_comparison_dictionary_key"]
-
-rpeak_detection_comparison_report_variables = ["rpeak_comparison_report_dezimal_places", 
-    "rpeak_comparison_report_path", "additions_results_path", "file_name_dictionary_key",
-    "compare_rpeak_function_names", "rpeak_comparison_dictionary_key"]
-
 ecg_validation_comparison_variables = ["ecg_classification_values_directory", "ecg_classification_file_types", 
-    "addition_results_path", "file_name_dictionary_key", "valid_ecg_regions_dictionary_key",
+    "additions_results_path", "file_name_dictionary_key", "valid_ecg_regions_dictionary_key",
     "ecg_validation_comparison_dictionary_key"]
 
 ecg_validation_comparison_report_variables = ["ecg_validation_comparison_report_path", 
-    "ecg_validation_comparison_report_dezimal_places", "addition_results_path",
+    "ecg_validation_comparison_report_dezimal_places", "additions_results_path",
     "file_name_dictionary_key", "ecg_validation_comparison_dictionary_key"]
+
+read_rpeak_classification_variables = ["data_directory", "valid_file_types", "rpeaks_values_directory", 
+    "valid_rpeak_values_file_types", "include_rpeak_value_classifications", "add_offset_to_classification",
+    "additions_results_path", "file_name_dictionary_key"]
+
+rpeak_detection_comparison_variables = ["data_directory", "ecg_keys", "rpeak_distance_threshold_seconds", 
+    "additions_results_path", "file_name_dictionary_key", "rpeak_comparison_function_names", 
+    "rpeak_comparison_dictionary_key"]
+
+rpeak_detection_comparison_report_variables = ["rpeak_comparison_report_dezimal_places", 
+    "rpeak_comparison_report_path", "additions_results_path", "file_name_dictionary_key",
+    "rpeak_comparison_function_names", "rpeak_comparison_dictionary_key"]
 
 """
 --------------------------------
@@ -365,12 +367,21 @@ def additional_section(run_section: bool):
     if not run_section:
         return
     
-    # set path to where ECG is stored
-    parameters["data_directory"] = ADDITIONS_RAW_DATA_DIRECTORY
-    
+    """
+    --------------------------------
+    SET DATA AND STORAGE PATHS
+    --------------------------------
+    """
     # create needed directory if it does not exist
     if not os.path.isdir(ADDITIONALS_DIRECTORY):
         os.mkdir(ADDITIONALS_DIRECTORY)
+
+    # set path to where ECG is stored
+    parameters["data_directory"] = ADDITIONS_RAW_DATA_DIRECTORY
+
+    # set path to pickle file that saves the results from the additions
+    parameters["preparation_results_path"] = ADDITIONS_RESULTS_PATH
+    
 
     """
     --------------------------------
@@ -463,13 +474,14 @@ def additional_section(run_section: bool):
         for i in range(len(parameters["rpeak_comparison_functions"])):
             classification_index_offset += 1
             detect_rpeaks_args["rpeak_function"] = parameters["rpeak_comparison_functions"][i]
-            detect_rpeaks_args["rpeak_function_name"] = parameters["compare_rpeak_function_names"][i]
+            detect_rpeaks_args["rpeak_function_name"] = parameters["rpeak_comparison_function_names"][i]
             rpeak_detection.detect_rpeaks(**detect_rpeaks_args)
 
         del detect_rpeaks_args
 
         # read r-peaks from the classification files if they are needed
         read_rpeak_classification_args = create_sub_dict(parameters, read_rpeak_classification_variables)
+        read_rpeak_classification_args["rpeak_classification_dictionary_key"] = parameters["rpeak_comparison_function_names"][classification_index_offset]
         rpeak_detection.read_rpeaks_from_rri_files(**read_rpeak_classification_args)
         del read_rpeak_classification_args
 
@@ -524,6 +536,12 @@ def preparation_section(run_section: bool):
             parameters.update(generator_entry)
 
     for DATA_DIRECTORY in DATA_DIRECTORIES:
+        """
+        --------------------------------
+        SET DATA AND STORAGE PATHS
+        --------------------------------
+        """
+
         # set path to where ECG is stored
         parameters["data_directory"] = DATA_DIRECTORY
 
@@ -570,7 +588,7 @@ def preparation_section(run_section: bool):
             combine_detected_rpeaks_args = create_sub_dict(parameters, combine_detected_rpeaks_variables)
             rpeak_detection.combine_detected_rpeaks(**combine_detected_rpeaks_args)
 
-        del detect_rpeaks_args, combine_detected_rpeaks_args, rpeak_primary_path, rpeak_secondary_path
+        del detect_rpeaks_args, combine_detected_rpeaks_args
     
         """
         --------------------------------
@@ -630,24 +648,24 @@ def main():
     #     xlim = x_lim
     #     )
 
-    additional_section(parameters["run_additionals_section"])
-    # preparation_section(parameters["run_preparation_section"])
+    # additional_section(parameters["run_additionals_section"])
+    preparation_section(parameters["run_preparation_section"])
 
-    regions = load_from_pickle(ADDITIONALS_DIRECTORY + "Valid_ECG_Regions.pkl")
-    for i in regions:
-        key = list(i.keys())[0]
-        print(key)
-        print(i[key])
-        print(len(i[key]))
-        break
+    # regions = load_from_pickle(ADDITIONALS_DIRECTORY + "Valid_ECG_Regions.pkl")
+    # for i in regions:
+    #     key = list(i.keys())[0]
+    #     print(key)
+    #     print(i[key])
+    #     print(len(i[key]))
+    #     break
 
-    peaks = load_from_pickle(ADDITIONALS_DIRECTORY + "RPeak_Comparison/RPeaks_wfdb.pkl")
-    for i in peaks:
-        key = list(i.keys())[0]
-        print(key)
-        print(i[key])
-        print(len(i[key]))
-        break
+    # peaks = load_from_pickle(ADDITIONALS_DIRECTORY + "RPeak_Comparison/RPeaks_wfdb.pkl")
+    # for i in peaks:
+    #     key = list(i.keys())[0]
+    #     print(key)
+    #     print(i[key])
+    #     print(len(i[key]))
+    #     break
 
     # rpeaks = load_from_pickle(PREPARATION_DIRECTORY + "RPeaks_wfdb.pkl")
     # print(rpeaks)

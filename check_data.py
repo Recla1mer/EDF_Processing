@@ -734,7 +734,7 @@ def compare_ecg_validations(
 def ecg_validation_comparison(
         ecg_classification_values_directory: str,
         ecg_classification_file_types: list,
-        addition_results_path: str,
+        additions_results_path: str,
         file_name_dictionary_key: str,
         valid_ecg_regions_dictionary_key: str,
         ecg_validation_comparison_dictionary_key: str
@@ -750,7 +750,7 @@ def ecg_validation_comparison(
         valid file types for the ECG classification values
     ecg_validation_comparison_evaluation_path: str
         path to the pickle file where the evaluation is saved
-    addition_results_path: str,
+    additions_results_path: str,
         path to the pickle file where the ecg validation comparison should be saved
     file_name_dictionary_key
         dictionary key to access the file name
@@ -773,26 +773,31 @@ def ecg_validation_comparison(
     
     # check if the evaluation already exists and if yes: ask for permission to override
     user_answer = ask_for_permission_to_override_dictionary_entry(
-        file_path = addition_results_path,
+        file_path = additions_results_path,
         dictionary_entry = ecg_validation_comparison_dictionary_key
         )
     
     # cancel if user does not want to override
     if user_answer == "n":
         return
+    
+    # cancel if needed data is missing
+    if user_answer == "no_file_found":
+        print("File containing valid ecg regions not found. As they are needed for the valid ecg region comparison, it is skipped.")
+        return
 
     # get all determined ECG Validation files
-    addition_results_generator = load_from_pickle(addition_results_path)
+    addition_results_generator = load_from_pickle(additions_results_path)
 
     # get all ECG classification files
     all_classification_files = os.listdir(ecg_classification_values_directory)
     valid_classification_files = [file for file in all_classification_files if get_file_type(file) in ecg_classification_file_types]
 
     # path to pickle file which will store results
-    temporary_file_path = get_path_without_filename(addition_results_path) + "work_in_progress.pkl"
+    temporary_file_path = get_path_without_filename(additions_results_path) + "work_in_progress.pkl"
 
     # create variables to track progress
-    total_data_files = get_pickle_length(addition_results_path)
+    total_data_files = get_pickle_length(additions_results_path)
     progressed_data_files = 0
 
     # create lists to store unprocessable files
@@ -836,10 +841,10 @@ def ecg_validation_comparison(
 
     # rename the file that stores the calculated data
     try:
-        os.remove(addition_results_path)
+        os.remove(additions_results_path)
     except:
         pass
-    os.rename(temporary_file_path, addition_results_path)
+    os.rename(temporary_file_path, additions_results_path)
 
     # print the files that could not be processed
     if len(unprocessable_files) > 0:
@@ -851,7 +856,7 @@ def ecg_validation_comparison(
 
 def ecg_validation_comparison_report(
         ecg_validation_comparison_report_path: str,
-        addition_results_path: str,
+        additions_results_path: str,
         file_name_dictionary_key: str,
         ecg_validation_comparison_dictionary_key: str,
         ecg_validation_comparison_report_dezimal_places: int,
@@ -863,7 +868,7 @@ def ecg_validation_comparison_report(
     --------------------------------
     ecg_validation_comparison_report_path: str
         path to the file where the report is saved
-    addition_results_path: str,
+    additions_results_path: str,
         path to the pickle file where the ecg validation comparison should be saved
     file_name_dictionary_key
         dictionary key to access the file name
@@ -890,7 +895,7 @@ def ecg_validation_comparison_report(
     comparison_file = open(ecg_validation_comparison_report_path, "w")
 
     # load the data
-    all_files_ecg_validation_generator = load_from_pickle(addition_results_path)
+    all_files_ecg_validation_generator = load_from_pickle(additions_results_path)
     all_files_ecg_validation_comparison = dict()
     for generator_entry in all_files_ecg_validation_generator:
         all_files_ecg_validation_comparison.update({generator_entry[file_name_dictionary_key]: generator_entry[ecg_validation_comparison_dictionary_key]})

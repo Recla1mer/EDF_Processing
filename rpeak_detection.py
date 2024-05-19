@@ -291,6 +291,11 @@ def detect_rpeaks(
     # cancel if user does not want to override
     if user_answer == "n":
         return
+
+    # cancel if needed data is missing
+    if user_answer == "no_file_found":
+        print("\nFile containing valid ecg regions not found. As they are needed for r-peak detection, the detection will be skipped.")
+        return
     
     # path to pickle file which will store results
     temporary_file_path = get_path_without_filename(preparation_results_path) + "computation_in_progress.pkl"
@@ -351,6 +356,11 @@ def detect_rpeaks(
     if len(unprocessable_files) > 0:
         print("\nFor the following files the r-peaks could not be detected:")
         print(unprocessable_files)
+        print("Possible reasons:")
+        print(" "*5 + "- Dictionary keys that access the file name and valid ecg regions do not exist in the results. Check keys in file or recalculate them.")
+        print(" "*5 + "- ECG file contains format errors")
+        print(" "*5 + "- Physical dimension of label is unknown")
+        print(" "*5 + "- Error occured during r-peak detection")
 
 
 def combine_rpeaks(
@@ -367,12 +377,12 @@ def combine_rpeaks(
     You will see that this function collects multiple possible matches (threshold
     condition met). At the end, the closest one is chosen. Of course this might result in
     a wrong decision if there might be a better match later on. 
-    However, in this case the R-peaks would be that close, that the resulting heart rate
+    However, in this case the r-peaks would be that close, that the resulting heart rate
     would be 1200 bpm or higher (for a meaningful threshold <= 0.05 s), which is not
     realistic and the detection would be wrong anyway.
 
-    At the end, the R-peaks that were detected by both methods, the R-peaks that were only
-    detected by the primary method and the R-peaks that were only detected by the secondary
+    At the end, the r-peaks that were detected by both methods, the r-peaks that were only
+    detected by the primary method and the r-peaks that were only detected by the secondary
     method are returned as lists.
 
     Suggested is the wfdb library and the detection function that was previously used by
@@ -402,8 +412,6 @@ def combine_rpeaks(
     # convert the threshold from seconds to iterations
     distance_threshold_iterations = int(rpeak_distance_threshold_seconds * frequency)
 
-    # intersects_before = len(np.intersect1d(rpeaks_primary, rpeaks_secondary))
-
     # if two R-peaks are closer than the threshold, they are considered as the same
     # both will be changed to the same value (primary R-peak)
 
@@ -428,8 +436,6 @@ def combine_rpeaks(
                 if min(possible_matches_values) < distance_threshold_iterations:
                     last_matching_rpeak = possible_matches[possible_matches_values.index(min(possible_matches_values))]
                     rpeaks_secondary[last_matching_rpeak] = rpeaks_primary[i]
-    
-    # intersects_after = len(np.intersect1d(rpeaks_primary, rpeaks_secondary))
 
     # intersect the R-peaks
     rpeaks_intersected = np.intersect1d(rpeaks_primary, rpeaks_secondary)
@@ -505,6 +511,11 @@ def combine_detected_rpeaks(
     if user_answer == "n":
         return
     
+    # cancel if needed data is missing
+    if user_answer == "no_file_found":
+        print("\nFile containing r-peak detections is missing. Obviously they are needed to combine different r-peak detections. Therefore the combination will be skipped.")
+        return
+    
     # path to pickle file which will store results
     temporary_file_path = get_path_without_filename(preparation_results_path) + "computation_in_progress.pkl"
 
@@ -566,12 +577,15 @@ def combine_detected_rpeaks(
         print("\nFor the following files the r-peaks could not be combined:")
         print(unprocessable_files)
         print("Possible reason:")
-        print(" "*5 + "")
+        print(" "*5 + "- Dictionary keys that access the file name or at least one of the r-peaks do not exist in the results. Check keys in file or recalculate them.")
+        print(" "*5 + "- ECG file contains format errors")
+        print(" "*5 + "- Physical dimension of label is unknown")
+        print(" "*5 + "- Error occured during r-peak combination")
 
 
 """
 Following code won't be used for the final implementation, but is useful for testing and
-comparing the results of different R-peak detection methods. r-peaks are also already
+comparing the results of different R-peak detection methods. R-peaks are also already
 available for the GIF data. They might or might not have been calculated automatically and
 later checked manually.
 
@@ -792,7 +806,7 @@ def read_rpeaks_from_rri_files(
         rpeak_classification_dictionary_key: str
     ):
     """
-    Read the r-peak values from all .rri files in the rpeaks_values_dirextory and save them
+    Read the r-peak values from all .rri files in the rpeaks_values_directory and save them
 
     ARGUMENTS:
     --------------------------------
@@ -843,8 +857,8 @@ def read_rpeaks_from_rri_files(
     all_values_files = os.listdir(rpeaks_values_directory)
     valid_values_files = [file for file in all_values_files if get_file_type(file) in valid_rpeak_values_file_types]
     
-    # create lists to store files with missing r-peaks
-    files_with_missing_rpeaks = []
+    # create lists to store unprocessable files
+    unprocessable_files = []
     
     if user_answer == "y":
         # load existing results
@@ -861,21 +875,22 @@ def read_rpeaks_from_rri_files(
             progress_bar(progressed_files, total_files)
             progressed_files += 1
 
-            # get the file name without the file type
-            file_name = generator_entry[file_name_dictionary_key]
-            file_name_without_extension = os.path.splitext(file_name)[0]
-
-            # get corresponding r-peak value file name for this file
-            for value_file in valid_values_files:
-                if file_name_without_extension in value_file:
-                    this_value_file = value_file
             try:
+                # get the file name without the file type
+                file_name = generator_entry[file_name_dictionary_key]
+                file_name_without_extension = os.path.splitext(file_name)[0]
+
+                # get corresponding r-peak value file name for this file
+                for value_file in valid_values_files:
+                    if file_name_without_extension in value_file:
+                        this_value_file = value_file
+
                 rpeaks_values = get_rpeaks_classification_from_rri_file(
                     file_path = rpeaks_values_directory + this_value_file,
                     add_offset = add_offset_to_classification
                 )
             except:
-                files_with_missing_rpeaks.append(file_name)
+                unprocessable_files.append(file_name)
                 continue
 
             # get r-peak values with wanted classification
@@ -891,9 +906,6 @@ def read_rpeaks_from_rri_files(
             generator_entry[rpeak_classification_dictionary_key] = this_rpeaks
             append_to_pickle(generator_entry, temporary_file_path)
     
-    # Practically the ecg validation is done first. But theoretically reading the r-peak
-    # classifications could be done before, because it does not depend on it. Therefore
-    # follwing case is added.
     elif user_answer == "no_file_found":
 
         # get all valid files
@@ -911,20 +923,21 @@ def read_rpeaks_from_rri_files(
             progress_bar(progressed_files, total_files)
             progressed_files += 1
 
-            # get the file name without the file type
-            this_file_name = os.path.splitext(file_name)[0]
-
-            # get corresponding r-peak value file name for this file
-            for value_file in valid_values_files:
-                if this_file_name in value_file:
-                    this_value_file = value_file
             try:
+                # get the file name without the file type
+                this_file_name = os.path.splitext(file_name)[0]
+
+                # get corresponding r-peak value file name for this file
+                for value_file in valid_values_files:
+                    if this_file_name in value_file:
+                        this_value_file = value_file
+
                 rpeaks_values = get_rpeaks_classification_from_rri_file(
                     file_path = rpeaks_values_directory + this_value_file,
                     add_offset = add_offset_to_classification
                 )
             except:
-                files_with_missing_rpeaks.append(file_name)
+                unprocessable_files.append(file_name)
                 continue
 
             # get r-peak values with wanted classification
@@ -953,9 +966,12 @@ def read_rpeaks_from_rri_files(
     os.rename(temporary_file_path, additions_results_path)
 
     # print files with missing r-peaks
-    if len(files_with_missing_rpeaks) > 0:
+    if len(unprocessable_files) > 0:
         print("\nFor the following files the r-peaks could not be read:")
-        print(files_with_missing_rpeaks)
+        print(unprocessable_files)
+        print("Possible reasons:")
+        print(" "*5 + "- Error occured during reading r-peaks from classification file")
+        print(" "*5 + "- Corresponding classification file to these files not found")
 
 
 def rpeak_detection_comparison(
@@ -963,8 +979,8 @@ def rpeak_detection_comparison(
         ecg_keys: list,
         rpeak_distance_threshold_seconds: float,
         additions_results_path: str,
-        file_name_dictionary_entry: str,
-        compare_rpeak_function_names: list,
+        file_name_dictionary_key: str,
+        rpeak_comparison_function_names: list,
         rpeak_comparison_dictionary_key: str
     ):
     """
@@ -982,7 +998,7 @@ def rpeak_detection_comparison(
         path to the pickle file where the r-peaks are saved
     file_name_dictionary_key
         dictionary key to access the file name
-    compare_rpeak_function_names: list
+    rpeak_comparison_function_names: list
         list of dictionary keys that access the differently detected r-peaks that should be compared
     rpeak_comparison_dictionary_key: str
         dictionary key to access the r-peak comparison values
@@ -1012,6 +1028,11 @@ def rpeak_detection_comparison(
     if user_answer == "n":
         return
     
+    # cancel if needed data is missing
+    if user_answer == "no_file_found":
+        print("\nFile containing r-peak detections not found. Therefore they can not be compared and the comparison is skipped.")
+        return
+    
     # path to pickle file which will store results
     temporary_file_path = get_path_without_filename(additions_results_path) + "computation_in_progress.pkl"
 
@@ -1030,7 +1051,7 @@ def rpeak_detection_comparison(
         progressed_files += 1
 
         # get file name
-        file_name = generator_entry[file_name_dictionary_entry]
+        file_name = generator_entry[file_name_dictionary_key]
 
         # create list to store the r-peak comparison values for all detection methods as list
         this_file_rpeak_comparison = []
@@ -1042,13 +1063,12 @@ def rpeak_detection_comparison(
         )
         
         # compare the r-peaks of the different detection methods
-        for path_index_first in range(len(compare_rpeak_function_names)):
-            for path_index_second in range(path_index_first+1, len(compare_rpeak_function_names)):
-                print("currently here:", path_index_first, path_index_second)
+        for path_index_first in range(len(rpeak_comparison_function_names)):
+            for path_index_second in range(path_index_first+1, len(rpeak_comparison_function_names)):
 
                 # get the r-peaks of the current file
-                first_rpeaks = generator_entry[compare_rpeak_function_names[path_index_first]]
-                second_rpeaks = generator_entry[compare_rpeak_function_names[path_index_second]]
+                first_rpeaks = generator_entry[rpeak_comparison_function_names[path_index_first]]
+                second_rpeaks = generator_entry[rpeak_comparison_function_names[path_index_second]]
 
                 # get the number of detected r-peaks
                 number_first_rpeaks = len(first_rpeaks)
@@ -1067,7 +1087,7 @@ def rpeak_detection_comparison(
         
         # save the r-peak comparison values for this file to the pickle file
         generator_entry[rpeak_comparison_dictionary_key] = this_file_rpeak_comparison
-        append_to_pickle(this_file_rpeak_comparison, temporary_file_path)
+        append_to_pickle(generator_entry, temporary_file_path)
     
     progress_bar(progressed_files, total_files)
 
@@ -1079,9 +1099,9 @@ def rpeak_detection_comparison(
 def rpeak_detection_comparison_report(
         rpeak_comparison_report_dezimal_places: int,
         rpeak_comparison_report_path: str,
-        addition_results_path: str,
+        additions_results_path: str,
         file_name_dictionary_key: str,
-        compare_rpeak_function_names: list,  
+        rpeak_comparison_function_names: list,  
         rpeak_comparison_dictionary_key: str
     ):
     """
@@ -1099,7 +1119,7 @@ def rpeak_detection_comparison_report(
         path to the pickle file where the r-peaks are saved
     file_name_dictionary_key
         dictionary key to access the file name
-    compare_rpeak_function_names: list
+    rpeak_comparison_function_names: list
         list of dictionary keys that access the differently detected r-peaks that should be compared
     rpeak_comparison_dictionary_key: str
         dictionary key to access the r-peak comparison values
@@ -1110,8 +1130,8 @@ def rpeak_detection_comparison_report(
     Format of the report: Table showing results for each file
     """
     num_of_comparisons = 0
-    for index_first in range(len(compare_rpeak_function_names)):
-        for index_second in range(index_first+1, len(compare_rpeak_function_names)):
+    for index_first in range(len(rpeak_comparison_function_names)):
+        for index_second in range(index_first+1, len(rpeak_comparison_function_names)):
             num_of_comparisons += 1
 
     # check if the report already exists and if yes: ask for permission to override
@@ -1131,7 +1151,7 @@ def rpeak_detection_comparison_report(
     comparison_file.write("=" * len(message) + "\n\n\n")
 
     # load the needed data in format: {name of file: comparison values for file}
-    all_files_rpeak_comparison_generator = load_from_pickle(addition_results_path)
+    all_files_rpeak_comparison_generator = load_from_pickle(additions_results_path)
     all_files_rpeak_comparison = dict()
     for generator_entry in all_files_rpeak_comparison_generator:
         all_files_rpeak_comparison.update({generator_entry[file_name_dictionary_key]: generator_entry[rpeak_comparison_dictionary_key]})
@@ -1242,9 +1262,9 @@ def rpeak_detection_comparison_report(
     # create table column captions
     FILE_CAPTION = "File"
     column_captions = [FILE_CAPTION]
-    for index_first in range(len(compare_rpeak_function_names)):
-        for index_second in range(index_first+1, len(compare_rpeak_function_names)):
-            column_captions.append(compare_rpeak_function_names[index_first] + " / " + compare_rpeak_function_names[index_second])
+    for index_first in range(len(rpeak_comparison_function_names)):
+        for index_second in range(index_first+1, len(rpeak_comparison_function_names)):
+            column_captions.append(rpeak_comparison_function_names[index_first] + " / " + rpeak_comparison_function_names[index_second])
     
     # create column value captions
     RMSE_EX_CAPTION = "RMSE_exc: "

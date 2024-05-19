@@ -111,7 +111,7 @@ def validate_parameter_settings(parameters: dict):
 
 def progress_bar(index: int, total: int, bar_len=50, title="Please wait"):
     """
-    Prints a progress bar in the console.
+    Prints a progress bar to the console.
 
     Idea taken from:
     https://stackoverflow.com/questions/6169217/replace-console-output-in-python
@@ -150,6 +150,10 @@ def retrieve_all_subdirectories_containing_valid_files(directory: str, valid_fil
     """
     Search given directory and every subdirectory for files with the given file types. If 
     wanted files present in a directory, return the path of the directory.
+
+    Used in main.py: User has the possibility to provide a head directory, which will be
+    searched from this function to return all subdirectories that contain relevant data.
+    Otherwise the user needs to provide them manually.
     
     ARGUMENTS:
     --------------------------------
@@ -163,13 +167,16 @@ def retrieve_all_subdirectories_containing_valid_files(directory: str, valid_fil
     all_paths: list
         list of paths to directories containing valid files
     """
+    # list all files in the directory
     all_files = os.listdir(directory)
     valid_files = [file for file in all_files if get_file_type(file) in valid_file_types]
 
+    # Check if the directory contains valid files. If yes: append directory to list of all directories
     all_paths = []
     if len(valid_files) > 0:
         all_paths.append(directory)
 
+    # repeat process for every subdirectory
     for file in all_files:
         if os.path.isdir(directory + file):
             these_paths = retrieve_all_subdirectories_containing_valid_files(directory + file + "/", valid_file_types)
@@ -221,7 +228,7 @@ def clear_directory(directory: str):
     
     RETURNS:
     --------------------------------
-    None
+    None, but the directory is cleared from all files and subdirectories
     """
     for file in os.listdir(directory):
         file_path = os.path.join(directory, file)
@@ -380,57 +387,6 @@ def get_pickle_length(file_name: str):
     return counter
 
 
-def append_entry_to_dictionary_in_pickle_file(
-        file_path: str, 
-        append_to_file: str,
-        file_name_dictionary_key: str,
-        new_dictionary_entry: dict
-    ):
-    """
-    Append a dictionary entry to a certain dictionary in a pickle file.
-
-    ARGUMENTS:
-    --------------------------------
-    file_path: str
-        path to the pickle file
-    append_to_file: str
-        file name present in dictionary to which the new data should be appended
-    file_name_dictionary_key: str
-        key of the dictionary storing the file names
-    new_dictionary_entry: dict
-        new dictionary entry to be appended
-    
-    RETURNS:
-    --------------------------------
-    None, but the new dictionary entry is appended to the corresponding dictionary in the pickle file
-    """
-    temporary_file_path = get_path_without_filename(file_path) + "work_in_progress.pkl"
-
-    try:
-        results_directory_generator = load_from_pickle(file_path)
-    except:
-        results_directory_generator = []
-    dictionary_found = False
-
-    for results_directory in results_directory_generator:
-        try:
-            if append_to_file == results_directory[file_name_dictionary_key]:
-                results_directory.update(new_dictionary_entry)
-                dictionary_found = True
-        except:
-            pass
-
-        append_to_pickle(results_directory, temporary_file_path)
-    
-    if not dictionary_found:
-        new_dictionary = {file_name_dictionary_key: append_to_file}
-        new_dictionary.update(new_dictionary_entry)
-        append_to_pickle(new_dictionary, temporary_file_path)
-        
-    os.remove(file_path)
-    os.rename(temporary_file_path, file_path)
-
-
 def ask_for_permission_to_override_file(file_path: str, message: str):
     """
     If a file already exists, ask the user if they want to overwrite it.
@@ -454,16 +410,16 @@ def ask_for_permission_to_override_file(file_path: str, message: str):
             if first_try:
                 user_answer = input(message + " Are you sure you want to overwrite them? (y/n)")
             else:
-                user_answer = input("Please answer with 'y' or 'n'.")
+                user_answer = input("\nPlease answer with 'y' or 'n'.")
             if user_answer == "y":
                 os.remove(file_path)
                 break
             elif user_answer == "n":
-                print("Existing Data was not overwritten. Continuing...")
+                print("\nExisting Data was not overwritten. Continuing...")
                 break
             else:
                 first_try = False
-                print("Answer not recognized.")
+                print("\nAnswer not recognized.")
     else:
         user_answer = "y"
     
@@ -476,9 +432,9 @@ def ask_for_permission_to_override_dictionary_entry(
         additionally_remove_entries = []
     ):
     """
-    Check if the directory that saves the results already contains dictionary entries with the
-    same name. If yes, ask the user if they want to override it. If the user wants to override
-    the dictionary entry, delete it.
+    Check if the file that saves the results already contains dictionary entries with the
+    same name. If yes, ask the user if they want to override them. If the user wants to override
+    the dictionary entry, delete it from all dictionaries in the file.
 
     ARGUMENTS:
     --------------------------------
@@ -488,27 +444,44 @@ def ask_for_permission_to_override_dictionary_entry(
         name of the dictionary entry
     additionally_remove_entries: list
         list of entries that should be removed additionally if user wants to overwrite
-
+    
+    RETURNS:
+    --------------------------------
+    user_answer: str
+        "no_file_found" if file does not exist
+        "y" if user wants to overwrite the dictionary key or if they are not present
+        "n" if dictionary keys exist but user does not want to overwrite
     """
     if not os.path.isfile(file_path):
         return "no_file_found"
 
     ask_to_override = False
+    count_all_entries = 0
+    count_entries_with_dictionary_entry = 0
     results_directory_generator = load_from_pickle(file_path)
     for results_directory in results_directory_generator:
         if dictionary_entry in results_directory:
             ask_to_override = True
-            break
+            count_entries_with_dictionary_entry += 1
+        count_all_entries += 1
 
     if ask_to_override:
         first_try = True
         while True:
             if first_try:
-                user_answer = input("At least one dictionary in " + file_path + " contains the key: \"" + dictionary_entry + "\". Are you sure you want to overwrite them? (y/n)")
+                if len(additionally_remove_entries) == 0:
+                    user_answer = input("\n" + str(count_entries_with_dictionary_entry) + " of " + str(count_all_entries) + " dictionaries in " + file_path + " contain the key: \"" + dictionary_entry + "\". Are you sure you want to overwrite all of them? (y/n)")
+                else:
+                    user_input_message = "\n" + str(count_entries_with_dictionary_entry) + " of " + str(count_all_entries) + " dictionaries in " + file_path + " contain the keys: (\"" + dictionary_entry + "\""
+                    for add_rem_entry in additionally_remove_entries:
+                        user_input_message += ", \"" + add_rem_entry + "\""
+                    user_input_message += "). Are you sure you want to overwrite all of them? (y/n)"
+                    user_answer = input(user_input_message)
+
             else:
-                user_answer = input("Please answer with 'y' or 'n'.")
+                user_answer = input("\nPlease answer with 'y' or 'n'.")
             if user_answer == "y":
-                temporary_file_path = get_path_without_filename(file_path) + "work_in_progress.pkl"
+                temporary_file_path = get_path_without_filename(file_path) + "computation_in_progress.pkl"
                 results_directory_generator = load_from_pickle(file_path)
                 for results_directory in results_directory_generator:
                     if dictionary_entry in results_directory:
@@ -519,12 +492,13 @@ def ask_for_permission_to_override_dictionary_entry(
                     append_to_pickle(results_directory, temporary_file_path)
                 os.remove(file_path)
                 os.rename(temporary_file_path, file_path)
+                break
             elif user_answer == "n":
-                print("Existing Data was not overwritten. Continuing...")
+                print("\nExisting Data was not overwritten. Continuing...")
                 break
             else:
                 first_try = False
-                print("Answer not recognized.")
+                print("\nAnswer not recognized.")
     else:
         user_answer = "y"
     
@@ -550,28 +524,9 @@ def create_sub_dict(dictionary: dict, keys: list):
     return {key: dictionary[key] for key in keys}
 
 
-def create_rpeaks_pickle_path(directory: str, rpeak_function_name: str):
-    """
-    Create the path for the pickle file where the rpeaks are saved for each method.
-
-    ARGUMENTS:
-    --------------------------------
-    Directory: str
-        directory where the pickle file will be saved
-    rpeak_function_name: str
-        name of the rpeak detection method
-    
-    RETURNS:
-    --------------------------------
-    str
-        path to the pickle file
-    """
-    return directory + "RPeaks_" + rpeak_function_name + ".pkl"
-
-
 def print_in_middle(string: str, length: int):
     """
-    Function to center a string in a given length. Needed in printing tables.
+    Function to center a string in a given length. Needed for printing tables.
 
     ARGUMENTS:
     --------------------------------
@@ -592,7 +547,7 @@ def print_in_middle(string: str, length: int):
 
 def print_left_aligned(string: str, length: int):
     """
-    Function to left align a string in a given length. Needed in printing tables.
+    Function to left align a string in a given length. Needed for printing tables.
 
     ARGUMENTS:
     --------------------------------
