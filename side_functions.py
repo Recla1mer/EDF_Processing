@@ -26,6 +26,28 @@ def validate_parameter_settings(parameters: dict):
     --------------------------------
     None, but raises an error if a parameter is invalid
     """
+    # settings parameters
+    if not isinstance(parameters["run_additionals_section"], bool):
+        raise ValueError("'run_additionals_section' parameter must be a boolean.")
+    if not isinstance(parameters["run_preparation_section"], bool):
+        raise ValueError("'run_preparation_section' parameter must be a boolean.")
+    if not isinstance(parameters["show_calibration_data"], bool):
+        raise ValueError("'show_calibration_data' parameter must be a boolean.")
+    if not isinstance(parameters["perform_rpeak_comparison"], bool):
+        raise ValueError("'perform_rpeak_comparison' parameter must be a boolean.")
+    if not isinstance(parameters["perform_ecg_validation_comparison"], bool):
+        raise ValueError("'perform_ecg_validation_comparison' parameter must be a boolean.")
+    if not isinstance(parameters["calculate_ecg_thresholds"], bool):
+        raise ValueError("'calculate_ecg_thresholds' parameter must be a boolean.")
+    if not isinstance(parameters["use_manually_chosen_ecg_thresholds"], bool):
+        raise ValueError("'use_manually_chosen_ecg_thresholds' parameter must be a boolean.")
+    if not isinstance(parameters["determine_valid_ecg_regions"], bool):
+        raise ValueError("'determine_valid_ecg_regions' parameter must be a boolean.")
+    if not isinstance(parameters["detect_rpeaks"], bool):
+        raise ValueError("'detect_rpeaks' parameter must be a boolean.")
+    if not isinstance(parameters["calculate_MAD"], bool):
+        raise ValueError("'calculate_MAD' parameter must be a boolean.")
+
     # file parameters:
     if not isinstance(parameters["valid_file_types"], list):
         raise ValueError("'valid_file_types' parameter must be a list.")
@@ -33,6 +55,22 @@ def validate_parameter_settings(parameters: dict):
         raise ValueError("'ecg_key' parameter must be a list.")
     if not isinstance(parameters["wrist_acceleration_keys"], list):
         raise ValueError("'wrist_acceleration_keys' parameter must be a list.")
+    if not isinstance(parameters["physical_dimension_correction_dictionary"], dict):
+        raise ValueError("'physical_dimension_correction_dictionary' parameter must be a dictionary.")
+    
+    # preparation results dictionary key parameters:
+    if not isinstance(parameters["file_name_dictionary_key"], str):
+        raise ValueError("'file_name_dictionary_key' parameter must be a string.")
+    if not isinstance(parameters["valid_ecg_regions_dictionary_key"], str):
+        raise ValueError("'valid_ecg_regions_dictionary_key' parameter must be a string.")
+    if not isinstance(parameters["certain_rpeaks_dictionary_key"], str):
+        raise ValueError("'certain_rpeaks_dictionary_key' parameter must be a string.")
+    if not isinstance(parameters["uncertain_primary_rpeaks_dictionary_key"], str):
+        raise ValueError("'uncertain_primary_rpeaks_dictionary_key' parameter must be a string.")
+    if not isinstance(parameters["uncertain_secondary_rpeaks_dictionary_key"], str):
+        raise ValueError("'uncertain_secondary_rpeaks_dictionary_key' parameter must be a string.")
+    if not isinstance(parameters["MAD_dictionary_key"], str):
+        raise ValueError("'MAD_dictionary_key' parameter must be a string.")
     
     """
     --------------------------------------
@@ -43,14 +81,14 @@ def validate_parameter_settings(parameters: dict):
     # parameters for the ECG Validation
     if not isinstance(parameters["ecg_calibration_file_path"], str):
         raise ValueError("'ecg_calibration_file_path' parameter must be a string.")
+    if not isinstance(parameters["ecg_thresholds_save_path"], str):
+        raise ValueError("'ecg_thresholds_save_path' parameter must be a string.")
     if not isinstance(parameters["ecg_thresholds_multiplier"], (int, float)):
         raise ValueError("'ecg_thresholds_multiplier' parameter must be an integer or a float.")
     if parameters["ecg_thresholds_multiplier"] <= 0 or parameters["ecg_thresholds_multiplier"] > 1:
         raise ValueError("'ecg_thresholds_multiplier' parameter must be within (0,1].")
     if not isinstance(parameters["ecg_thresholds_dezimal_places"], int):
         raise ValueError("'ecg_thresholds_dezimal_places' parameter must be an integer.")
-    if not isinstance(parameters["ecg_thresholds_save_path"], str):
-        raise ValueError("'ecg_thresholds_save_path' parameter must be a string.")
     if not isinstance(parameters["check_ecg_time_interval_seconds"], int):
         raise ValueError("'check_ecg_time_interval_seconds' parameter must be an integer.")
     if not isinstance(parameters["check_ecg_overlapping_interval_steps"], int):
@@ -76,37 +114,70 @@ def validate_parameter_settings(parameters: dict):
     if not isinstance(parameters["mad_time_period_seconds"], int):
         raise ValueError("'mad_time_period_seconds' parameter must be an integer.")
     
+    # check if manually chosen ecg thresholds are used
+    try:
+        parameters["check_ecg_std_min_threshold"]
+        skip_manually_chosen_ecg_thresholds = False
+    except:
+        skip_manually_chosen_ecg_thresholds = True
+    
+    if not skip_manually_chosen_ecg_thresholds:
+        if not isinstance(parameters["check_ecg_std_min_threshold"], (int, float)):
+            raise ValueError("'check_ecg_std_min_threshold' parameter must be an integer or a float.")
+        if not isinstance(parameters["check_ecg_distance_std_ratio_threshold"], (int, float)):
+            raise ValueError("'check_ecg_distance_std_ratio_threshold' parameter must be an integer or a float.")
+    
     """
     --------------------------------------
     parameters for the ADDITIONALS SECTION
     --------------------------------------
     """
-    
-    # parameters for the R peak accuracy evaluation
-    if not isinstance(parameters["rpeaks_values_directory"], str):
-        raise ValueError("'rpeaks_values_directory' parameter must be a string.")
-    if not isinstance(parameters["valid_rpeak_values_file_types"], list):
-        raise ValueError("'valid_rpeak_values_file_types' parameter must be a list.")
-    if not isinstance(parameters["include_rpeak_value_classifications"], list):
-        raise ValueError("'include_rpeak_value_classifications' parameter must be a list.")
-    if not isinstance(parameters["rpeak_comparison_functions"], list):
-        raise ValueError("'rpeak_comparison_functions' parameter must be a list.")
-    if not isinstance(parameters["rpeak_comparison_function_names"], list):
-        raise ValueError("'rpeak_comparison_function_names' parameter must be a list.")
-    if not isinstance(parameters["rpeak_comparison_report_dezimal_places"], int):
-        raise ValueError("'rpeak_comparison_report_dezimal_places' parameter must be an integer.")
-    if not isinstance(parameters["rpeak_comparison_report_path"], str):
-        raise ValueError("'rpeak_comparison_report_path' parameter must be a string.")
 
-    # parameters for the ECG Validation comparison
-    if not isinstance(parameters["ecg_classification_values_directory"], str):
-        raise ValueError("'ecg_classification_values_directory' parameter must be a string.")
-    if not isinstance(parameters["ecg_classification_file_types"], list):
-        raise ValueError("'ecg_classification_file_types' parameter must be a list.")
-    if not isinstance(parameters["ecg_validation_comparison_report_path"], str):
-        raise ValueError("'ecg_validation_comparison_report_path' parameter must be a string.")
-    if not isinstance(parameters["ecg_validation_comparison_report_dezimal_places"], int):
-        raise ValueError("'ecg_validation_comparison_report_dezimal_places' parameter must be an integer.")
+    # check if additions parameters were appended
+    try:
+        parameters["additions_results_path"]
+        skip_additions = False
+    except KeyError:
+        skip_additions = True
+
+    if not skip_additions:
+        # additions results dictionary key parameters
+        if not isinstance(parameters["additions_results_path"], str):
+            raise ValueError("'additions_results_path' parameter must be a string.")
+        if not isinstance(parameters["ecg_validation_comparison_dictionary_key"], str):
+            raise ValueError("'ecg_validation_comparison_dictionary_key' parameter must be a string.")
+        if not isinstance(parameters["rpeak_comparison_dictionary_key"], str):
+            raise ValueError("'rpeak_comparison_dictionary_key' parameter must be a string.")
+    
+        # parameters for the ECG Validation comparison
+        if not isinstance(parameters["ecg_classification_values_directory"], str):
+            raise ValueError("'ecg_classification_values_directory' parameter must be a string.")
+        if not isinstance(parameters["ecg_classification_file_types"], list):
+            raise ValueError("'ecg_classification_file_types' parameter must be a list.")
+        if not isinstance(parameters["ecg_validation_comparison_report_path"], str):
+            raise ValueError("'ecg_validation_comparison_report_path' parameter must be a string.")
+        if not isinstance(parameters["ecg_validation_comparison_report_dezimal_places"], int):
+            raise ValueError("'ecg_validation_comparison_report_dezimal_places' parameter must be an integer.")
+
+        # parameters for the R peak comparison
+        if not isinstance(parameters["rpeaks_values_directory"], str):
+            raise ValueError("'rpeaks_values_directory' parameter must be a string.")
+        if not isinstance(parameters["valid_rpeak_values_file_types"], list):
+            raise ValueError("'valid_rpeak_values_file_types' parameter must be a list.")
+        if not isinstance(parameters["include_rpeak_value_classifications"], list):
+            raise ValueError("'include_rpeak_value_classifications' parameter must be a list.")
+        if not isinstance(parameters["rpeak_comparison_functions"], list):
+            raise ValueError("'rpeak_comparison_functions' parameter must be a list.")
+        if not callable(parameters["rpeak_classification_function"]):
+            raise ValueError("'rpeak_classification_function' parameter must be a function.")
+        if not isinstance(parameters["add_offset_to_classification"], int):
+            raise ValueError("'add_offset_to_classification' parameter must be an integer.")
+        if not isinstance(parameters["rpeak_comparison_function_names"], list):
+            raise ValueError("'rpeak_comparison_function_names' parameter must be a list.")
+        if not isinstance(parameters["rpeak_comparison_report_dezimal_places"], int):
+            raise ValueError("'rpeak_comparison_report_dezimal_places' parameter must be an integer.")
+        if not isinstance(parameters["rpeak_comparison_report_path"], str):
+            raise ValueError("'rpeak_comparison_report_path' parameter must be a string.")
 
 
 def progress_bar(index: int, total: int, bar_len=50, title="Please wait"):

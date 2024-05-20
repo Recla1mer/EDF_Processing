@@ -34,8 +34,8 @@ In this section we define the file/directory names.
 HEAD_DATA_DIRECTORY = "Data/" # head directory which should be searched for every subdirectory containing valid data files, only needed if automatic search for DATA_DIRECTORIES is used
 DATA_DIRECTORIES = ["Data/", "Data/GIF/SOMNOwatch/"] # manually chosen directories that contain the data files
 
-TEMPORARY_PICKLE_DIRECTORY = "Temporary_Pickles/"
-TEMPORARY_FIGURE_DIRECTORY = "Temporary_Figures/"
+# TEMPORARY_PICKLE_DIRECTORY = "Temporary_Pickles/"
+# TEMPORARY_FIGURE_DIRECTORY = "Temporary_Figures/"
 
 # paths for PREPARATION SECTION
 # ------------------------------
@@ -65,14 +65,6 @@ RPEAK_CLASSIFICATION_DIRECTORY = "Data/GIF/Analyse_Somno_TUM/RRI/"
 ECG_VALIDATION_COMPARISON_DIRECTORY = ADDITIONALS_DIRECTORY + "ECG_Validation_Comparison/"
 ECG_VALIDATION_COMPARISON_REPORT_PATH = ECG_VALIDATION_COMPARISON_DIRECTORY + "ECG_Validation_Comparison_Report.txt"
 ECG_CLASSIFICATION_DIRECTORY = "Data/GIF/Analyse_Somno_TUM/Noise/"
-
-# create directories if they do not exist
-if not os.path.isdir(TEMPORARY_PICKLE_DIRECTORY):
-    os.mkdir(TEMPORARY_PICKLE_DIRECTORY)
-if not os.path.isdir(TEMPORARY_FIGURE_DIRECTORY):
-    os.mkdir(TEMPORARY_FIGURE_DIRECTORY)
-if not os.path.isdir(PREPARATION_DIRECTORY):
-    os.mkdir(PREPARATION_DIRECTORY)
 
 """
 --------------------------------
@@ -104,6 +96,9 @@ physical_dimension_correction_dictionary = {
     "Y": {"possible_dimensions": force_dimensions, "dimension_correction": force_correction},
     "Z": {"possible_dimensions": force_dimensions, "dimension_correction": force_correction}
 }
+
+# delete variables not needed anymore
+del voltage_dimensions, voltage_correction, force_dimensions, force_correction
 
 
 """
@@ -245,7 +240,9 @@ if not data_source_settings["use_manually_chosen_data_directories"]:
         directory = HEAD_DATA_DIRECTORY, 
         valid_file_types = file_params["valid_file_types"]
     )
-del HEAD_DATA_DIRECTORY
+
+# delete variables not needed anymore
+del data_source_settings, HEAD_DATA_DIRECTORY, RPEAK_COMPARISON_REPORT_PATH, RPEAK_CLASSIFICATION_DIRECTORY, ECG_VALIDATION_COMPARISON_REPORT_PATH, ECG_CLASSIFICATION_DIRECTORY, physical_dimension_correction_dictionary
 
 # add all parameters to the parameters dictionary, so we can access them later more easily
 parameters.update(settings_params)
@@ -257,10 +254,8 @@ parameters.update(calculate_MAD_params)
 
 if settings_params["run_additionals_section"]:
     parameters.update(additions_results_dictionary_key_params)
-    if settings_params["perform_ecg_validation_comparison"]:
-        parameters.update(ecg_validation_comparison_params)
-    if settings_params["perform_rpeak_comparison"]:
-        parameters.update(rpeak_comparison_params)
+    parameters.update(ecg_validation_comparison_params)
+    parameters.update(rpeak_comparison_params)
 
 # delete the dictionaries as they are saved in the parameters dictionary now
 del settings_params, file_params, preparation_results_dictionary_key_params, valid_ecg_regions_params, detect_rpeaks_params, calculate_MAD_params, additions_results_dictionary_key_params, ecg_validation_comparison_params, rpeak_comparison_params
@@ -514,6 +509,10 @@ def preparation_section(run_section: bool):
     # check if the section should be run
     if not run_section:
         return
+    
+    # create directory if it does not exist
+    if not os.path.isdir(PREPARATION_DIRECTORY):
+        os.mkdir(PREPARATION_DIRECTORY)
 
     """
     --------------------------------
@@ -648,8 +647,17 @@ def main():
     #     xlim = x_lim
     #     )
 
+    # run additional section
     # additional_section(parameters["run_additionals_section"])
+    # delete variables not needed anymore
+    global ADDITIONALS_DIRECTORY, ADDITIONS_RESULTS_PATH, ADDITIONS_RAW_DATA_DIRECTORY, SHOW_CALIBRATION_DATA_DIRECTORY, RPEAK_COMPARISON_DIRECTORY, ECG_VALIDATION_COMPARISON_DIRECTORY 
+    del ADDITIONALS_DIRECTORY, ADDITIONS_RESULTS_PATH, ADDITIONS_RAW_DATA_DIRECTORY, SHOW_CALIBRATION_DATA_DIRECTORY, RPEAK_COMPARISON_DIRECTORY, ECG_VALIDATION_COMPARISON_DIRECTORY
+    
+    # run preparation section
     preparation_section(parameters["run_preparation_section"])
+    # delete variables not needed anymore
+    global PREPARATION_DIRECTORY, PREPARATION_RESULTS_NAME, ECG_VALIDATION_THRESHOLDS_PATH
+    del PREPARATION_DIRECTORY, PREPARATION_RESULTS_NAME, ECG_VALIDATION_THRESHOLDS_PATH
 
     # regions = load_from_pickle(ADDITIONALS_DIRECTORY + "Valid_ECG_Regions.pkl")
     # for i in regions:

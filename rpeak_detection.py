@@ -338,13 +338,14 @@ def detect_rpeaks(
                     detection_interval = interval
                     )
                 this_rpeaks = np.append(this_rpeaks, this_result)
+        
+            # save the r-peaks to a pickle file
+            generator_entry[rpeak_function_name] = this_rpeaks
+            append_to_pickle(generator_entry, temporary_file_path)
+
         except:
             unprocessable_files.append(file_name)
             continue
-
-        # save the r-peaks to a pickle file
-        generator_entry[rpeak_function_name] = this_rpeaks
-        append_to_pickle(generator_entry, temporary_file_path)
     
     progress_bar(progressed_files, total_files)
 
@@ -556,15 +557,16 @@ def combine_detected_rpeaks(
                 frequency = sampling_frequency,
                 rpeak_distance_threshold_seconds = rpeak_distance_threshold_seconds
                 )
+        
+            # save the r-peaks to a pickle file
+            generator_entry[certain_rpeaks_dictionary_key] = these_combined_rpeaks[0]
+            generator_entry[uncertain_primary_rpeaks_dictionary_key] = these_combined_rpeaks[1]
+            generator_entry[uncertain_secondary_rpeaks_dictionary_key] = these_combined_rpeaks[2]
+            append_to_pickle(generator_entry, temporary_file_path)
+
         except:
             unprocessable_files.append(file_name)
             continue
-
-        # save the r-peaks to a pickle file
-        generator_entry[certain_rpeaks_dictionary_key] = these_combined_rpeaks[0]
-        generator_entry[uncertain_primary_rpeaks_dictionary_key] = these_combined_rpeaks[1]
-        generator_entry[uncertain_secondary_rpeaks_dictionary_key] = these_combined_rpeaks[2]
-        append_to_pickle(generator_entry, temporary_file_path)
 
     progress_bar(progressed_files, total_files)
 
@@ -889,23 +891,24 @@ def read_rpeaks_from_rri_files(
                     file_path = rpeaks_values_directory + this_value_file,
                     add_offset = add_offset_to_classification
                 )
+            
+                # get r-peak values with wanted classification
+                this_rpeaks = np.array([], dtype = int)
+                for classification in include_rpeak_value_classifications:
+                    try:
+                        this_rpeaks = np.append(this_rpeaks, rpeaks_values[classification])
+                    except KeyError:
+                        # print("Classification %s is missing in %s. Skipping this classification." % (classification, file))
+                        pass
+            
+                # save the r-peak values to pickle file
+                generator_entry[rpeak_classification_dictionary_key] = this_rpeaks
+                append_to_pickle(generator_entry, temporary_file_path)
+
             except:
                 unprocessable_files.append(file_name)
                 continue
 
-            # get r-peak values with wanted classification
-            this_rpeaks = np.array([], dtype = int)
-            for classification in include_rpeak_value_classifications:
-                try:
-                    this_rpeaks = np.append(this_rpeaks, rpeaks_values[classification])
-                except KeyError:
-                    # print("Classification %s is missing in %s. Skipping this classification." % (classification, file))
-                    pass
-            
-            # save the r-peak values to pickle file
-            generator_entry[rpeak_classification_dictionary_key] = this_rpeaks
-            append_to_pickle(generator_entry, temporary_file_path)
-    
     elif user_answer == "no_file_found":
 
         # get all valid files
@@ -936,25 +939,26 @@ def read_rpeaks_from_rri_files(
                     file_path = rpeaks_values_directory + this_value_file,
                     add_offset = add_offset_to_classification
                 )
+            
+                # get r-peak values with wanted classification
+                this_rpeaks = np.array([], dtype = int)
+                for classification in include_rpeak_value_classifications:
+                    try:
+                        this_rpeaks = np.append(this_rpeaks, rpeaks_values[classification])
+                    except KeyError:
+                        # print("Classification %s is missing in %s. Skipping this classification." % (classification, file))
+                        pass
+                
+                # save the r-peak values for this file
+                this_files_dictionary_entry = {
+                    file_name_dictionary_key: file_name,
+                    rpeak_classification_dictionary_key: this_rpeaks
+                    }
+                append_to_pickle(this_files_dictionary_entry, temporary_file_path)
+
             except:
                 unprocessable_files.append(file_name)
                 continue
-
-            # get r-peak values with wanted classification
-            this_rpeaks = np.array([], dtype = int)
-            for classification in include_rpeak_value_classifications:
-                try:
-                    this_rpeaks = np.append(this_rpeaks, rpeaks_values[classification])
-                except KeyError:
-                    # print("Classification %s is missing in %s. Skipping this classification." % (classification, file))
-                    pass
-            
-            # save the r-peak values for this file
-            this_files_dictionary_entry = {
-                file_name_dictionary_key: file_name,
-                rpeak_classification_dictionary_key: this_rpeaks
-                }
-            append_to_pickle(this_files_dictionary_entry, temporary_file_path)
     
     progress_bar(progressed_files, total_files)
 
@@ -965,13 +969,13 @@ def read_rpeaks_from_rri_files(
         pass
     os.rename(temporary_file_path, additions_results_path)
 
-    # print files with missing r-peaks
+    # print unprocessable files 
     if len(unprocessable_files) > 0:
         print("\nFor the following files the r-peaks could not be read:")
         print(unprocessable_files)
         print("Possible reasons:")
-        print(" "*5 + "- Error occured during reading r-peaks from classification file")
         print(" "*5 + "- Corresponding classification file to these files not found")
+        print(" "*5 + "- Error occured during reading r-peaks from classification file")
 
 
 def rpeak_detection_comparison(

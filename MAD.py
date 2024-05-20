@@ -212,19 +212,19 @@ def calculate_MAD_in_acceleration_data(
             progress_bar(progressed_files, total_files)
             progressed_files += 1
 
-            # get current file name
-            file = generator_entry[file_name_dictionary_key]
-
-            # try to load the data and correct the physical dimension if needed
             try:
+                # get current file name
+                file_name = generator_entry[file_name_dictionary_key]
+
                 # create lists to save the acceleration data and frequencies for each axis
                 acceleration_data = []
                 acceleration_data_frequencies = []
 
-                # get the acceleration data and frequency for each axis
+                # try to load the data and correct the physical dimension if needed
+                # (get the acceleration data and frequency for each axis)
                 for possible_axis_keys in wrist_acceleration_keys:
                     this_axis_signal, this_axis_frequency = read_edf.get_data_from_edf_channel(
-                        file_path = data_directory + file,
+                        file_path = data_directory + file_name,
                         possible_channel_labels = possible_axis_keys,
                         physical_dimension_correction_dictionary = physical_dimension_correction_dictionary
                     )
@@ -239,13 +239,14 @@ def calculate_MAD_in_acceleration_data(
                     frequencies = acceleration_data_frequencies,
                     time_period = mad_time_period_seconds, 
                     )
+                
+                # save MAD values
+                generator_entry[MAD_dictionary_key] = this_MAD_values
+                append_to_pickle(generator_entry, temporary_file_path)
+
             except:
-                unprocessable_files.append(data_directory + file)
+                unprocessable_files.append(file_name)
                 continue
-            
-            # save MAD values
-            generator_entry[MAD_dictionary_key] = this_MAD_values
-            append_to_pickle(generator_entry, temporary_file_path)
     
     elif user_answer == "no_file_found":
         # get all valid files
@@ -258,21 +259,21 @@ def calculate_MAD_in_acceleration_data(
 
         # calculate MAD in the wrist acceleration data
         print("\nCalculating MAD in the wrist acceleration data in %i files from \"%s\":" % (total_files, data_directory))
-        for file in valid_files:
+        for file_name in valid_files:
             # show progress
             progress_bar(progressed_files, total_files)
             progressed_files += 1
 
-            # try to load the data and correct the physical dimension if needed
             try:
                 # create lists to save the acceleration data and frequencies for each axis
                 acceleration_data = []
                 acceleration_data_frequencies = []
 
-                # get the acceleration data and frequency for each axis
+                # try to load the data and correct the physical dimension if needed
+                # (get the acceleration data and frequency for each axis)
                 for possible_axis_keys in wrist_acceleration_keys:
                     this_axis_signal, this_axis_frequency = read_edf.get_data_from_edf_channel(
-                        file_path = data_directory + file,
+                        file_path = data_directory + file_name,
                         possible_channel_labels = possible_axis_keys,
                         physical_dimension_correction_dictionary = physical_dimension_correction_dictionary
                     )
@@ -288,16 +289,16 @@ def calculate_MAD_in_acceleration_data(
                     time_period = mad_time_period_seconds, 
                     )
                 
-            except:
-                unprocessable_files.append(data_directory + file)
-                continue
+                # save MAD values for this file
+                this_files_dictionary_entry = {
+                    file_name_dictionary_key: file_name,
+                    MAD_dictionary_key: this_MAD_values
+                    }
+                append_to_pickle(this_files_dictionary_entry, temporary_file_path)
 
-            # save MAD values for this file
-            this_files_dictionary_entry = {
-                file_name_dictionary_key: file,
-                MAD_dictionary_key: this_MAD_values
-                }
-            append_to_pickle(this_files_dictionary_entry, temporary_file_path)
+            except:
+                unprocessable_files.append(file_name)
+                continue
     
     progress_bar(progressed_files, total_files)
 
@@ -316,3 +317,5 @@ def calculate_MAD_in_acceleration_data(
         print(" "*5 + "- ECG file contains format errors")
         print(" "*5 + "- No matching label in wrist_acceleration_keys and the files")
         print(" "*5 + "- Physical dimension of label is unknown")
+        print(" "*5 + "- Error during calculating of MAD values")
+        print(" "*5 + "- Dictionary key that access the file name does not exist in the results. Check keys in file or recalculate them.")
