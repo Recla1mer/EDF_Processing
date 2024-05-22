@@ -236,6 +236,8 @@ def plot_rpeak_detection(
     kwargs.setdefault("scatter_s", 10)
     kwargs.setdefault("scatter_alpha", 1)
     kwargs.setdefault("scatter_zorder", 2)
+    kwargs.setdefault("scatter_markers", ["s", "D", "^", "v", "o", "x", "<", ">", "p", "P", "*", "h", "H", "+", "X", "|", "_"])
+    kwargs.setdefault("scatter_marker_resize", 0.5)
 
     # xlim and ylim
     kwargs.setdefault("xlim", [0, len(ECG)])
@@ -252,7 +254,7 @@ def plot_rpeak_detection(
 
     # create arguments for scatter plotting
     local_scatter_kwargs = dict()
-    local_scatter_kwargs["s"] = kwargs["scatter_s"]
+    # local_scatter_kwargs["s"] = kwargs["scatter_s"]
     local_scatter_kwargs["alpha"] = kwargs["scatter_alpha"]
     local_scatter_kwargs["zorder"] = kwargs["scatter_zorder"]
 
@@ -279,6 +281,8 @@ def plot_rpeak_detection(
             rpeaks[i], 
             ECG[rpeaks[i]], 
             label=kwargs["legend"][i+1],
+            marker=kwargs["scatter_markers"][i],
+            s = int(kwargs["scatter_s"] * (kwargs["scatter_marker_resize"] ** i)),
             **local_scatter_kwargs
             )
     
@@ -291,9 +295,8 @@ def plot_rpeak_detection(
 
 
 def plot_MAD_values(
-        data: dict,
-        frequencies: dict,
-        wrist_acceleration_keys: list,
+        acceleration_data: list,
+        frequency: int,
         MAD_values: list,
         mad_time_period_seconds: int,
         **kwargs
@@ -323,11 +326,11 @@ def plot_MAD_values(
     kwargs.setdefault("title", "ECG Data")
     kwargs.setdefault("x_label", "time (in iterations)")
     kwargs.setdefault("y_label", "mg")
-    kwargs.setdefault("legend", "MAD")
+    kwargs.setdefault("legend", ["X", "Y", "Z", "MAD"])
     kwargs.setdefault("linewidth", 2)
     kwargs.setdefault("line_alpha", 0.7)
     kwargs.setdefault("linestyle", "-")
-    kwargs.setdefault("xlim", [0, len(data)])
+    kwargs.setdefault("xlim", [0, len(acceleration_data[0])])
     kwargs.setdefault("marker_size", 10)
     kwargs.setdefault("scatter_alpha", 1)
     kwargs.setdefault("scatter_zorder", 2)
@@ -341,9 +344,9 @@ def plot_MAD_values(
 
     y_mins = []
     y_maxs = []
-    for key in wrist_acceleration_keys:
-        y_mins.append(min(data[key][kwargs["xlim"][0]:kwargs["xlim"][1]]))
-        y_maxs.append(max(data[key][kwargs["xlim"][0]:kwargs["xlim"][1]]))
+    for acc_data in acceleration_data:
+        y_mins.append(min(acc_data[kwargs["xlim"][0]:kwargs["xlim"][1]]))
+        y_maxs.append(max(acc_data[kwargs["xlim"][0]:kwargs["xlim"][1]]))
     y_min = min(y_mins)
     y_max = max(y_maxs)
     kwargs.setdefault("ylim", [y_min-abs(0.2*y_max), y_max+abs(0.2*y_max)])
@@ -371,9 +374,8 @@ def plot_MAD_values(
     local_errorbar_kwargs["color"] = kwargs["marker_color"]
 
     # calculate time period in samples
-    frequency = frequencies[wrist_acceleration_keys[0]]
     mad_time_period_intervals = int(mad_time_period_seconds * frequency)
-    mad_x_values = np.arange(mad_time_period_intervals/2, len(data[wrist_acceleration_keys[0]]), mad_time_period_intervals)
+    mad_x_values = np.arange(mad_time_period_intervals/2, len(acceleration_data[0]), mad_time_period_intervals)
 
     # cut MAD values outside area of interest
     start_interval = 0
@@ -390,13 +392,15 @@ def plot_MAD_values(
     ax.set_ylabel(kwargs["y_label"])
     ax.set_title(kwargs["title"])
 
-    for key in wrist_acceleration_keys:
+    legend_label_counter = 0
+    for acc_data in acceleration_data:
         ax.plot(
             np.arange(kwargs["xlim"][0], kwargs["xlim"][1]), 
-            data[key][kwargs["xlim"][0]:kwargs["xlim"][1]], 
-            label=key, 
+            acc_data[kwargs["xlim"][0]:kwargs["xlim"][1]], 
+            label=kwargs["legend"][legend_label_counter], 
             **local_plot_kwargs
             )
+        legend_label_counter += 1
     
     # ax.scatter(
     #     mad_x_values[start_interval:end_interval], 
@@ -412,7 +416,7 @@ def plot_MAD_values(
                 mad_x_values[i], 
                 MAD_values[i], 
                 xerr=mad_time_period_intervals/2, 
-                label=kwargs["legend"],
+                label=kwargs["legend"][legend_label_counter],
                 **local_errorbar_kwargs
                 )
             first_entry = False

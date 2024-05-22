@@ -223,13 +223,11 @@ rpeak_comparison_params = {
     "valid_rpeak_values_file_types": [".rri"], # file types that store the r-peak classification data
     "include_rpeak_value_classifications": ["N"], # classifications that should be included in the evaluation
     #
-    # "rpeak_comparison_functions": [rpeak_detection.get_rpeaks_wfdb, rpeak_detection.get_rpeaks_ecgdetectors, rpeak_detection.get_rpeaks_hamilton, rpeak_detection.get_rpeaks_christov], # r-peak detection functions
-    "rpeak_comparison_functions": [rpeak_detection.get_rpeaks_wfdb, rpeak_detection.get_rpeaks_ecgdetectors], # r-peak detection functions
+    "rpeak_comparison_functions": [rpeak_detection.get_rpeaks_wfdb, rpeak_detection.get_rpeaks_ecgdetectors, rpeak_detection.get_rpeaks_hamilton, rpeak_detection.get_rpeaks_christov], # r-peak detection functions
     "rpeak_classification_function": rpeak_detection.read_rpeaks_from_rri_files, # functions to read the r-peak classifications
     "add_offset_to_classification": -1, #  offset that should be added to the r-peaks (classifications are slightly shifted for some reason)
     #
-    # "rpeak_comparison_function_names": ["wfdb", "ecgdetectors", "hamilton", "christov", "gif_classification"], # names of all used r-peak functions
-    "rpeak_comparison_function_names": ["wfdb", "ecgdetectors", "gif_classification"], # names of all used r-peak functions
+    "rpeak_comparison_function_names": ["wfdb", "ecgdetectors", "hamilton", "christov", "gif_classification"], # names of all used r-peak functions
     "rpeak_comparison_report_dezimal_places": 4, # number of dezimal places in the comparison report
     "rpeak_comparison_report_path": RPEAK_COMPARISON_REPORT_PATH, # path to the text file that stores the comparison report
 }
@@ -611,44 +609,9 @@ In this section we will run the functions we have created until now.
 """
 
 def main():
-    # create arguments for printing the r-peak comparison report and print it
-    # rpeak_comparison_report_args = create_sub_dict(parameters, rpeak_detection_comparison_report_variables)
-    # rpeak_detection.rpeak_detection_comparison_report(**rpeak_comparison_report_args)
-
-    #  # create arguments for printing the ECG validation comparison report
-    # ecg_validation_report_args = create_sub_dict(parameters, ecg_validation_comparison_report_variables)
-    # check_data.ecg_validation_comparison_report(**ecg_validation_report_args)
-
-    # load the ecg thresholds to the parameters dictionary
-    # ecg_validation_thresholds_dict = load_from_pickle(parameters["ecg_thresholds_save_path"])
-    # parameters.update(ecg_validation_thresholds_dict)
-    # del ecg_validation_thresholds_dict
-
-    # determine_ecg_region_args = create_sub_dict(parameters, determine_ecg_region_variables)
-    # check_data.determine_valid_ecg_regions(**determine_ecg_region_args)
-    # del determine_ecg_region_args
-
-    # file_name = "SL154_SL154_(1).edf"
-    # file_name = "SL214_SL214_(1).edf"
-
-    # valid_regions_dict = load_from_pickle(ADDITIONALS_DIRECTORY + "Valid_ECG_Regions.pkl")
-    # sigbufs, sigfreqs, sigdims, duration = read_edf.get_edf_data(GIF_DATA_DIRECTORY + file_name)
-
-    # valid_regions_ratio = check_data.valid_total_ratio(sigbufs, valid_regions_dict[file_name], parameters["ecg_key"])
-    # print("(Valid / Total) Regions Ratio: %f %%" % (round(valid_regions_ratio, 4)*100))
-
-    # total_length = len(sigbufs[parameters["ecg_key"]])
-    # x_lim = [int(0*total_length), int(0.5*total_length)]
-
-    # plot_helper.plot_valid_regions(
-    #     sigbufs, 
-    #     valid_regions_dict[file_name], 
-    #     parameters["ecg_key"], 
-    #     xlim = x_lim
-    #     )
 
     # run additional section
-    # additional_section(parameters["run_additionals_section"])
+    additional_section(parameters["run_additionals_section"])
     # delete variables not needed anymore
     global ADDITIONALS_DIRECTORY, ADDITIONS_RESULTS_PATH, ADDITIONS_RAW_DATA_DIRECTORY, SHOW_CALIBRATION_DATA_DIRECTORY, RPEAK_COMPARISON_DIRECTORY, ECG_VALIDATION_COMPARISON_DIRECTORY 
     del ADDITIONALS_DIRECTORY, ADDITIONS_RESULTS_PATH, ADDITIONS_RAW_DATA_DIRECTORY, SHOW_CALIBRATION_DATA_DIRECTORY, RPEAK_COMPARISON_DIRECTORY, ECG_VALIDATION_COMPARISON_DIRECTORY
