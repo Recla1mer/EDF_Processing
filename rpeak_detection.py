@@ -30,6 +30,19 @@ def get_rpeaks_hamilton(
     """
     Detect R-peaks in ECG data using the biosppy library.
 
+    This function looks different from the other detection functions, because of the 
+    following reasons:
+    -   The Hamilton method gets slower with larger data sets. Therefore the data is split
+    -   If no r-peaks can be detected at the start of the detection interval, the hamilton
+        method won't be able to detect any r-peaks further on. Therefore the lower bound of
+        the detection interval is increased until r-peaks are detected or the upper bound is
+        reached.
+    
+    ATTENTION:  As this was discovered during the development of the code, the function
+                contains two manually chosen variables, which are only changeable in the
+                code below and can not be passed to this function as an argument.
+                (Changing these values is not possible in the main.py file.)
+
     ARGUMENTS:
     --------------------------------
     ECG: list
@@ -45,6 +58,11 @@ def get_rpeaks_hamilton(
     rpeaks_corrected: 1D numpy array
         list of R-peak locations
     """
+    max_detection_interval_minutes = 30
+    max_detection_interval_iterations = int(max_detection_interval_minutes * frequency * 60)
+
+    skip_seconds_if_no_rpeaks = 10
+    skip_interval_iterations = int(skip_seconds_if_no_rpeaks * frequency)
 
     # get the ECG data in the detection interval
     if detection_interval is None:
@@ -52,17 +70,54 @@ def get_rpeaks_hamilton(
     else:
         ecg_signal = ECG[detection_interval[0]:detection_interval[1]]
 
-    # detect the R-peaks
-    rpeaks_hamilton = hamilton_segmenter(ecg_signal, frequency)['rpeaks']
-    rpeaks_corrected = wfdb.processing.correct_peaks(
-        ecg_signal, rpeaks_hamilton, search_radius=36, smooth_window_size=50, peak_dir="up"
-    )
+    for lower_border in range(0, len(ecg_signal), max_detection_interval_iterations):
+        upper_border = lower_border + max_detection_interval_iterations
+
+        if lower_border == 0:
+            lower_border_was_zero = True
+        else:
+            lower_border_was_zero = False
+
+        # check if the upper border is larger than the length of the ECG signal
+        if upper_border > len(ecg_signal):
+            upper_border = len(ecg_signal)
+
+        # detect the r-peaks
+        skip_correction = False
+        while True:
+            rpeaks_hamilton = hamilton_segmenter(ecg_signal[lower_border:upper_border], frequency)['rpeaks']
+            if len(rpeaks_hamilton) > 0:
+                break
+            lower_border += skip_interval_iterations
+            if lower_border >= upper_border:
+                skip_correction = True
+                break
+        
+        if skip_correction:
+            rpeaks_corrected = np.array([], dtype = int)
+        else:
+            rpeaks_corrected = wfdb.processing.correct_peaks(
+                ecg_signal[lower_border:upper_border], rpeaks_hamilton, search_radius=36, smooth_window_size=50
+            )
+
+        # remove wrongly corrected values
+        for peak_index in range(len(rpeaks_corrected)):
+            if rpeaks_corrected[peak_index] < 0:
+                rpeaks_corrected[peak_index] = rpeaks_hamilton[peak_index]
+            else:
+                break
+
+        # correct r-peak shift
+        if lower_border_was_zero:
+            rpeaks = rpeaks_corrected + lower_border
+        else:
+            rpeaks = np.append(rpeaks, rpeaks_corrected + lower_border)
     
     # if not the whole ECG data is used, the R-peaks are shifted by the start of the detection interval and need to be corrected
     if detection_interval is not None:
-        rpeaks_hamilton += detection_interval[0]
+        rpeaks += detection_interval[0]
     
-    return rpeaks_corrected
+    return rpeaks
 
 
 def get_rpeaks_christov(
@@ -73,6 +128,18 @@ def get_rpeaks_christov(
     """
     Detect R-peaks in ECG data using the biosppy library.
 
+    This function looks different from the other detection functions, because of the 
+    following reasons:
+    -   The Christov method gets slower with larger data sets.
+    -   The Christiv method detects too many r-peaks in larger data sets.
+    
+    Because of these reasons, the data is split into smaller intervals.
+
+    ATTENTION:  As this was discovered during the development of the code, the function
+                contains a manually chosen variable, which is only changeable in the code
+                below and can not be passed to this function as an argument.
+                (Changing this value is not possible in the main.py file.)
+
     ARGUMENTS:
     --------------------------------
     ECG: list
@@ -88,6 +155,8 @@ def get_rpeaks_christov(
     rpeaks_corrected: 1D numpy array
         list of R-peak locations
     """
+    max_detection_interval_minutes = 2
+    max_detection_interval_iterations = int(max_detection_interval_minutes * frequency * 60)
 
     # get the ECG data in the detection interval
     if detection_interval is None:
@@ -95,17 +164,37 @@ def get_rpeaks_christov(
     else:
         ecg_signal = ECG[detection_interval[0]:detection_interval[1]]
 
-    # detect the R-peaks
-    rpeaks_christov = christov_segmenter(ecg_signal, frequency)['rpeaks']
-    rpeaks_corrected = wfdb.processing.correct_peaks(
-        ecg_signal, rpeaks_christov, search_radius=36, smooth_window_size=50, peak_dir="up"
-    )
+    for lower_border in range(0, len(ecg_signal), max_detection_interval_iterations):
+        upper_border = lower_border + max_detection_interval_iterations
+
+        # check if the upper border is larger than the length of the ECG signal
+        if upper_border > len(ecg_signal):
+            upper_border = len(ecg_signal)
+
+        # detect the r-peaks
+        rpeaks_christov = christov_segmenter(ecg_signal[lower_border:upper_border], frequency)['rpeaks']
+        rpeaks_corrected = wfdb.processing.correct_peaks(
+            ecg_signal[lower_border:upper_border], rpeaks_christov, search_radius=36, smooth_window_size=50
+        )
+
+        # remove wrongly corrected values
+        for peak_index in range(len(rpeaks_corrected)):
+            if rpeaks_corrected[peak_index] < 0:
+                rpeaks_corrected[peak_index] = rpeaks_christov[peak_index]
+            else:
+                break
+
+        # correct r-peak shift
+        if lower_border == 0:
+            rpeaks = rpeaks_corrected
+        else:
+            rpeaks = np.append(rpeaks, rpeaks_corrected + lower_border)
     
     # if not the whole ECG data is used, the R-peaks are shifted by the start of the detection interval and need to be corrected
     if detection_interval is not None:
-        rpeaks_christov += detection_interval[0]
+        rpeaks += detection_interval[0]
     
-    return rpeaks_corrected
+    return rpeaks
 
 
 def get_rpeaks_ecgdetectors(
@@ -184,8 +273,15 @@ def get_rpeaks_neuro(
     rpeaks = results["ECG_R_Peaks"]
 
     rpeaks_corrected = wfdb.processing.correct_peaks(
-        ecg_signal, rpeaks, search_radius=36, smooth_window_size=50, peak_dir="up"
+        ecg_signal, rpeaks, search_radius=36, smooth_window_size=50
     )
+
+    # remove wrongly corrected values
+    for peak_index in range(len(rpeaks_corrected)):
+        if rpeaks_corrected[peak_index] < 0:
+            rpeaks_corrected[peak_index] = rpeaks[peak_index]
+        else:
+            break
 
     # if not the whole ECG data is used, the R-peaks are shifted by the start of the detection interval and need to be corrected
     if detection_interval is not None:
@@ -228,8 +324,15 @@ def get_rpeaks_wfdb(
     # detect the R-peaks
     rpeaks = wfdb.processing.xqrs_detect(ecg_signal, fs=frequency, verbose=False)
     rpeaks_corrected = wfdb.processing.correct_peaks(
-        ecg_signal, rpeaks, search_radius=36, smooth_window_size=50, peak_dir="up"
+        ecg_signal, rpeaks, search_radius=36, smooth_window_size=50
     )
+
+    # remove wrongly corrected values
+    for peak_index in range(len(rpeaks_corrected)):
+        if rpeaks_corrected[peak_index] < 0:
+            rpeaks_corrected[peak_index] = rpeaks[peak_index]
+        else:
+            break
 
     # if not the whole ECG data is used, the R-peaks are shifted by the start of the detection interval and need to be corrected
     if detection_interval is not None:
