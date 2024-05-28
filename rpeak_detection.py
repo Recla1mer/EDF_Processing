@@ -97,7 +97,7 @@ def get_rpeaks_hamilton(
             rpeaks_corrected = np.array([], dtype = int)
         else:
             rpeaks_corrected = wfdb.processing.correct_peaks(
-                ecg_signal[lower_border:upper_border], rpeaks_hamilton, search_radius=36, smooth_window_size=50
+                ecg_signal[lower_border:upper_border], rpeaks_hamilton, search_radius=36, smooth_window_size=50, peak_dir="up"
             )
 
         # remove wrongly corrected values
@@ -1087,6 +1087,7 @@ def rpeak_detection_comparison(
         rpeak_distance_threshold_seconds: float,
         additions_results_path: str,
         file_name_dictionary_key: str,
+        valid_ecg_regions_dictionary_key: str,
         rpeak_comparison_function_names: list,
         rpeak_comparison_dictionary_key: str
     ):
@@ -1105,6 +1106,8 @@ def rpeak_detection_comparison(
         path to the pickle file where the r-peaks are saved
     file_name_dictionary_key
         dictionary key to access the file name
+    valid_ecg_regions_dictionary_key: str
+        dictionary key to access the valid ecg regions
     rpeak_comparison_function_names: list
         list of dictionary keys that access the differently detected r-peaks that should be compared
     rpeak_comparison_dictionary_key: str
@@ -1159,6 +1162,7 @@ def rpeak_detection_comparison(
 
         # get file name
         file_name = generator_entry[file_name_dictionary_key]
+        valid_ecg_regions = generator_entry[valid_ecg_regions_dictionary_key]
 
         # create list to store the r-peak comparison values for all detection methods as list
         this_file_rpeak_comparison = []
@@ -1178,8 +1182,22 @@ def rpeak_detection_comparison(
                 second_rpeaks = generator_entry[rpeak_comparison_function_names[path_index_second]]
 
                 # get the number of detected r-peaks
-                number_first_rpeaks = len(first_rpeaks)
-                number_second_rpeaks = len(second_rpeaks)
+                # number_first_rpeaks = len(first_rpeaks)
+                # number_second_rpeaks = len(second_rpeaks)
+
+                number_first_rpeaks = 0
+                for r_peak in first_rpeaks:
+                    for valid_region in valid_ecg_regions:
+                        if valid_region[0] <= r_peak <= valid_region[1]:
+                            number_first_rpeaks += 1
+                            break
+
+                number_second_rpeaks = 0
+                for r_peak in second_rpeaks:
+                    for valid_region in valid_ecg_regions:
+                        if valid_region[0] <= r_peak <= valid_region[1]:
+                            number_second_rpeaks += 1
+                            break
 
                 # calculate the r-peak comparison values
                 rmse_without_same, rmse_with_same, len_same_values, len_analog_values = compare_rpeak_detections(

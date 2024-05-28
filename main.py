@@ -129,7 +129,7 @@ settings_params = {
     "run_additionals_section": True, # if True, the ADDITIONALS SECTION will be executed
     "run_preparation_section": True, # if True, the PREPARATION SECTION will be executed
     # set what parts of the ADDITIONALS SECTION should be executed
-    "show_calibration_data": True, # if True, the calibration data in the manually chosen intervals will be plotted and saved to the SHOW_CALIBRATION_DATA_DIRECTORY
+    "show_calibration_data": False, # if True, the calibration data in the manually chosen intervals will be plotted and saved to the SHOW_CALIBRATION_DATA_DIRECTORY
     "perform_rpeak_comparison": True, # if True, the r-peak detection functions will be compared
     "perform_ecg_validation_comparison": True, # if True, the ECG validations will be compared
     # set what parts of the PREPARATION SECTION should be executed
@@ -307,8 +307,8 @@ read_rpeak_classification_variables = ["data_directory", "valid_file_types", "rp
     "additions_results_path", "file_name_dictionary_key"]
 
 rpeak_detection_comparison_variables = ["data_directory", "ecg_keys", "rpeak_distance_threshold_seconds", 
-    "additions_results_path", "file_name_dictionary_key", "rpeak_comparison_function_names", 
-    "rpeak_comparison_dictionary_key"]
+    "additions_results_path", "file_name_dictionary_key", "valid_ecg_regions_dictionary_key",
+    "rpeak_comparison_function_names", "rpeak_comparison_dictionary_key"]
 
 rpeak_detection_comparison_report_variables = ["rpeak_comparison_report_dezimal_places", 
     "rpeak_comparison_report_path", "additions_results_path", "file_name_dictionary_key",
