@@ -42,14 +42,14 @@ if __name__ == "__main__":
     rpeaks_christov = rpd.get_rpeaks_christov(ECG, 500, None)
     plt.figure(figsize=(15, 4))
     plt.plot(t, ECG)
-    plt.scatter(t[rpeaks_christov], ECG[rpeaks_christov], color='red', marker='o',
-                label='R-peaks from Christov', alpha=0.5)
-    plt.scatter(t[rpeaks_hamilton], ECG[rpeaks_hamilton], color='green', 
-                marker='o', label='R-peaks from Hamilton', alpha=0.5)
-    # plt.scatter(t[rpeaks_christov_old], ECG[rpeaks_christov_old], color='orange', marker='s',
+    # plt.scatter(t[rpeaks_christov], ECG[rpeaks_christov], color='red', marker='o',
     #             label='R-peaks from Christov', alpha=0.5)
-    # plt.scatter(t[rpeaks_hamilton_old], ECG[rpeaks_hamilton_old], color='blue', 
-    #             marker='*', label='R-peaks from Hamilton', alpha=0.5)
+    # plt.scatter(t[rpeaks_hamilton], ECG[rpeaks_hamilton], color='green', 
+    #             marker='o', label='R-peaks from Hamilton', alpha=0.5)
+    plt.scatter(t[rpeaks_christov_old], ECG[rpeaks_christov_old], color='orange', marker='s',
+                label='R-peaks from Christov', alpha=0.5)
+    plt.scatter(t[rpeaks_hamilton_old], ECG[rpeaks_hamilton_old], color='blue', 
+                marker='*', label='R-peaks from Hamilton', alpha=0.5)
     # plt.scatter(t[rpeaks_wfdb], ECG[rpeaks_wfdb], color='blue', 
     #             marker='o', label='R-peaks from wfdb', alpha=0.5)
     # plt.scatter(t[rpeaks_old], ECG[rpeaks_old], color='black', 
