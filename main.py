@@ -622,24 +622,5 @@ def main():
     global PREPARATION_DIRECTORY, PREPARATION_RESULTS_NAME, ECG_VALIDATION_THRESHOLDS_PATH
     del PREPARATION_DIRECTORY, PREPARATION_RESULTS_NAME, ECG_VALIDATION_THRESHOLDS_PATH
 
-    # regions = load_from_pickle(ADDITIONALS_DIRECTORY + "Valid_ECG_Regions.pkl")
-    # for i in regions:
-    #     key = list(i.keys())[0]
-    #     print(key)
-    #     print(i[key])
-    #     print(len(i[key]))
-    #     break
-
-    # peaks = load_from_pickle(ADDITIONALS_DIRECTORY + "RPeak_Comparison/RPeaks_wfdb.pkl")
-    # for i in peaks:
-    #     key = list(i.keys())[0]
-    #     print(key)
-    #     print(i[key])
-    #     print(len(i[key]))
-    #     break
-
-    # rpeaks = load_from_pickle(PREPARATION_DIRECTORY + "RPeaks_wfdb.pkl")
-    # print(rpeaks)
-
 if __name__ == "__main__":
     main()

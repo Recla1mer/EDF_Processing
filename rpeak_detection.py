@@ -97,7 +97,7 @@ def get_rpeaks_hamilton(
             rpeaks_corrected = np.array([], dtype = int)
         else:
             rpeaks_corrected = wfdb.processing.correct_peaks(
-                ecg_signal[lower_border:upper_border], rpeaks_hamilton, search_radius=36, smooth_window_size=50, peak_dir="up"
+                ecg_signal[lower_border:upper_border], rpeaks_hamilton, search_radius=36, smooth_window_size=50
             )
 
         # remove wrongly corrected values
