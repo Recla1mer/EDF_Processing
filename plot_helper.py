@@ -463,11 +463,13 @@ def plot_simple_histogram(
     kwargs.setdefault("y_scale", "linear")
     
     # xlim and ylim
-    # kwargs.setdefault("xlim", [0, len(data)])
+    x_min = min(data[0])
+    x_max = max(data[0])
+    for i in range(1, len(data)):
+        x_min = min(x_min, min(data[i]))
+        x_max = max(x_max, max(data[i]))
     
-    # y_min = min(data[kwargs["xlim"][0]:kwargs["xlim"][1]])
-    # y_max = max(data[kwargs["xlim"][0]:kwargs["xlim"][1]])
-    # kwargs.setdefault("ylim", [y_min-abs(0.2*y_max), y_max+abs(0.2*y_max)])
+    kwargs.setdefault("xlim", [x_min-0.01*abs(x_max), x_max+0.01*abs(x_max)])
 
     sns_args = dict(
         kde=kwargs["kde"],
@@ -492,6 +494,7 @@ def plot_simple_histogram(
     ax = sns.histplot(data=data_dict, x="data", hue="name", **sns_args)
     ax.set(xlabel=kwargs["x_label"], ylabel=kwargs["y_label"])
     ax.set_yscale(kwargs["y_scale"])
+    ax.set_xlim(kwargs["xlim"])
     ax.grid(kwargs["grid"])
     ax.set_axisbelow(True)
     ax.legend(title=kwargs["label_title"], labels=kwargs["label"], loc=kwargs["loc"])

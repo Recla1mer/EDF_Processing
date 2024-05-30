@@ -123,7 +123,9 @@ def visualizing_r_peak_comparison():
         label_title = "R-Peak Detection Method",
         x_label = "Analogue Ratio",
         y_label = "Count",
-        kde=False,
+        kde=True,
+        binwidth = 0.1,
+        x_lim = [0, 1],
     )
 
 #plot_non_intersecting_r_peaks()
