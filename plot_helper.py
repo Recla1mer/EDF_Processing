@@ -457,6 +457,7 @@ def plot_simple_histogram(
     kwargs.setdefault("kde", False)
     kwargs.setdefault("bw_adjust", 2)
     kwargs.setdefault("binwidth", 0.01)
+    kwargs.setdefault("binrange", None)
     kwargs.setdefault("common_bins", True)
     kwargs.setdefault("multiple", "layer")
     kwargs.setdefault("alpha", 0.5)
@@ -477,8 +478,10 @@ def plot_simple_histogram(
         edgecolor=kwargs["edgecolor"],
         common_bins=kwargs["common_bins"],
         multiple=kwargs["multiple"],
-        alpha=kwargs["alpha"]
+        alpha=kwargs["alpha"],
     )
+    if kwargs["binrange"] is not None:
+        sns_args["binrange"] = kwargs["binrange"]
 
     # create data dictionary
     data_dict = dict(

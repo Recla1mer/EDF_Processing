@@ -17,6 +17,46 @@ parameters = main.parameters
 additions_results_path = parameters["additions_results_path"]
 
 """
+Plot valid ecg regions
+"""
+def show_valid_ecg_regions():
+    # choose a random file
+    data_directory = "Data/GIF/SOMNOwatch/"
+    file_data_name = "SL001_SL001_(1).edf"
+
+    file_data_path = data_directory + file_data_name
+
+    # load the valid regions
+    preparation_results_generator = load_from_pickle(additions_results_path)
+    for generator_entry in preparation_results_generator:
+        if generator_entry[parameters["file_name_dictionary_key"]] == file_data_name:
+            this_files_valid_ecg_regions = generator_entry[parameters["valid_ecg_regions_dictionary_key"]]
+            break
+
+    # load the ECG data
+    ECG, frequency = read_edf.get_data_from_edf_channel(
+        file_path = file_data_path,
+        possible_channel_labels = parameters["ecg_keys"],
+        physical_dimension_correction_dictionary = parameters["physical_dimension_correction_dictionary"]
+        )
+
+    # calculate the ratio of valid regions to total regions
+    valid_regions_ratio = check_data.valid_total_ratio(
+        ECG = ECG, 
+        valid_regions = this_files_valid_ecg_regions
+        )
+    print("(Valid / Total) Regions Ratio: %f %%" % (round(valid_regions_ratio, 4)*100))
+
+    total_length = len(ECG)
+    x_lim = [int(0*total_length), int(1*total_length)]
+
+    plot_helper.plot_valid_regions(
+        ECG = ECG, 
+        valid_regions = this_files_valid_ecg_regions,
+        xlim = x_lim
+        )
+
+"""
 Plot Non-Intersecting R-Peaks
 """
 
@@ -128,5 +168,7 @@ def visualizing_r_peak_comparison():
         x_lim = [0, 1],
     )
 
+
+show_valid_ecg_regions()
 #plot_non_intersecting_r_peaks()
 visualizing_r_peak_comparison()
