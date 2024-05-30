@@ -8,6 +8,7 @@ other ones. Their purpose is to keep them a little cleaner and more intuitive.
 # IMPORTS
 import os
 import pickle
+import time
 import copy
 import numpy as np
 
@@ -180,6 +181,39 @@ def validate_parameter_settings(parameters: dict):
             raise ValueError("'rpeak_comparison_report_path' parameter must be a string.")
 
 
+def print_smart_time(time_seconds: int):
+    """
+    Convert seconds to a time format that is easier to read.
+
+    ARGUMENTS:
+    --------------------------------
+    time_seconds: int
+        time in seconds
+    
+    RETURNS:
+    --------------------------------
+    str
+        time in a more readable format
+    """
+    if time_seconds <= 1:
+        return str(round(time_seconds, 1)) + "s"
+    else:
+        time_seconds = int(time_seconds)
+        days = time_seconds // 86400
+        hours = time_seconds // 3600
+        minutes = (time_seconds % 3600) // 60
+        seconds = time_seconds % 60
+
+        if days > 0:
+            return str(days) + "d " + str(hours) + "h"
+        if hours > 0:
+            return str(hours) + "h " + str(minutes) + "m"
+        elif minutes > 0:
+            return str(minutes) + "m " + str(seconds) + "s"
+        else:
+            return str(seconds) + "s"
+
+
 def progress_bar(index: int, total: int, bar_len=50, title="Please wait"):
     """
     Prints a progress bar to the console.
@@ -202,6 +236,25 @@ def progress_bar(index: int, total: int, bar_len=50, title="Please wait"):
     --------------------------------
     None, but prints the progress bar to the console
     """
+
+    # estimate time remaining
+    temporary_file_path = "temporarily_store_time.pkl"
+
+    if index == 0:
+        start_time = time.time()
+        with open(temporary_file_path, 'wb') as f:
+            pickle.dump(start_time, f)
+        time_remaining_str = "Calculating..."
+    else:
+        with open(temporary_file_path, 'rb') as f:
+            start_time = pickle.load(f)
+        
+        time_passed = time.time() - start_time
+        time_remaining = time_passed/index*(total-index)
+        time_remaining_str = print_smart_time(time_remaining)
+        time_remaining_str += " "*((len("Calculating...")-len(time_remaining_str)))
+
+    # code from source
     percent_done = index/total*100
     rounded_percent_done = round(percent_done, 1)
 
@@ -211,9 +264,10 @@ def progress_bar(index: int, total: int, bar_len=50, title="Please wait"):
     done_str = '█'*int(done)
     togo_str = '░'*int(togo)
 
-    print(f'\t⏳{title}: [{done_str}{togo_str}] {rounded_percent_done}% done', end='\r')
+    print(f'\t⏳{title}: [{done_str}{togo_str}] {rounded_percent_done}% done. Time remaining: {time_remaining_str}', end='\r')
 
     if percent_done == 100:
+        os.remove(temporary_file_path)
         print('\t✅')
 
 

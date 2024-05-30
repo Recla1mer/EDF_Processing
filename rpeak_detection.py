@@ -21,16 +21,6 @@ import old_code.rpeak_detection as old_rpeak
 import read_edf
 from side_functions import *
 
-# remove wrongly corrected values
-# for peak_index in range(len(rpeaks_corrected)):
-#     if rpeaks_corrected[peak_index] < 0:
-#         rpeaks_corrected[peak_index] = rpeaks_hamilton[peak_index]
-#     else:
-#         break
-
-# rpeaks_corrected = wfdb.processing.correct_peaks(
-#     ecg_signal[lower_border:upper_border], rpeaks_christov, search_radius=36, smooth_window_size=50
-# )
 
 def get_rpeaks_hamilton(
         ECG: list,
@@ -301,9 +291,6 @@ def get_rpeaks_wfdb(
     # detect the R-peaks
     rpeaks = wfdb.processing.xqrs_detect(ecg_signal, fs=frequency, verbose=False)
     rpeaks = np.array(rpeaks, dtype=int)
-    # rpeaks_corrected = wfdb.processing.correct_peaks(
-    #     ecg_signal, rpeaks, search_radius=36, smooth_window_size=50
-    # )
 
     # if not the whole ECG data is used, the R-peaks are shifted by the start of the detection interval and need to be corrected
     if detection_interval is not None:
@@ -373,6 +360,8 @@ def detect_rpeaks(
     
     # path to pickle file which will store results
     temporary_file_path = get_path_without_filename(preparation_results_path) + "computation_in_progress.pkl"
+    if os.path.isfile(temporary_file_path):
+        os.remove(temporary_file_path)
 
     # create variables to track progress
     total_files = get_pickle_length(preparation_results_path)
@@ -438,6 +427,145 @@ def detect_rpeaks(
         print(" "*5 + "- Error occured during r-peak detection")
 
 
+def correct_rpeak_locations(
+        data_directory: str,
+        ecg_keys: list,
+        physical_dimension_correction_dictionary: dict,
+        rpeak_function_name: str,
+        before_correction_rpeak_function_name_addition: str,
+        preparation_results_path: str,
+        file_name_dictionary_key: str,
+    ):
+    """
+    Detected r-peaks can be corrected using the wfdb library. This is useful if the
+    detected r-peaks are shifted by a few samples. It also makes the comparison of
+    different r-peak detection methods easier.
+
+    (The peak direction depends on how the heart beats in direction to the electrodes.
+    Therefore it can be different for different data sets, but is always the same within
+    on set of data.) 
+
+    Therefore we let the library decide on the direction of the peaks.
+
+    ARGUMENTS:
+    --------------------------------
+    data_directory: str
+        directory where the data is stored
+    ecg_keys: list
+        list of possible labels for the ECG data
+    physical_dimension_correction_dictionary: dict
+        dictionary needed to check and correct the physical dimension of all signals
+    rpeak_function_name: str
+        name of the r-peak detection function
+    before_correction_rpeak_function_name_addition: str
+        addition to the r-peak detection function name to access the r-peaks before correction
+    preparation_results_path: str
+        path to the pickle file where the valid regions are saved
+    file_name_dictionary_key
+        dictionary key to access the file name
+
+    RETURNS:
+    --------------------------------
+    None, but the rpeaks are saved as dictionaries to a pickle file in the following format:
+    {
+        file_name_dictionary_key: file_name_1,
+        rpeak_function_name: corrected_rpeaks_1,
+        rpeak_function_name + before_correction_rpeak_function_name_addition: rpeaks_before_correction_1,
+        ...
+    }
+        ...
+    """
+    before_correction_rpeak_function_name = rpeak_function_name + before_correction_rpeak_function_name_addition
+    
+    # check if correction of r-peaks already exist and if yes: ask for permission to override
+    user_answer = ask_for_permission_to_override_dictionary_entry(
+        file_path = preparation_results_path,
+        dictionary_entry = before_correction_rpeak_function_name
+    )
+    
+    # cancel if user does not want to override
+    if user_answer == "n":
+        return
+
+    # cancel if needed data is missing
+    if user_answer == "no_file_found":
+        print("\nFile containing detected r-peaks not found. As they are needed to correct them in the first place, the correction will be skipped.")
+        return
+    
+    # path to pickle file which will store results
+    temporary_file_path = get_path_without_filename(preparation_results_path) + "computation_in_progress.pkl"
+    if os.path.isfile(temporary_file_path):
+        os.remove(temporary_file_path)
+
+    # create variables to track progress
+    total_files = get_pickle_length(preparation_results_path)
+    progressed_files = 0
+
+    # create lists to store unprocessable files
+    unprocessable_files = []
+
+    # load preparation results
+    preparation_results_generator = load_from_pickle(preparation_results_path)
+
+    # correct rpeaks
+    print("\nCorrecting r-peaks detected by %s in %i files:" % (rpeak_function_name, total_files))
+    for generator_entry in preparation_results_generator:
+        # show progress
+        progress_bar(progressed_files, total_files)
+        progressed_files += 1
+
+        try:
+            # get the valid regions for the ECG data and file name
+            file_name = generator_entry[file_name_dictionary_key]
+
+            # try to load the data and correct the physical dimension if needed
+            ecg_signal, ecg_sampling_frequency = read_edf.get_data_from_edf_channel(
+                file_path = data_directory + file_name,
+                possible_channel_labels = ecg_keys,
+                physical_dimension_correction_dictionary = physical_dimension_correction_dictionary
+            )
+
+            # get the r-peaks before correction
+            rpeaks_before_correction = generator_entry[rpeak_function_name]
+
+            # correct the r-peaks
+            rpeaks_corrected = wfdb.processing.correct_peaks(
+               ecg_signal, rpeaks_before_correction, search_radius=36, smooth_window_size=50
+                )
+            
+            # remove wrongly corrected values
+            for peak_index in range(len(rpeaks_corrected)):
+                if rpeaks_corrected[peak_index] < 0:
+                    rpeaks_corrected[peak_index] = rpeaks_before_correction[peak_index]
+                else:
+                    break
+        
+            # save the r-peaks to a pickle file
+            generator_entry[rpeak_function_name] = rpeaks_corrected
+            generator_entry[before_correction_rpeak_function_name] = rpeaks_before_correction
+            append_to_pickle(generator_entry, temporary_file_path)
+
+        except:
+            unprocessable_files.append(file_name)
+            continue
+    
+    progress_bar(progressed_files, total_files)
+
+    # rename the file that stores the calculated data
+    os.remove(preparation_results_path)
+    os.rename(temporary_file_path, preparation_results_path)
+
+    # print unprocessable files
+    if len(unprocessable_files) > 0:
+        print("\nFor the following files the r-peaks could not be corrected:")
+        print(unprocessable_files)
+        print("Possible reasons:")
+        print(" "*5 + "- Dictionary keys that access the file name and/or r-peaks do not exist in the results. Check keys in file or recalculate them.")
+        print(" "*5 + "- Error occured during r-peak correction, most likely due to empty ecg signal")
+        print(" "*5 + "- ECG file contains format errors")
+        print(" "*5 + "- Physical dimension of label is unknown")
+
+
 def combine_rpeaks(
         rpeaks_primary: list,
         rpeaks_secondary: list,
@@ -487,33 +615,59 @@ def combine_rpeaks(
     # convert the threshold from seconds to iterations
     distance_threshold_iterations = int(rpeak_distance_threshold_seconds * frequency)
 
+    # lists to store the r-peaks which match and which do not
+    last_matching_rpeak = -1
+    same_values = []
+    unmatching_values_primary = []
+    for i in range(len(rpeaks_primary)):
+        no_match = True
+        for j in range(last_matching_rpeak + 1, len(rpeaks_secondary)):
+            if rpeaks_secondary[j] > rpeaks_primary[i]:
+                break
+            if rpeaks_primary[i] == rpeaks_secondary[j]:
+                same_values.append(rpeaks_primary[i])
+                last_matching_rpeak = j
+                no_match = False
+                break
+        if no_match:
+            unmatching_values_primary.append(rpeaks_primary[i])
+
     # if two R-peaks are closer than the threshold, they are considered as the same
     # both will be changed to the same value (primary R-peak)
 
     last_matching_rpeak = -1 # stores position of the last matching R-peak
-    for i in range(len(rpeaks_primary)):
-        # only check R-peaks that do not match already
-        if rpeaks_primary[i] not in rpeaks_secondary:
-            # store possible match possitions and their distance to the primary R-peak
-            possible_matches = []
-            possible_matches_values = []
-            # iterate over the secondary R-peaks starting from the last matching R-peak
-            for j in range(last_matching_rpeak + 1, len(rpeaks_secondary)):
-                # calculate the distance and store it
-                this_distance = rpeaks_secondary[j] - rpeaks_primary[i]
-                possible_matches_values.append(abs(this_distance))
-                possible_matches.append(j)
-                # if the distance is larger than the threshold, stop the iteration
-                if this_distance > distance_threshold_iterations:
+    for i in range(len(unmatching_values_primary)):
+        # store possible match possitions and their distance to the primary R-peak
+        possible_matches = []
+        possible_matches_values = []
+        # iterate over the secondary R-peaks starting from the last matching R-peak
+        for j in range(last_matching_rpeak + 1, len(rpeaks_secondary)):
+            # calculate the distance and store it
+            this_distance = rpeaks_secondary[j] - unmatching_values_primary[i]
+            possible_matches_values.append(abs(this_distance))
+            possible_matches.append(j)
+            # if the distance is larger than the threshold, stop the iteration
+            if this_distance > distance_threshold_iterations:
+                break
+        # remove matches that are already in the same_values list
+        last_val_pos = 0
+        for pos_match_pos in range(len(possible_matches)):
+            for val_pos in range(last_val_pos + 1, len(same_values)):
+                if same_values[val_pos] > rpeaks_secondary[possible_matches[pos_match_pos]]:
                     break
-            # if there are possible matches, take the closest one
-            if len(possible_matches_values) > 0:
-                if min(possible_matches_values) < distance_threshold_iterations:
-                    last_matching_rpeak = possible_matches[possible_matches_values.index(min(possible_matches_values))]
-                    rpeaks_secondary[last_matching_rpeak] = rpeaks_primary[i]
+                last_val_pos = val_pos
+                if rpeaks_secondary[possible_matches[pos_match_pos]] == same_values[val_pos]:
+                    possible_matches_values[pos_match_pos] = distance_threshold_iterations + 1
+                    break
+        # if there are possible matches, take the closest one
+        if len(possible_matches_values) > 0:
+            if min(possible_matches_values) < distance_threshold_iterations:
+                last_matching_rpeak = possible_matches[possible_matches_values.index(min(possible_matches_values))]
+                rpeaks_secondary[last_matching_rpeak] = unmatching_values_primary[i]
 
     # intersect the R-peaks
-    rpeaks_intersected = np.intersect1d(rpeaks_primary, rpeaks_secondary)
+    # rpeaks_intersected = np.intersect1d(rpeaks_primary, rpeaks_secondary)
+    rpeaks_intersected = np.array(same_values, dtype=int)
 
     # get the R-peaks that are only in one of the two methods
     rpeaks_only_primary = np.setdiff1d(rpeaks_primary, rpeaks_secondary)
@@ -593,6 +747,8 @@ def combine_detected_rpeaks(
     
     # path to pickle file which will store results
     temporary_file_path = get_path_without_filename(preparation_results_path) + "computation_in_progress.pkl"
+    if os.path.isfile(temporary_file_path):
+        os.remove(temporary_file_path)
 
     # create variables to track progress
     total_files = get_pickle_length(preparation_results_path)
@@ -711,34 +867,60 @@ def compare_rpeak_detections(
     analog_value_in_first = []
     analog_value_in_second = []
 
-    # list to store the r-peaks that are the same (distance = 0)
+    # lists to store the r-peaks which match and which do not
+    last_matching_rpeak = -1
     same_values = []
+    unmatching_values_first = []
+    for i in range(len(first_rpeaks)):
+        no_match = True
+        for j in range(last_matching_rpeak + 1, len(second_rpeaks)):
+            if second_rpeaks[j] > first_rpeaks[i]:
+                break
+            if first_rpeaks[i] == second_rpeaks[j]:
+                same_values.append(first_rpeaks[i])
+                last_matching_rpeak = j
+                no_match = False
+                break
+        if no_match:
+            unmatching_values_first.append(first_rpeaks[i])
+    
+    unmatching_values_second = []
+    last_matching_rpeak = -1
+    for i in range(len(second_rpeaks)):
+        no_match = True
+        for j in range(last_matching_rpeak + 1, len(first_rpeaks)):
+            if first_rpeaks[j] > second_rpeaks[i]:
+                break
+            if second_rpeaks[i] == first_rpeaks[j]:
+                last_matching_rpeak = j
+                no_match = False
+                break
+        if no_match:
+            unmatching_values_second.append(second_rpeaks[i])
 
     # if two R-peaks are closer than the threshold, they are considered as the same
     last_matching_rpeak = -1 # stores position of the last matching R-peak
-    for i in range(len(first_rpeaks)):
-        # check R-peaks that do not match already, otherwise append them to the same_values
-        if first_rpeaks[i] not in second_rpeaks:
-            # store possible match possitions and their distance to the primary R-peak
-            possible_matches = []
-            possible_matches_values = []
-            # iterate over the second R-peaks starting from the last matching R-peak
-            for j in range(last_matching_rpeak + 1, len(second_rpeaks)):
-                # calculate the distance and store it
-                this_distance = second_rpeaks[j] - first_rpeaks[i]
-                possible_matches_values.append(abs(this_distance))
-                possible_matches.append(j)
-                # if the distance is larger than the threshold, stop the iteration
-                if this_distance > distance_threshold_iterations:
-                    break
-            # if there are possible matches, take the closest one and append the R-peaks to the lists
-            if len(possible_matches_values) > 0:
-                if min(possible_matches_values) < distance_threshold_iterations:
-                    last_matching_rpeak = possible_matches[possible_matches_values.index(min(possible_matches_values))]
-                    analog_value_in_first.append(first_rpeaks[i])
-                    analog_value_in_second.append(second_rpeaks[last_matching_rpeak])
-        else:
-            same_values.append(first_rpeaks[i])
+    for i in range(len(unmatching_values_first)):
+        # store possible match possitions and their distance to the primary R-peak
+        possible_matches = []
+        possible_matches_values = []
+        # iterate over the second R-peaks starting from the last matching R-peak
+        for j in range(last_matching_rpeak + 1, len(unmatching_values_second)):
+            # calculate the distance and store it
+            this_distance = unmatching_values_second[j] - unmatching_values_first[i]
+            possible_matches_values.append(abs(this_distance))
+            possible_matches.append(j)
+            # if the distance is larger than the threshold, stop the iteration
+            if this_distance > distance_threshold_iterations:
+                break
+        # if there are possible matches, take the closest one and append the R-peaks to the lists
+        if len(possible_matches_values) > 0:
+            min_possible_match = min(possible_matches_values)
+            if min_possible_match < distance_threshold_iterations:
+                min_possible_match_index = possible_matches_values.index(min_possible_match)
+                last_matching_rpeak = possible_matches[min_possible_match_index]
+                analog_value_in_first.append(unmatching_values_first[i])
+                analog_value_in_second.append(unmatching_values_second[last_matching_rpeak])
     
     # convert the lists to numpy arrays for further calculations
     analog_value_in_first = np.array(analog_value_in_first)
@@ -856,7 +1038,7 @@ def get_rpeaks_classification_from_rri_file(file_path: str, add_offset: int):
     # get the R-peaks from the RRI file
     for i in range(start, len(rri)):
         this_rpeak, letter = rri_string_evaluation(rri[i])
-        if isinstance(this_rpeak, int) and letter.isalpha():
+        if isinstance(this_rpeak, int) and letter.isalpha(): # type: ignore
             this_rpeak += add_offset
             if letter in rpeaks:
                 rpeaks[letter].append(this_rpeak)
@@ -880,7 +1062,7 @@ def read_rpeaks_from_rri_files(
         additions_results_path: str,
         file_name_dictionary_key: str,
         rpeak_classification_dictionary_key: str
-    ):
+    ) -> None:
     """
     Read the r-peak values from all .rri files in the rpeaks_values_directory and save them
 
@@ -928,6 +1110,8 @@ def read_rpeaks_from_rri_files(
     
     # path to pickle file which will store results
     temporary_file_path = get_path_without_filename(additions_results_path) + "computation_in_progress.pkl"
+    if os.path.isfile(temporary_file_path):
+        os.remove(temporary_file_path)
     
     # get all valid files that contain r-peak classifications for the ECG data in data_directory
     all_values_files = os.listdir(rpeaks_values_directory)
@@ -1116,6 +1300,8 @@ def rpeak_detection_comparison(
     
     # path to pickle file which will store results
     temporary_file_path = get_path_without_filename(additions_results_path) + "computation_in_progress.pkl"
+    if os.path.isfile(temporary_file_path):
+        os.remove(temporary_file_path)
 
     # load additions results
     additions_results_generator = load_from_pickle(additions_results_path)
@@ -1149,31 +1335,44 @@ def rpeak_detection_comparison(
             for path_index_second in range(path_index_first+1, len(rpeak_comparison_function_names)):
 
                 # get the r-peaks of the current file
-                first_rpeaks = generator_entry[rpeak_comparison_function_names[path_index_first]]
-                second_rpeaks = generator_entry[rpeak_comparison_function_names[path_index_second]]
+                first_rpeaks_original = generator_entry[rpeak_comparison_function_names[path_index_first]]
+                second_rpeaks_original = generator_entry[rpeak_comparison_function_names[path_index_second]]
 
                 # get the number of detected r-peaks
                 # number_first_rpeaks = len(first_rpeaks)
                 # number_second_rpeaks = len(second_rpeaks)
 
+                # remove rpeaks outside of the valid ecg regions and get number of detected rpeaks after removal
+                remove_rpeak_positions = []
                 number_first_rpeaks = 0
-                for r_peak in first_rpeaks:
+                for rpeak_position in range(len(first_rpeaks_original)):
+                    no_match = True
                     for valid_region in valid_ecg_regions:
-                        if valid_region[0] <= r_peak <= valid_region[1]:
+                        if valid_region[0] <= first_rpeaks_original[rpeak_position] <= valid_region[1]:
                             number_first_rpeaks += 1
+                            no_match = False
                             break
+                    if no_match:
+                        remove_rpeak_positions.append(rpeak_position)
+                first_rpeaks = np.delete(first_rpeaks_original, remove_rpeak_positions)
 
+                remove_rpeak_positions = []
                 number_second_rpeaks = 0
-                for r_peak in second_rpeaks:
+                for rpeak_position in range(len(second_rpeaks_original)):
+                    no_match = True
                     for valid_region in valid_ecg_regions:
-                        if valid_region[0] <= r_peak <= valid_region[1]:
+                        if valid_region[0] <= second_rpeaks_original[rpeak_position] <= valid_region[1]:
                             number_second_rpeaks += 1
+                            no_match = False
                             break
+                    if no_match:
+                        remove_rpeak_positions.append(rpeak_position)
+                second_rpeaks = np.delete(second_rpeaks_original, remove_rpeak_positions)
 
                 # calculate the r-peak comparison values
                 rmse_without_same, rmse_with_same, len_same_values, len_analog_values = compare_rpeak_detections(
-                    first_rpeaks = first_rpeaks, 
-                    second_rpeaks = second_rpeaks,
+                    first_rpeaks = first_rpeaks, # type: ignore
+                    second_rpeaks = second_rpeaks, # type: ignore
                     frequency = sampling_frequency,
                     rpeak_distance_threshold_seconds = rpeak_distance_threshold_seconds,
                     )

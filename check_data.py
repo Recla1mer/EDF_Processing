@@ -398,6 +398,8 @@ def determine_valid_ecg_regions(
     
     # path to pickle file which will store results
     temporary_file_path = get_path_without_filename(preparation_results_path) + "computation_in_progress.pkl"
+    if os.path.isfile(temporary_file_path):
+        os.remove(temporary_file_path)
 
     # create list to store files that could not be processed
     unprocessable_files = []
@@ -797,6 +799,8 @@ def ecg_validation_comparison(
 
     # path to pickle file which will store results
     temporary_file_path = get_path_without_filename(additions_results_path) + "computation_in_progress.pkl"
+    if os.path.isfile(temporary_file_path):
+        os.remove(temporary_file_path)
 
     # create variables to track progress
     total_data_files = get_pickle_length(additions_results_path)

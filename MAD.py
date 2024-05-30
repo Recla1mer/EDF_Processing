@@ -193,6 +193,8 @@ def calculate_MAD_in_acceleration_data(
     
     # path to pickle file which will store results
     temporary_file_path = get_path_without_filename(preparation_results_path) + "computation_in_progress.pkl"
+    if os.path.isfile(temporary_file_path):
+        os.remove(temporary_file_path)
     
     # create list to store unprocessable files
     unprocessable_files = []

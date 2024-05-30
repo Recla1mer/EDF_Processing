@@ -1,6 +1,7 @@
 import copy
 import os
 import numpy as np
+import pandas as pd
 
 import matplotlib
 import matplotlib.pyplot as plt
@@ -10,9 +11,9 @@ import seaborn as sns
 import bitsandbobs as bnb
 import pickle
 
-matplotlib.rcParams["axes.prop_cycle"] = matplotlib.cycler(
+matplotlib.rcParams["axes.prop_cycle"] = matplotlib.cycler( # type: ignore
     "color", bnb.plt.get_default_colors()
-)
+) 
 matplotlib.rcParams["axes.labelcolor"] = "black"
 matplotlib.rcParams["axes.edgecolor"] = "black"
 matplotlib.rcParams["xtick.color"] = "black"
@@ -431,4 +432,66 @@ def plot_MAD_values(
     ax.legend(loc="best")
     ax.set_xlim(kwargs["xlim"])
     ax.set_ylim(kwargs["ylim"])
+    plt.show()
+
+
+def plot_simple_histogram(
+        data: list,
+        **kwargs
+    ):
+
+    # Set default values
+
+    # figure
+    kwargs.setdefault("figsize", [3.4, 2.7])
+    kwargs.setdefault("title", "")
+    kwargs.setdefault("x_label", "")
+    kwargs.setdefault("y_label", "count")
+    kwargs.setdefault("label", ["data"])
+    kwargs.setdefault("loc", "best")
+    kwargs.setdefault("grid", True)
+
+    # histogram
+    kwargs.setdefault("edgecolor", "black")
+    kwargs.setdefault("kde", False)
+    kwargs.setdefault("bw_adjust", 2)
+    kwargs.setdefault("binwidth", 0.05)
+    kwargs.setdefault("common_bins", False)
+    kwargs.setdefault("multiple", "layer")
+    kwargs.setdefault("alpha", 0.5)
+    kwargs.setdefault("y_scale", "linear")
+    
+    # xlim and ylim
+    # kwargs.setdefault("xlim", [0, len(data)])
+    
+    # y_min = min(data[kwargs["xlim"][0]:kwargs["xlim"][1]])
+    # y_max = max(data[kwargs["xlim"][0]:kwargs["xlim"][1]])
+    # kwargs.setdefault("ylim", [y_min-abs(0.2*y_max), y_max+abs(0.2*y_max)])
+
+    sns_args = dict(
+        kde=kwargs["kde"],
+        binwidth=kwargs["binwidth"],
+        edgecolor=kwargs["edgecolor"],
+        common_bins=kwargs["common_bins"],
+        multiple=kwargs["multiple"],
+        alpha=kwargs["alpha"]
+    )
+
+    # create data dictionary
+    data_dict = dict(
+        data = [],
+        name = []
+    )
+    for i in range(len(data)):
+        for j in range(len(data[i])):
+            data_dict["data"].append(data[i][j])
+            data_dict["name"].append(kwargs["label"][i])
+
+    fig, ax = plt.subplots(figsize=kwargs["figsize"])
+    ax = sns.histplot(data=data_dict, x="data", hue="name", **sns_args)
+    ax.set(xlabel=kwargs["x_label"], ylabel=kwargs["y_label"])
+    #ax.set_yscale(kwargs["y_scale"])
+    ax.grid(kwargs["grid"])
+    ax.legend(title="hey", labels=kwargs["label"], loc=kwargs["loc"])
+    ax.set_title(kwargs["title"])
     plt.show()
