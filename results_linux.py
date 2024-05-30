@@ -107,8 +107,14 @@ def visualizing_r_peak_comparison():
     additions_results_generator = load_from_pickle(additions_results_path)
     for generator_entry in additions_results_generator:
         this_files_rpeak_comparison_values = generator_entry[parameters["rpeak_comparison_dictionary_key"]]
-        analogue_ratios_first_function.append(this_files_rpeak_comparison_values[position_in_list][3]/this_files_rpeak_comparison_values[position_in_list][4])
-        analogue_ratios_second_function.append(this_files_rpeak_comparison_values[position_in_list][3]/this_files_rpeak_comparison_values[position_in_list][5])
+        try:
+            analogue_ratios_first_function.append(this_files_rpeak_comparison_values[position_in_list][3]/this_files_rpeak_comparison_values[position_in_list][4])
+        except ZeroDivisionError:
+            pass
+        try:
+            analogue_ratios_second_function.append(this_files_rpeak_comparison_values[position_in_list][3]/this_files_rpeak_comparison_values[position_in_list][5])
+        except ZeroDivisionError:
+            pass
 
     # plot the data
     plot_helper.plot_simple_histogram(
