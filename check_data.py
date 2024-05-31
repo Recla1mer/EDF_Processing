@@ -155,6 +155,42 @@ def create_ecg_thresholds(
     append_to_pickle(check_ecg_thresholds, ecg_thresholds_save_path)
 
 
+def locally_calculate_ecg_thresholds(
+        ECG: list,
+        time_interval_iterations: int,
+    ):
+    """
+    """
+    standard_deviations = []
+    std_distance_ratios = []
+
+    max_ecg = np.max(ECG)
+
+    for i in np.arange(0, len(ECG), time_interval_iterations):
+
+        # make sure upper border is not out of bounds
+        if i + time_interval_iterations > len(ECG):
+            upper_border = len(ECG)
+        else:
+            upper_border = i + time_interval_iterations
+        
+        # calc std and max-min-distance ratio
+        this_std = abs(np.std(ECG[i:upper_border]))
+        this_max = np.max(ECG[i:upper_border])
+        this_min = np.min(ECG[i:upper_border])
+        max_min_distance = abs(this_max - this_min)
+
+        if this_std == 0:
+            std_distance_ratio = max_ecg
+        else:
+            std_distance_ratio = 0.5 * max_min_distance / this_std
+        
+        standard_deviations.append(this_std)
+        std_distance_ratios.append(std_distance_ratio)
+    
+    return 0.2*np.mean(standard_deviations), 0.5*np.mean(std_distance_ratios)
+
+
 def check_ecg(
         ECG: list, 
         frequency: int,
@@ -196,9 +232,11 @@ def check_ecg(
     valid_regions: list
         list of lists containing the start and end indices of the valid regions: valid_regions[i] = [start, end] of region i
     """
-
     # calculate the number of iterations from time and frequency
     time_interval_iterations = int(time_interval_seconds * frequency)
+    
+    check_ecg_std_min_threshold, check_ecg_distance_std_ratio_threshold = locally_calculate_ecg_thresholds(ECG, time_interval_iterations) # type: ignore
+    # print(check_ecg_std_min_threshold, check_ecg_distance_std_ratio_threshold)
 
     # check condition for given time intervals and add regions (multiple time intervals) to a list if number of invalid intervals is sufficiently low
     overlapping_valid_regions = []
@@ -221,7 +259,7 @@ def check_ecg(
         max_min_distance = abs(this_max - this_min)
 
         if this_std == 0:
-            std_distance_ratio = check_ecg_distance_std_ratio_threshold + 1
+            std_distance_ratio = check_ecg_distance_std_ratio_threshold - 1
         else:
             std_distance_ratio = 0.5 * max_min_distance / this_std
 
@@ -254,7 +292,7 @@ def check_ecg(
             this_interval = [overlapping_valid_regions[i][0], overlapping_valid_regions[i][1]]
     concatenated_intervals.append(this_interval)
 
-    # return concatenated_intervals
+    return concatenated_intervals
 
     del overlapping_valid_regions
 

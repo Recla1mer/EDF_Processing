@@ -134,7 +134,7 @@ settings_params = {
     "perform_ecg_validation_comparison": True, # if True, the ECG validations will be compared
     # set what parts of the PREPARATION SECTION should be executed
     "calculate_ecg_thresholds": True, # if True, you will have the option to recalculate the thresholds for the ecg validation
-    "use_manually_chosen_ecg_thresholds": False, # if True, the manually chosen thresholds will be used, if False, the thresholds will be calculated
+    "use_manually_chosen_ecg_thresholds": True, # if True, the manually chosen thresholds will be used, if False, the thresholds will be calculated
     "determine_valid_ecg_regions": True, # if True, you will have the option to recalculate the valid regions for the ECG data
     "detect_rpeaks": True, # if True, the r-peaks will be detected in the ECG data
     "calculate_MAD": True, # if True, the MAD will be calculated for the wrist acceleration data
@@ -174,8 +174,8 @@ valid_ecg_regions_params = {
 }
 
 manually_chosen_ecg_thresholds = {
-    "check_ecg_std_min_threshold": 97.84, # if the standard deviation of the ECG data is below this threshold, the data is considered invalid
-    "check_ecg_distance_std_ratio_threshold": 1.99, # if the ratio of the distance between two peaks and twice the standard deviation of the ECG data is above this threshold, the data is considered invalid
+    "check_ecg_std_min_threshold": 10, # if the standard deviation of the ECG data is below this threshold, the data is considered invalid
+    "check_ecg_distance_std_ratio_threshold": 2, # if the ratio of the distance between two peaks and twice the standard deviation of the ECG data is above this threshold, the data is considered invalid
 }
 
 if settings_params["use_manually_chosen_ecg_thresholds"]:

@@ -22,7 +22,7 @@ Plot valid ecg regions
 def show_valid_ecg_regions():
     # choose a random file
     data_directory = "Data/GIF/SOMNOwatch/"
-    file_data_name = "SL001_SL001_(1).edf"
+    file_data_name = "SL214_SL214_(1).edf"
 
     file_data_path = data_directory + file_data_name
 
@@ -48,7 +48,7 @@ def show_valid_ecg_regions():
     print("(Valid / Total) Regions Ratio: %f %%" % (round(valid_regions_ratio, 4)*100))
 
     total_length = len(ECG)
-    x_lim = [int(0*total_length), int(1*total_length)]
+    x_lim = [int(0.2*total_length), int(0.3*total_length)]
 
     plot_helper.plot_valid_regions(
         ECG = ECG, 
@@ -171,4 +171,4 @@ def visualizing_r_peak_comparison():
 
 show_valid_ecg_regions()
 #plot_non_intersecting_r_peaks()
-visualizing_r_peak_comparison()
+#visualizing_r_peak_comparison()
