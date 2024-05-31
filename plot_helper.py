@@ -193,6 +193,122 @@ def plot_valid_regions(ECG: list, valid_regions: list, **kwargs):
     plt.show()
 
 
+def plot_ecg_validation_comparison(ECG: list, valid_regions: list, ecg_classification: dict, **kwargs):
+    """
+    """
+    # Set default values
+
+    # figure
+    kwargs.setdefault("figsize", [3.4, 2.7])
+    kwargs.setdefault("title", "ECG Data")
+    kwargs.setdefault("x_label", "time (in iterations)")
+    kwargs.setdefault("y_label", "uV")
+    kwargs.setdefault("legend", ["Valid", "Invalid"])
+    kwargs.setdefault("color", ["green", "red"])
+
+    # line plot
+    kwargs.setdefault("linewidth", 2)
+    kwargs.setdefault("line_alpha", 1)
+    kwargs.setdefault("linestyle", "-")
+
+    # xlim and ylim
+    kwargs.setdefault("xlim", [0, len(ECG)])
+
+    y_min = min(ECG[kwargs["xlim"][0]:kwargs["xlim"][1]])
+    y_max = max(ECG[kwargs["xlim"][0]:kwargs["xlim"][1]])
+    kwargs.setdefault("ylim", [y_min-abs(0.2*y_max), y_max+abs(0.2*y_max)])
+
+    # create arguments for plotting
+    local_plot_kwargs = dict()
+    local_plot_kwargs["linewidth"] = kwargs["linewidth"]
+    local_plot_kwargs["alpha"] = kwargs["line_alpha"]
+    local_plot_kwargs["linestyle"] = kwargs["linestyle"]
+
+
+    # calculate invalid regions
+    invalid_regions = []
+    if valid_regions[0][0] != 0:
+        invalid_regions.append([0, valid_regions[0][0]])
+    for i in range(1, len(valid_regions)):
+        invalid_regions.append([valid_regions[i - 1][1], valid_regions[i][0]])
+    if valid_regions[-1][1] != len(ECG):
+        invalid_regions.append([valid_regions[-1][1], len(ECG)])
+
+    # get points considered valid and invalid by the ECG classification
+    try:
+        classification_invalid_points = ecg_classification["1"]
+    except:
+        classification_invalid_points = []
+    try:
+        classification_valid_points = ecg_classification["0"]
+    except:
+        classification_valid_points = []
+    
+    # create plot
+    fig, ax = plt.subplots(2, figsize=kwargs["figsize"])
+    # ax.set_xlabel(kwargs["x_label"])
+    # ax.set_ylabel(kwargs["y_label"])
+    # ax.set_title(kwargs["title"])
+
+    # plot classified points
+    ax[1].plot(classification_valid_points, 
+        ECG[classification_valid_points], # type: ignore
+        color=kwargs["color"][0],
+        label=kwargs["legend"][0],
+        **local_plot_kwargs
+        )
+    ax[1].plot(classification_invalid_points, 
+        ECG[classification_invalid_points], # type: ignore
+        color=kwargs["color"][1],
+        label=kwargs["legend"][1],
+        **local_plot_kwargs
+        )
+
+    # plot the ECG data
+    skip_label = False
+    for region in valid_regions:
+        if skip_label:
+            ax[0].plot(
+                np.arange(region[0], region[1]), 
+                ECG[region[0] : region[1]], 
+                color=kwargs["color"][0],
+                **local_plot_kwargs
+            )
+        else:
+            ax[0].plot(
+                np.arange(region[0], region[1]), 
+                ECG[region[0] : region[1]], 
+                label=kwargs["legend"][0], 
+                color=kwargs["color"][0],
+                **local_plot_kwargs
+            )
+            skip_label = True
+    
+    skip_label = False
+    for region in invalid_regions:
+        if skip_label:
+            ax[0].plot(
+                np.arange(region[0], region[1]), 
+                ECG[region[0] : region[1]], 
+                color=kwargs["color"][1],
+                **local_plot_kwargs
+            )
+        else:
+            ax[0].plot(
+                np.arange(region[0], region[1]), 
+                ECG[region[0] : region[1]], 
+                label=kwargs["legend"][1], 
+                color=kwargs["color"][1],
+                **local_plot_kwargs
+            )
+            skip_label = True
+
+    # ax.legend(loc="best")
+    # ax.set_xlim(kwargs["xlim"])
+    # ax.set_ylim(kwargs["ylim"])
+    plt.show()
+
+
 def plot_rpeak_detection(
         ECG: list, 
         rpeaks: list, 

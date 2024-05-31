@@ -12,6 +12,8 @@ from side_functions import *
 PREPARATION_DIRECTORY = main.PREPARATION_DIRECTORY
 PREPARATION_RESULTS_NAME = main.PREPARATION_RESULTS_NAME
 
+ADDITIONS_RAW_DATA_DIRECTORY = main.ADDITIONS_RAW_DATA_DIRECTORY
+
 parameters = main.parameters
 
 additions_results_path = parameters["additions_results_path"]
@@ -55,6 +57,37 @@ def show_valid_ecg_regions():
         valid_regions = this_files_valid_ecg_regions,
         xlim = x_lim
         )
+
+
+def visualize_ecg_val_comparison():
+    # choose random file
+    file_data_name = "SL001_SL001_(1).edf"
+    file_class_name = file_data_name[:-4] + "Somno.txt"
+    file_data_path = ADDITIONS_RAW_DATA_DIRECTORY + file_data_name
+    file_class_path = parameters["ecg_classification_values_directory"] + file_class_name
+
+    # load the ECG data
+    ECG, frequency = read_edf.get_data_from_edf_channel(
+        file_path = file_data_path,
+        possible_channel_labels = parameters["ecg_keys"],
+        physical_dimension_correction_dictionary = parameters["physical_dimension_correction_dictionary"]
+        )
+
+    # get the classification values
+    ecg_classification_dictionary = check_data.get_ecg_classification_from_txt_file(file_class_path)
+
+    # load the valid regions
+    preparation_results_generator = load_from_pickle(additions_results_path)
+    for generator_entry in preparation_results_generator:
+        if generator_entry[parameters["file_name_dictionary_key"]] == file_data_name:
+            this_files_valid_ecg_regions = generator_entry[parameters["valid_ecg_regions_dictionary_key"]]
+            break
+
+    plot_helper.plot_ecg_validation_comparison(
+        ECG = ECG, 
+        valid_regions = this_files_valid_ecg_regions,
+        ecg_classification = ecg_classification_dictionary,
+    )
 
 """
 Plot Non-Intersecting R-Peaks
@@ -169,6 +202,7 @@ def visualizing_r_peak_comparison():
     )
 
 
-show_valid_ecg_regions()
+#show_valid_ecg_regions()
+visualize_ecg_val_comparison()
 #plot_non_intersecting_r_peaks()
 #visualizing_r_peak_comparison()
