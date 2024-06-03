@@ -76,12 +76,8 @@ def visualize_ecg_val_comparison():
     # get the classification values
     ecg_classification_dictionary = check_data.get_ecg_classification_from_txt_file(file_class_path)
 
-    # load the valid regions
-    preparation_results_generator = load_from_pickle(additions_results_path)
-    for generator_entry in preparation_results_generator:
-        if generator_entry[parameters["file_name_dictionary_key"]] == file_data_name:
-            this_files_valid_ecg_regions = generator_entry[parameters["valid_ecg_regions_dictionary_key"]]
-            break
+    # calc valid regions
+    this_files_valid_ecg_regions = check_data.new_new_check_ecg(ECG=ECG, frequency=frequency, time_interval_seconds=5, recheck_std_times_per_second=5, straighten_ecg_signal=True, overlapping_interval_steps=3, validation_strictness=0.2)
 
     plot_helper.plot_ecg_validation_comparison(
         ECG = ECG, 
@@ -203,6 +199,37 @@ def visualizing_r_peak_comparison():
 
 
 #show_valid_ecg_regions()
-visualize_ecg_val_comparison()
+# visualize_ecg_val_comparison()
 #plot_non_intersecting_r_peaks()
 #visualizing_r_peak_comparison()
+
+# just testing
+# choose a random file
+data_directory = "Data/"
+file_data_name = "Somnowatch_Messung.edf"
+file_data_path = data_directory + file_data_name
+
+# load the ECG data
+ECG, frequency = read_edf.get_data_from_edf_channel(
+    file_path = file_data_path,
+    possible_channel_labels = parameters["ecg_keys"],
+    physical_dimension_correction_dictionary = parameters["physical_dimension_correction_dictionary"]
+    )
+
+valid_regions = check_data.new_new_check_ecg(ECG=ECG, frequency=frequency, time_interval_seconds=5, recheck_std_times_per_second=5, straighten_ecg_signal=True, overlapping_interval_steps=3, validation_strictness=0.2)
+
+# calculate the ratio of valid regions to total regions
+valid_regions_ratio = check_data.valid_total_ratio(
+    ECG = ECG, 
+    valid_regions = valid_regions
+    )
+print("(Valid / Total) Regions Ratio: %f %%" % (round(valid_regions_ratio, 4)*100))
+
+total_length = len(ECG)
+x_lim = [int(0.7*total_length), int(0.9*total_length)]
+
+plot_helper.plot_valid_regions(
+    ECG = ECG, 
+    valid_regions = valid_regions,
+    xlim = x_lim
+    )

@@ -39,6 +39,12 @@ matplotlib.rcParams["figure.dpi"] = 200
 matplotlib.rcParams["axes.facecolor"] = (1.0, 0.0, 0.0, 0.0)
 
 
+def simple_plot(data_y):
+    fig, ax = plt.subplots()
+    ax.plot(data_y)
+    plt.show()
+
+
 def plot_calibration_data(data_y, data_x, save_path, **kwargs):
     """
     Create plot and save it.

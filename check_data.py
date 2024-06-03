@@ -376,6 +376,294 @@ def check_ecg(
     return valid_regions
 
 
+def straighten_ecg(
+        ecg_interval: list,
+        frequency: int,
+    ):
+    """
+    Straighten
+    """
+    original_ecg_interval = copy.deepcopy(ecg_interval)
+
+    std_before_straightening = np.std(ecg_interval)
+    step_iterations = int(0.2*frequency)
+
+    differences = []
+    minima = []
+    for i in range(0, len(ecg_interval), step_iterations):
+        if i + step_iterations > len(ecg_interval):
+            upper_border = len(ecg_interval)
+        else:
+            upper_border = i + step_iterations
+        
+        this_interval = ecg_interval[i:upper_border]
+        this_max = np.max(this_interval)
+        this_min = np.min(this_interval)
+        this_diff = this_max - this_min
+
+        differences.append(this_diff)
+        minima.append(this_min)
+
+    mean_diff = np.mean(differences)
+
+    # straighten the ecg signal
+    last_high_difference = 0
+    last_offset = 0
+    straighten_ecg = [ecg_value for ecg_value in ecg_interval]
+    for i in range(0, len(minima)):
+        if differences[i] > 1.5*mean_diff:
+            offset = minima[i] + 0.5*differences[i]
+            upper_border = (i+1)*step_iterations
+            if upper_border > len(ecg_interval):
+                upper_border = len(ecg_interval)
+            for j in range(i*step_iterations, upper_border):
+                straighten_ecg[j] -= offset
+            if last_high_difference != i and last_high_difference != 0:
+                rise = -(offset - last_offset) / ((i-last_high_difference)*step_iterations)
+                start_j = last_high_difference*step_iterations
+                for j in range(start_j, i*step_iterations):
+                    straighten_ecg[j] += rise * (j-start_j) - last_offset
+            last_high_difference = i + 1
+            last_offset = offset
+    
+    first_high_difference = 0
+    first_offset = 0
+    for i in range(0, len(minima)):
+        if differences[i] > 1.5*mean_diff:
+            first_offset = minima[i] + 0.5*differences[i]
+            first_high_difference = i
+            break
+    
+    for j in range(0, first_high_difference*step_iterations):
+        straighten_ecg[j] -= first_offset
+    
+    for j in range(last_high_difference*step_iterations, len(ecg_interval)):
+        straighten_ecg[j] -= last_offset
+    
+    std_after_straightening = np.std(straighten_ecg)
+
+    if std_after_straightening > 1.2*std_before_straightening:
+        origin_min = np.min(original_ecg_interval)
+        origin_difference = abs(np.max(original_ecg_interval) - origin_min)
+        origin_offset = origin_min + 0.5*origin_difference
+        original_ecg_interval -= origin_offset
+
+        return original_ecg_interval
+    
+    return straighten_ecg
+
+
+def concatenate_neighbouring_intervals(
+        intervals: list,
+    ):
+    """
+    """
+    # concatenate neighbouring intervals
+    concatenated_intervals = [intervals[0]]
+    for i in range(1, len(intervals)):
+        if intervals[i][0] <= concatenated_intervals[-1][1]:
+            concatenated_intervals[-1][1] = intervals[i][1]
+        else:
+            concatenated_intervals.append(intervals[i])
+
+    return concatenated_intervals
+
+
+def retrieve_unincluded_intervals(
+        included_intervals: list,
+        total_length: int,
+    ):
+    """
+    """
+    unincluded_intervals = []
+    if included_intervals[0][0] > 0:
+        unincluded_intervals.append([0, included_intervals[0][0]])
+    for i in range(1, len(included_intervals)):
+        unincluded_intervals.append([included_intervals[i-1][1], included_intervals[i][0]])
+    if included_intervals[-1][1] < total_length:
+        unincluded_intervals.append([included_intervals[-1][1], total_length])
+    
+    return unincluded_intervals
+
+
+def new_new_check_ecg(
+        ECG: list, 
+        frequency: int,
+        time_interval_seconds: int, 
+        overlapping_interval_steps: int,
+        straighten_ecg_signal: bool,
+        recheck_std_times_per_second: int,
+        validation_strictness: float
+    ):
+    """
+    """
+    # calculate the number of iterations from time and frequency
+    time_interval_iterations = int(time_interval_seconds * frequency)
+
+    collect_whole_stds = []
+    collect_std_max_min_distance_ratios = []
+    collect_std_of_rechecked_stds = []
+
+    interval_steps = int(time_interval_iterations/overlapping_interval_steps)
+
+    for i in np.arange(0, len(ECG), interval_steps):
+        # make sure upper border is not out of bounds
+        upper_border = i + time_interval_iterations
+        ecg_interval_length = time_interval_iterations
+        if upper_border > len(ECG):
+            upper_border = len(ECG)
+            ecg_interval_length = upper_border - i
+
+        if straighten_ecg_signal:
+            ecg_interval = straighten_ecg(ECG[i:upper_border], frequency)
+        else:
+            ecg_interval = ECG[i:upper_border]
+
+        this_interval_std = np.std(ecg_interval)
+        collect_whole_stds.append(this_interval_std)
+        if this_interval_std == 0:
+            collect_std_max_min_distance_ratios.append(0)
+        else:
+            collect_std_max_min_distance_ratios.append((np.max(ecg_interval) - np.min(ecg_interval))/this_interval_std)
+
+        rechecked_stds = []
+
+        shift_size = int(frequency/recheck_std_times_per_second)
+        for shift_pos in range(0, ecg_interval_length, shift_size):
+            this_upper_border = shift_pos + shift_size
+            if this_upper_border > upper_border:
+                this_upper_border = upper_border
+            rechecked_stds.append(np.std(ecg_interval[shift_pos:this_upper_border]))
+
+        collect_std_of_rechecked_stds.append(np.std(rechecked_stds))
+    
+    mean_std = np.mean(collect_whole_stds)
+    mean_std_of_rechecked_stds = np.mean(collect_std_of_rechecked_stds)
+    mean_std_max_min_distance_ratio = np.mean(collect_std_max_min_distance_ratios)
+
+    above_mean_strictness = 1-validation_strictness
+    below_mean_strictness = 1+validation_strictness
+    invalid_intervals = []
+
+    for i in range(0, len(collect_whole_stds)):
+        passed_conditions = False
+        if collect_whole_stds[i] > validation_strictness*mean_std:
+            if collect_std_max_min_distance_ratios[i] > above_mean_strictness*mean_std_max_min_distance_ratio:
+                if collect_std_of_rechecked_stds[i] > above_mean_strictness*mean_std_of_rechecked_stds:
+                    if collect_whole_stds[i] < below_mean_strictness*mean_std:
+                        passed_conditions = True
+        if not passed_conditions:
+            # make sure upper border is not out of bounds
+            upper_border = i*interval_steps + time_interval_iterations
+            if upper_border > len(ECG):
+                upper_border = len(ECG)
+            # append to valid intervals
+            invalid_intervals.append([i*interval_steps, upper_border])
+    
+    invalid_intervals = concatenate_neighbouring_intervals(invalid_intervals)
+    valid_intervals = retrieve_unincluded_intervals(invalid_intervals, len(ECG))
+
+    return valid_intervals
+
+
+def new_check_ecg(
+        ECG: list, 
+        frequency: int,
+        time_interval_seconds: int, 
+        straighten_ecg_signal: bool
+    ):
+    """
+    Check
+    """
+    # calculate the number of iterations from time and frequency
+    time_interval_iterations = int(time_interval_seconds * frequency)
+    shift_interval_by = int(frequency/10)
+
+    number_of_low_differences = []
+    min_differences = []
+
+    badu = 6292992 #fluctuating
+    badu = 18750000 #bad
+    badu = 15000000 #bad
+    badu = 1008000 #fluctuating
+    badu = 5000000 #good
+    badu = 2091000 #good
+    badu = 50 #bad
+
+    count = 0 
+    for i in np.arange(badu, badu+10*time_interval_iterations, time_interval_iterations):
+        if count > 1000000:
+            print(count)
+            count = 0
+        count += time_interval_iterations
+        # make sure upper border is not out of bounds
+        if i + 2*time_interval_iterations > len(ECG):
+            upper_border = len(ECG)
+            size_difference = i + 2*time_interval_iterations - len(ECG)
+        else:
+            upper_border = i + 2*time_interval_iterations
+            size_difference = 0
+        
+        if straighten_ecg_signal:
+            previous_interval = straighten_ecg(ECG[i+size_difference:i+time_interval_iterations], frequency)
+            next_interval = straighten_ecg(ECG[i+time_interval_iterations:upper_border], frequency)
+        else:
+            previous_interval = ECG[i+size_difference:i+time_interval_iterations]
+            next_interval = ECG[i+time_interval_iterations:upper_border]
+
+        calculated_mean_differences = []
+        for shift_pos in range(int(len(next_interval)-frequency), len(next_interval), shift_interval_by):
+            overlapping_previous_interval = np.array(previous_interval[-shift_pos:])
+            overlapping_next_interval = np.array(next_interval[:shift_pos])
+            this_mean_diff = np.mean(abs((overlapping_previous_interval - overlapping_next_interval)))
+            calculated_mean_differences.append(this_mean_diff)
+
+            overlapping_previous_interval = np.array(previous_interval[:shift_pos])
+            overlapping_next_interval = np.array(next_interval[-shift_pos:])
+            this_mean_diff = np.mean(abs((overlapping_previous_interval - overlapping_next_interval)))
+            calculated_mean_differences.append(this_mean_diff)
+        
+        if len(next_interval) > 0 :
+            height_next_interval = np.max(next_interval) - np.min(next_interval)
+            height_previous_interval = np.max(previous_interval) - np.min(previous_interval)
+            max_height = abs(max(height_next_interval, height_previous_interval))
+
+            count_low_diff = 0
+            for diff in calculated_mean_differences:
+                if diff < 0.2*max_height:
+                    count_low_diff += 1
+            number_of_low_differences.append(count_low_diff)
+            
+            min_differences.append(np.mean(calculated_mean_differences))
+        
+        print(i, count_low_diff, np.mean(calculated_mean_differences))
+
+    mean_number_of_low_differences = np.mean(number_of_low_differences) # for good: above 3k
+    mean_of_mean_differences = np.mean(min_differences) # for good: above 100
+
+    valid_intervals = []
+
+    for i in range(0, len(number_of_low_differences)):
+        if number_of_low_differences[i] > 0.5 * mean_number_of_low_differences and min_differences[i] > 0.5 * mean_of_mean_differences:
+            # make sure upper border is not out of bounds
+            if i + 2*time_interval_iterations > len(ECG):
+                upper_border = len(ECG)
+            else:
+                upper_border = (i + 2)*time_interval_iterations
+            # append to valid intervals (probably many overlaps)
+            valid_intervals.append([i*time_interval_iterations, upper_border])
+    
+    # concatenate intervals
+    concatenated_intervals = [valid_intervals[0]]
+    for i in range(1, len(valid_intervals)):
+        if valid_intervals[i][0] <= concatenated_intervals[-1][1]:
+            concatenated_intervals[-1][1] = valid_intervals[i][1]
+        else:
+            concatenated_intervals.append(valid_intervals[i])
+    
+    return concatenated_intervals
+
+
 def determine_valid_ecg_regions(
         data_directory: str,
         valid_file_types: list,
