@@ -42,10 +42,6 @@ DATA_DIRECTORIES = ["Data/", "Data/GIF/SOMNOwatch/"] # manually chosen directori
 PREPARATION_DIRECTORY = "Preparation/"
 PREPARATION_RESULTS_NAME = "Preparation_Results.pkl"
 
-# ECG Threshold Validation
-ECG_CALIBRATION_DATA_PATH = "Calibration_Data/Somnowatch_Messung.edf"
-ECG_VALIDATION_THRESHOLDS_PATH = PREPARATION_DIRECTORY + "ECG_Validation_Thresholds.pkl"
-
 # paths for ADDITIONALS SECTION
 # ------------------------------
 ADDITIONALS_DIRECTORY = "Additions/"
@@ -166,9 +162,9 @@ valid_ecg_regions_params = {
     "check_ecg_overlapping_interval_steps": 1, # number of times the interval needs to be shifted to the right until the next check_ecg_time_interval_seconds is reached (only useful to increase if check_ecg_time_interval_seconds is small)
     "check_ecg_validation_strictness": 0.5, # strictness in relation to mean values (0.0: very unstrict, 1.0: very strict)
     "check_ecg_removed_peak_difference_threshold": 0.3, # difference between the values of std-max-min-difference before and after removing the highest peak must be below this value (difference usually around 0.03)
-    "check_ecg_std_min_threshold": 80, # if the standard deviation of the ECG data is below this threshold, the data is considered invalid (this is a manual threshold, it is used if the ratio between valid and total regions is below 0.5 after trying it with validation_strictness and the mean values)
-    "check_ecg_std_max_threshold": 800, # if the standard deviation of the ECG data is above this threshold, the data is considered invalid (this is a manual threshold, see above)
-    "check_ecg_distance_std_ratio_threshold": 5, # if the ratio of the max-min difference and the standard deviation of the ECG data is below this threshold, the data is considered invalid
+    "check_ecg_std_min_threshold": 80.0, # if the standard deviation of the ECG data is below this threshold, the data is considered invalid (this is a manual threshold, it is used if the ratio between valid and total regions is below 0.5 after trying it with validation_strictness and the mean values)
+    "check_ecg_std_max_threshold": 800.0, # if the standard deviation of the ECG data is above this threshold, the data is considered invalid (this is a manual threshold, see above)
+    "check_ecg_distance_std_ratio_threshold": 5.0, # if the ratio of the max-min difference and the standard deviation of the ECG data is below this threshold, the data is considered invalid
     "check_ecg_min_valid_length_minutes": 5, # minimum length of valid data in minutes
     "check_ecg_allowed_invalid_region_length_seconds": 30, # data region (see directly above) still considered valid if the invalid part is shorter than this
 }
@@ -564,7 +560,7 @@ def main():
     preparation_section(parameters["run_preparation_section"])
     # delete variables not needed anymore
     global PREPARATION_DIRECTORY, PREPARATION_RESULTS_NAME, ECG_VALIDATION_THRESHOLDS_PATH
-    del PREPARATION_DIRECTORY, PREPARATION_RESULTS_NAME, ECG_VALIDATION_THRESHOLDS_PATH
+    del PREPARATION_DIRECTORY, PREPARATION_RESULTS_NAME
 
 if __name__ == "__main__":
     main()
