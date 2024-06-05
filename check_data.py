@@ -12,382 +12,39 @@ import read_edf
 from side_functions import *
 
 
-def eval_std_thresholds(
-        ECG: list, 
-        detection_intervals: list,
-        threshold_multiplier: float,
-        threshold_dezimal_places: int,
-    ):
-    """
-    Evaluate useful thresholds (check_ecg_std_min_threshold, check_ecg_distance_std_ratio_threshold) 
-    for the check_ecg function from given data.
-
-    We will estimate the standard deviation for different valuable signals. From this we
-    can create an interval for the standard deviation that is considered good.
-    Of course when the signal is bad, and all we have is noise, the standard deviation can
-    be similar to that of a good signal. 
-    However, the distance between the maximum and minimum value will in this case
-    be about the same as twice the standard deviation. Therefore, we will also calculate
-    the distance between the maximum and minimum value and divide it by twice the standard
-    deviation, to see what this ratio looks like for valuable signals. 
-    Anything less will be considered as invalid.
-
-    ARGUMENTS:
-    --------------------------------
-    ECG: list
-        list containing the ECG data
-    detection_intervals: list
-        list of detection intervals, in which the data is considered valid
-    threshold_multiplier: float between 0 and 1
-        multiplier that is either Multiplier or Divisor for the threshold values
-        (because valid data could also differ slightly from the detection intervals used)
-    threshold_dezimal_places: int
-        number of decimal places for the threshold values
-    
-    RETURNS:
-    --------------------------------
-    check_ecg_std_min_threshold: float
-        minimum threshold for the standard deviation
-    check_ecg_distance_std_ratio_threshold: float
-        threshold for the max-min distance to (2 * standard deviation) ratio
-    """
-
-    # create lists to save the standard deviation and the max-min distance values
-    std_values = []
-    max_min_distance_values = []
-    
-    # calculate the standard deviation and std max-min distance for the detection intervals
-    for interval in detection_intervals:
-        std_values.append(np.std(ECG[interval[0]:interval[1]]))
-        max_min_distance_values.append(np.max(ECG[interval[0]:interval[1]]) - np.min(ECG[interval[0]:interval[1]]))
-    
-    # calculate the ratios
-    std_to_max_min_distance_ratios = 0.5 * np.array(max_min_distance_values) / np.array(std_values)
-    
-    # calculate the thresholds (take values that will include most datapoints)
-    max_std = np.max(std_values)
-    min_std = np.min(std_values)
-    min_std_distance_ratio = np.min(std_to_max_min_distance_ratios)
-    
-    # apply the threshold multiplier and round the values
-    check_ecg_std_min_threshold = round(min_std*threshold_multiplier,threshold_dezimal_places)
-    # check_ecg_std_max_threshold = round(max_std/threshold_multiplier,threshold_dezimal_places)
-    check_ecg_distance_std_ratio_threshold = round(min_std_distance_ratio*threshold_multiplier,threshold_dezimal_places)
-
-    return check_ecg_std_min_threshold, check_ecg_distance_std_ratio_threshold
-
-
-def create_ecg_thresholds(
-        ecg_calibration_file_path: str, 
-        ecg_keys: list,
-        physical_dimension_correction_dictionary: dict,
-        ecg_calibration_intervals: list,
-        ecg_thresholds_multiplier: float,
-        ecg_thresholds_dezimal_places: int,
-        ecg_thresholds_save_path: str
-    ):
-    """
-    This function provides the data and calculates the thresholds for ecg data validation.
-
-    Please note that the intervals will be chosen manually and might need to be adjusted,
-    if you can't use the calibration data. In this case, you can use the option:
-    'show_calibration_data' in the main.py file to show what the calibration data should 
-    look like.
-
-    ARGUMENTS:
-    --------------------------------
-    ecg_calibration_file_path: str
-        path to the EDF file for ecg threshold calibration
-    ecg_keys: list
-        list of possible labels for the ECG data
-    physical_dimension_correction_dictionary: dict
-        dictionary needed to check and correct the physical dimension of all signals
-    ecg_calibration_intervals: list
-        list of tuples containing the start and end indices of the calibration intervals
-    ecg_thresholds_multiplier: float
-        multiplier for the thresholds (see 'eval_std_thresholds()')
-    ecg_thresholds_dezimal_places: int
-        number of dezimal places for the ecg thresholds (see 'eval_std_thresholds()')
-    ecg_thresholds_save_path: str
-        path to the pickle file where the thresholds are saved
-
-    RETURNS:
-    --------------------------------
-    None, but the thresholds are saved as dictionary to a pickle file with the following
-    format:
-        {
-            "check_ecg_std_min_threshold": check_ecg_std_min_threshold,
-            "check_ecg_distance_std_ratio_threshold": check_ecg_distance_std_ratio_threshold
-        }
-    """
-
-    # check if ecg thresholds already exist and if yes: ask for permission to override
-    user_answer = ask_for_permission_to_override_file(file_path = ecg_thresholds_save_path, 
-        message = "\nThresholds for ECG validation (see check_data.check_ecg()) already exist in " + ecg_thresholds_save_path + ".")
-
-    # cancel if user does not want to override
-    if user_answer == "n":
-        return
-    
-    # try to load the data and correct the physical dimension if needed
-    try:
-        ecg_signal, ecg_sampling_frequency = read_edf.get_data_from_edf_channel(
-            file_path = ecg_calibration_file_path,
-            possible_channel_labels = ecg_keys,
-            physical_dimension_correction_dictionary = physical_dimension_correction_dictionary
-        )
-    except:
-        raise SystemExit("No ECG data found in the file " + ecg_calibration_file_path + ". As the ECG thresholds are relevant for further computation, the program was stopped.")
-
-    # Calculate and save the thresholds for check_ecg() function
-    threshold_values = eval_std_thresholds(
-        ECG = ecg_signal, 
-        detection_intervals = ecg_calibration_intervals,
-        threshold_multiplier = ecg_thresholds_multiplier,
-        threshold_dezimal_places = ecg_thresholds_dezimal_places,
-        )
-    
-    # write the thresholds to a dictionary and save them
-    check_ecg_thresholds = dict()
-    check_ecg_thresholds["check_ecg_std_min_threshold"] = threshold_values[0]
-    check_ecg_thresholds["check_ecg_distance_std_ratio_threshold"] = threshold_values[1]
-    
-    append_to_pickle(check_ecg_thresholds, ecg_thresholds_save_path)
-
-
-def locally_calculate_ecg_thresholds(
-        ECG: list,
-        time_interval_iterations: int,
-    ):
-    """
-    """
-    standard_deviations = []
-    std_distance_ratios = []
-
-    max_ecg = np.max(ECG)
-
-    for i in np.arange(0, len(ECG), time_interval_iterations):
-
-        # make sure upper border is not out of bounds
-        if i + time_interval_iterations > len(ECG):
-            upper_border = len(ECG)
-        else:
-            upper_border = i + time_interval_iterations
-        
-        # calc std and max-min-distance ratio
-        this_std = abs(np.std(ECG[i:upper_border]))
-        this_max = np.max(ECG[i:upper_border])
-        this_min = np.min(ECG[i:upper_border])
-        max_min_distance = abs(this_max - this_min)
-
-        if this_std == 0:
-            std_distance_ratio = max_ecg
-        else:
-            std_distance_ratio = 0.5 * max_min_distance / this_std
-        
-        standard_deviations.append(this_std)
-        std_distance_ratios.append(std_distance_ratio)
-    
-    return 0.2*np.mean(standard_deviations), 0.5*np.mean(std_distance_ratios)
-
-
-def check_ecg(
-        ECG: list, 
-        frequency: int,
-        check_ecg_std_min_threshold: float, 
-        check_ecg_distance_std_ratio_threshold: float,
-        time_interval_seconds: int, 
-        overlapping_interval_steps: int,
-        min_valid_length_minutes: int,
-        allowed_invalid_region_length_seconds: int,
-    ):
-    """
-    Check where the ECG data is valid.
-    (valid regions must be x minutes long, invalid regions can be as short as possible)
-
-    Data will be checked in overlapping intervals. Those will be concatenated afterwards.
-    Then the gaps between the regions will be checked. If its useful to connect them (regions
-    long enough compared to gap, but not too long that they already fulfill the
-    min_valid_length_minutes condition), they will be connected.
-
-    ARGUMENTS:
-    --------------------------------
-    ECG: list
-        list containing the ECG data
-    frequency: int
-        sampling frequency of the ECG data
-    check_ecg_std_min_threshold: float
-        minimum threshold for the standard deviation
-    check_ecg_distance_std_ratio_threshold: float
-        threshold for the max-min distance to twice the standard deviation ratio
-    time_interval_seconds: int
-        time interval length in seconds to be checked for validity
-    min_valid_length_minutes: int
-        minimum length of valid data in minutes
-    allowed_invalid_region_length_seconds: int
-        length of data in seconds that is allowed to be invalid in a valid region of size min_valid_length_minutes
-
-    RETURNS:
-    --------------------------------
-    valid_regions: list
-        list of lists containing the start and end indices of the valid regions: valid_regions[i] = [start, end] of region i
-    """
-    # calculate the number of iterations from time and frequency
-    time_interval_iterations = int(time_interval_seconds * frequency)
-    
-    check_ecg_std_min_threshold, check_ecg_distance_std_ratio_threshold = locally_calculate_ecg_thresholds(ECG, time_interval_iterations) # type: ignore
-    # print(check_ecg_std_min_threshold, check_ecg_distance_std_ratio_threshold)
-
-    # check condition for given time intervals and add regions (multiple time intervals) to a list if number of invalid intervals is sufficiently low
-    overlapping_valid_regions = []
-    
-    interval_steps = int(time_interval_iterations/overlapping_interval_steps)
-    was_valid = False
-
-    for i in np.arange(0, len(ECG), interval_steps):
-
-        # make sure upper border is not out of bounds
-        if i + time_interval_iterations > len(ECG):
-            upper_border = len(ECG)
-        else:
-            upper_border = i + time_interval_iterations
-        
-        # calc std and max-min-distance ratio
-        this_std = abs(np.std(ECG[i:upper_border]))
-        this_max = np.max(ECG[i:upper_border])
-        this_min = np.min(ECG[i:upper_border])
-        max_min_distance = abs(this_max - this_min)
-
-        if this_std == 0:
-            std_distance_ratio = check_ecg_distance_std_ratio_threshold - 1
-        else:
-            std_distance_ratio = 0.5 * max_min_distance / this_std
-
-        # check if interval is valid
-        if this_std >= check_ecg_std_min_threshold and std_distance_ratio >= check_ecg_distance_std_ratio_threshold:
-            overlapping_valid_regions.append([i,upper_border])
-            was_valid = True
-        else:
-            if was_valid:
-                limit = upper_border - time_interval_iterations/overlapping_interval_steps
-                for j in range(len(overlapping_valid_regions)-1, -1, -1):
-                    if overlapping_valid_regions[j][1] >= limit:
-                        del overlapping_valid_regions[j]
-                    else:
-                        break
-            was_valid = False
-    
-    if len(overlapping_valid_regions) == 0:
-        return []
-
-    # concatenate neighbouring intervals
-    concatenated_intervals = []
-    this_interval = [overlapping_valid_regions[0][0], overlapping_valid_regions[0][1]]
-    for i in range(1, len(overlapping_valid_regions)):
-        if overlapping_valid_regions[i][0] <= this_interval[1]:
-            this_interval[1] = overlapping_valid_regions[i][1]
-        else:
-            concatenated_intervals.append(this_interval)
-            del this_interval
-            this_interval = [overlapping_valid_regions[i][0], overlapping_valid_regions[i][1]]
-    concatenated_intervals.append(this_interval)
-
-    return concatenated_intervals
-
-    del overlapping_valid_regions
-
-    # calculate thresholds from other units in iterations
-    iterations_per_region = int(min_valid_length_minutes * 60 * frequency)
-    allowed_invalid_iterations = int(allowed_invalid_region_length_seconds * frequency)
-    allowed_wrong_total_ratio = allowed_invalid_region_length_seconds / min_valid_length_minutes / 60
-
-    # collect possible connections (gap between regions is smaller than allowed_invalid_iterations)
-    possible_connections = []
-    
-    for i in range(1, len(concatenated_intervals)):
-        if concatenated_intervals[i][0] - concatenated_intervals[i-1][1] < allowed_invalid_iterations:
-            possible_connections.append([i-1, i])
-    
-    # check which connections are useful to make
-    current_invalid_iterations = 0
-    total_iterations = 0
-
-    validated_connections = []
-    last_connection = -1
-
-    for i in range(len(possible_connections)):
-        # calculate the length of the regions and the distance between them
-        len_region_1 = concatenated_intervals[possible_connections[i][0]][1] - concatenated_intervals[possible_connections[i][0]][0]
-        len_region_2 = concatenated_intervals[possible_connections[i][1]][1] - concatenated_intervals[possible_connections[i][1]][0]
-        distance = concatenated_intervals[possible_connections[i][1]][0] - concatenated_intervals[possible_connections[i][0]][1]
-
-        # check if the regions are not too short and not too long
-        if len_region_1 > iterations_per_region and len_region_2 > iterations_per_region:
-            continue
-        
-        if len_region_1 < 2*allowed_invalid_iterations or len_region_2 < 2*allowed_invalid_iterations:
-            continue
-        
-        # check if last connection was established and check if you can append to it
-        if last_connection == possible_connections[i][0]:
-            current_invalid_iterations += distance
-            total_iterations += len_region_2 + distance
-            if current_invalid_iterations / total_iterations <= allowed_wrong_total_ratio:
-                validated_connections[-1].append(possible_connections[i][1])
-                # we don't want to add to much errors, should the interval be long enough, therefore we just compare the last two connections (reset values)
-                current_invalid_iterations = distance
-                total_iterations = len_region_1 + len_region_2 + distance
-                last_connection = possible_connections[i][1]
-                continue
-        
-        # check if you can establish a new connection
-        current_invalid_iterations = distance
-        total_iterations = len_region_1 + len_region_2 + distance
-        if current_invalid_iterations / total_iterations <= allowed_wrong_total_ratio:
-            validated_connections.append(possible_connections[i])
-            last_connection = possible_connections[i][1]
-        else:
-            last_connection = -1
-
-    # create the intervals for the valid connections
-    connected_regions = []
-    for con in validated_connections:
-        connected_regions.append([concatenated_intervals[con[0]][0], concatenated_intervals[con[-1]][1]])
-
-    # replace the connections in the concatenated intervals
-    replaced_connections = []
-    for i in range(len(concatenated_intervals)-1, -1, -1):
-        for con_index in range(len(validated_connections)):
-            if i in validated_connections[con_index]:
-                if con_index in replaced_connections:
-                    del concatenated_intervals[i]
-                    break
-                else:
-                    concatenated_intervals[i] = connected_regions[con_index]
-                    replaced_connections.append(con_index)
-                    break
-    
-    # append long enough regions to the valid regions
-    valid_regions = []
-    for region in concatenated_intervals:
-        if region[1] - region[0] >= iterations_per_region:
-            valid_regions.append(region)
-    
-    return valid_regions
-
-
 def straighten_ecg(
         ecg_interval: list,
         frequency: int,
     ):
     """
-    Straighten
+    Sometimes the ECG signal is overlapped by noise, which increases the standard deviation
+    and max-min distance. Both are needed to determine the validity of the ECG signal.
+    To not falsify the results, this function tries to straighten the ecg signal.
+
+    To do this, it will first look for the peaks. Then it will vertically center the peaks.
+    Afterwards the region inbetween the peaks will be shifted as well, depending on the 
+    increase/decrease between the peaks.
+
+    ARGUMENTS:
+    --------------------------------
+    ecg_interval: list
+        list containing the ECG data
+    frequency: int
+        sampling rate / frequency of the ECG data
+    
+    RETURNS:
+    --------------------------------
+    straighten_ecg: list
+        list containing the straightened ECG data or the original data
     """
+    # goal is to reduce std of the ecg signal. If this is not achieved, the original signal is returned
+    # therefore we need to save the original signal and std
     original_ecg_interval = copy.deepcopy(ecg_interval)
 
     std_before_straightening = np.std(ecg_interval)
     step_iterations = int(0.2*frequency)
 
+    # calculate the max-min differences and minima of the ecg signal in steps (1/5 of a second)
     differences = []
     minima = []
     for i in range(0, len(ecg_interval), step_iterations):
@@ -406,7 +63,7 @@ def straighten_ecg(
 
     mean_diff = np.mean(differences)
 
-    # straighten the ecg signal
+    # straighten the ecg signal as described above
     last_high_difference = 0
     last_offset = 0
     straighten_ecg = [ecg_value for ecg_value in ecg_interval]
@@ -434,12 +91,14 @@ def straighten_ecg(
             first_high_difference = i
             break
     
+    # also apply shifting to areas before the first and after the last peak
     for j in range(0, first_high_difference*step_iterations):
         straighten_ecg[j] -= first_offset
     
     for j in range(last_high_difference*step_iterations, len(ecg_interval)):
         straighten_ecg[j] -= last_offset
     
+    # check if the std is reduced, if not return the original signal
     std_after_straightening = np.std(straighten_ecg)
 
     if std_after_straightening > 1.2*std_before_straightening:
@@ -457,6 +116,17 @@ def concatenate_neighbouring_intervals(
         intervals: list,
     ):
     """
+    Concatenate overlapping intervals.
+
+    ARGUMENTS:
+    --------------------------------
+    intervals: list
+        list of lists containing the start and end indices of the intervals
+    
+    RETURNS:
+    --------------------------------
+    concatenated_intervals: list
+        list of lists containing the start and end indices of the concatenated intervals
     """
     # concatenate neighbouring intervals
     concatenated_intervals = [intervals[0]]
@@ -474,6 +144,19 @@ def retrieve_unincluded_intervals(
         total_length: int,
     ):
     """
+    Retrieve the unincluded intervals in the given signal length.
+
+    ARGUMENTS:
+    --------------------------------
+    included_intervals: list
+        list of lists containing the start and end indices of the included intervals
+    total_length: int
+        length of the signal
+    
+    RETURNS:
+    --------------------------------
+    unincluded_intervals: list
+        list of lists containing the start and end indices of the unincluded intervals
     """
     unincluded_intervals = []
     if included_intervals[0][0] > 0:
@@ -486,182 +169,346 @@ def retrieve_unincluded_intervals(
     return unincluded_intervals
 
 
-def new_new_check_ecg(
-        ECG: list, 
-        frequency: int,
-        time_interval_seconds: int, 
-        overlapping_interval_steps: int,
-        straighten_ecg_signal: bool,
-        recheck_std_times_per_second: int,
-        validation_strictness: float
+def valid_total_ratio(ECG: list, valid_regions: list):
+    """
+    Calculate the ratio of valid to total ecg data.
+
+    ARGUMENTS:
+    --------------------------------
+    ECG: list
+        list containing the ECG data
+    valid_regions: list
+        list of lists containing the start and end indices of the valid regions
+
+    RETURNS:
+    --------------------------------
+    valid_ratio: float
+        ratio of valid to total ecg data
+    """
+    valid_data = 0
+    for region in valid_regions:
+        valid_data += region[1] - region[0]
+    valid_ratio = valid_data / len(ECG)
+    return valid_ratio
+
+
+def expand_valid_regions(
+        valid_regions: list,
+        min_valid_length_iterations: int,
+        allowed_invalid_region_length_iterations: int,
     ):
     """
+    Expand valid regions to include invalid regions that are too short to be considered as invalid.
+
+    ARGUMENTS:
+    --------------------------------
+    valid_regions: list
+        list of lists containing the start and end indices of the valid regions
+    min_valid_length_iterations: int
+        minimum length of a valid region in iterations
+    allowed_invalid_region_length_iterations: int
+        maximum length of invalid datapoints a region can contain to be still considered
+        as valid
+    
+    RETURNS:
+    --------------------------------
+    connected_intervals: list
+        list of lists containing the start and end indices of the expanded intervals
+    """
+    # if there is only one valid region, you can't expand it
+    if len(valid_regions) <= 1:
+        return valid_regions
+    
+    min_num_of_valid_points_in_region = min_valid_length_iterations - allowed_invalid_region_length_iterations
+
+    # create lists to store lower and upper border of the min_valid_length_iterations long regions (long_regions)
+    # and the number of valid points in these regions
+    number_of_valid_points = []
+    long_regions = []
+    # sum up number of valid points for every min_valid_length_iterations
+    for lower_border in range(valid_regions[0][0], valid_regions[-1][1], min_valid_length_iterations):
+        upper_border = lower_border + min_valid_length_iterations
+        smaller_region_multiplier = 1
+        # make sure upper border is not out of bounds, if it is, adjust the multiplier (smaller region, needs less valid points)
+        if upper_border > valid_regions[-1][1]:
+            upper_border = valid_regions[-1][1]
+            smaller_region_multiplier = min_valid_length_iterations / (upper_border - lower_border)
+        
+        long_regions.append([lower_border, upper_border])
+        
+        valid_points_in_this_interval = 0
+        
+        for i in range(0, len(valid_regions)):
+            if valid_regions[i][0] > upper_border:
+                break
+            if valid_regions[i][1] < lower_border:
+                continue
+            if valid_regions[i][0] < lower_border:
+                if valid_regions[i][1] < upper_border:
+                    valid_points_in_this_interval += valid_regions[i][1] - lower_border
+                else:
+                    valid_points_in_this_interval += upper_border - lower_border
+            else:
+                if valid_regions[i][1] < upper_border:
+                    valid_points_in_this_interval += valid_regions[i][1] - valid_regions[i][0]
+                else:
+                    valid_points_in_this_interval += upper_border - valid_regions[i][0]
+        
+        number_of_valid_points.append(valid_points_in_this_interval*smaller_region_multiplier)
+    
+    # collect invalid region indices
+    invalid_long_region_index = []
+    for i in range(0, len(number_of_valid_points)):
+        if number_of_valid_points[i] < min_num_of_valid_points_in_region:
+            invalid_long_region_index.append(i)
+    
+    # remove invalid regions
+    for i in range(len(invalid_long_region_index)-1, -1, -1):
+        del long_regions[invalid_long_region_index[i]]
+
+    # concatenate long regions
+    long_regions = concatenate_neighbouring_intervals(long_regions)
+    # connect invalid gaps that lie inside the long valid regions
+    connected_intervals = []
+    last_two_intervals_connected = False
+    last_connected_region_index = -1
+    for i in range(1, len(valid_regions)):
+        invalid_left_border = valid_regions[i-1][1]
+        invalid_right_border = valid_regions[i][0]
+        #print(invalid_left_border, invalid_right_border, invalid_right_border - invalid_left_border)
+        for j in range(0, len(long_regions)):
+            if long_regions[j][0] > invalid_right_border:
+                if not last_two_intervals_connected:
+                    connected_intervals.append(valid_regions[i-1])
+                    last_connected_region_index = i-1
+                last_two_intervals_connected = False
+                break
+            if long_regions[j][1] <= invalid_right_border:
+                continue
+            else:
+                if long_regions[j][0] < invalid_left_border:
+                    if last_two_intervals_connected:
+                        connected_intervals[-1][1] = valid_regions[i][1]
+                    else:
+                        connected_intervals.append([valid_regions[i-1][0], valid_regions[i][1]])
+                    last_connected_region_index = i
+                    last_two_intervals_connected = True
+                    break
+                else:
+                    if not last_two_intervals_connected:
+                        connected_intervals.append(valid_regions[i-1])
+                        last_connected_region_index = i-1
+                    last_two_intervals_connected = False
+                    break
+
+    #print(valid_regions)
+    for i in range(last_connected_region_index+1, len(valid_regions)):
+        connected_intervals.append(valid_regions[i])
+    #print(connected_intervals)
+    
+    return connected_intervals
+
+
+def check_ecg(
+        ECG: list, 
+        frequency: int,
+        straighten_ecg_signal: bool,
+        check_ecg_time_interval_seconds: int, 
+        check_ecg_overlapping_interval_steps: int,
+        check_ecg_validation_strictness: float,
+        check_ecg_removed_peak_difference_threshold: float,
+        check_ecg_std_min_threshold: float, 
+        check_ecg_std_max_threshold: float, 
+        check_ecg_distance_std_ratio_threshold: float,
+        check_ecg_min_valid_length_minutes: int,
+        check_ecg_allowed_invalid_region_length_seconds: int,
+    ):
+    """
+    This functions checks where the ECG signal is valid and returns the valid region borders.
+    It does this by calculating the standard deviation and the max-min distance of the ECG signal
+    in intervals of check_ecg_time_interval_seconds. It then removes the highest peak in this interval
+    and recalculates the standard deviation and the max-min distance. 
+    
+    It collects all of these values and calculates the mean values. From those the thresholds are
+    retrieved using the check_ecg_validation_strictness. 
+    
+    If the ratio of the max-min distance to the standard deviation is lower than the threshold,
+    the interval is considered invalid. 
+    (in a good ECG signal the peak is much higher than the standard deviation)
+    
+    If the distance of this ratio after and before removing the highest peak is too high, 
+    the interval is considered invalid.
+    (if at least two peaks are inside the interval, the values should be similar before 
+    and after removing the highest peak)
+
+    If the standard deviation is too high or too low, the interval is considered invalid.
+    (if the signal is too noisy or too flat, the values are not reliable)
+
+    ARGUMENTS:
+    --------------------------------
+    ECG: list
+        list containing the ECG data
+    frequency: int
+        sampling rate / frequency of the ECG data
+    straighten_ecg_signal: bool
+        if True, the ECG signal will be straightened (see straighten_ecg())
+    check_ecg_time_interval_seconds: int
+        length of the interval to be checked for validity in seconds
+    check_ecg_overlapping_interval_steps: int
+        number of steps the interval needs to be shifted to the right until the next check_ecg_time_interval_seconds interval starts
+    check_ecg_validation_strictness: float
+        strictness of the validation (0: very unstrict, 1: very strict)
+    check_ecg_removed_peak_difference_threshold: float
+        threshold for the difference of the max-min distance to the standard deviation after and before removing the highest peak
+    check_ecg_std_min_threshold: float
+        minimum standard deviation to be considered valid 
+        (MANUAL THRESHOLD, only used if the ratio of valid to total data is too low. Because then the mean values are off)
+    check_ecg_std_max_threshold: float
+        maximum standard deviation to be considered valid
+        (MANUAL THRESHOLD, see above)
+    check_ecg_distance_std_ratio_threshold: float
+        minimum ratio of the max-min distance to the standard deviation to be considered valid
+        (MANUAL THRESHOLD, see above)
+    check_ecg_min_valid_length_minutes: int
+        minimum length of a valid region in minutes
+    check_ecg_allowed_invalid_region_length_seconds: int
+        maximum length of invalid datapoints a region can contain to be still considered as valid
+    
+    RETURNS:
+    --------------------------------
+    connected_intervals: list
+        list of lists containing the start and end indices of the valid regions
     """
     # calculate the number of iterations from time and frequency
-    time_interval_iterations = int(time_interval_seconds * frequency)
+    time_interval_iterations = int(check_ecg_time_interval_seconds * frequency)
 
+    # calculate the step size 
+    interval_steps = int(time_interval_iterations/check_ecg_overlapping_interval_steps)
+
+    # create lists to save the standard deviation and the max-min distance values of the intervals
     collect_whole_stds = []
-    collect_std_max_min_distance_ratios = []
-    collect_std_of_rechecked_stds = []
+    collect_whole_std_max_min_distance_ratios = []
 
-    interval_steps = int(time_interval_iterations/overlapping_interval_steps)
+    # create lists to save the standard deviation and the max-min distance values of the intervals after removing the highest peak
+    collect_no_peak_std_distance = []
+    collect_no_peak_std_max_min_distance_ratio_distance = []
 
     for i in np.arange(0, len(ECG), interval_steps):
         # make sure upper border is not out of bounds
         upper_border = i + time_interval_iterations
-        ecg_interval_length = time_interval_iterations
         if upper_border > len(ECG):
             upper_border = len(ECG)
-            ecg_interval_length = upper_border - i
 
+        # straighten the ecg signal if wanted
         if straighten_ecg_signal:
             ecg_interval = straighten_ecg(ECG[i:upper_border], frequency)
         else:
             ecg_interval = ECG[i:upper_border]
 
+        # calculate the standard deviation and append it to the list
         this_interval_std = np.std(ecg_interval)
         collect_whole_stds.append(this_interval_std)
-        if this_interval_std == 0:
-            collect_std_max_min_distance_ratios.append(0)
+
+        # remove area around the peak
+        if np.mean(ecg_interval) < 0:
+            peak_location = np.argmax(ecg_interval)
         else:
-            collect_std_max_min_distance_ratios.append((np.max(ecg_interval) - np.min(ecg_interval))/this_interval_std)
+            peak_location = np.argmin(ecg_interval)
+        interval_without_peak = []
+        for j in range(0, len(ecg_interval)):
+            if j < peak_location - 0.1*frequency or j > peak_location + 0.1*frequency:
+                interval_without_peak.append(ecg_interval[j])
+        
+        # recalculate the standard deviation
+        no_peak_interval_std = np.std(interval_without_peak)
 
-        rechecked_stds = []
+        # append values to the lists
+        if this_interval_std == 0:
+            whole_std_max_min_ratio = 0
+            collect_whole_std_max_min_distance_ratios.append(0)
+            collect_no_peak_std_distance.append(2)
+        else:
+            whole_std_max_min_ratio = (np.max(ecg_interval) - np.min(ecg_interval))/this_interval_std
+            collect_whole_std_max_min_distance_ratios.append(whole_std_max_min_ratio)
+            collect_no_peak_std_distance.append(abs(no_peak_interval_std-this_interval_std)/this_interval_std)
 
-        shift_size = int(frequency/recheck_std_times_per_second)
-        for shift_pos in range(0, ecg_interval_length, shift_size):
-            this_upper_border = shift_pos + shift_size
-            if this_upper_border > upper_border:
-                this_upper_border = upper_border
-            rechecked_stds.append(np.std(ecg_interval[shift_pos:this_upper_border]))
 
-        collect_std_of_rechecked_stds.append(np.std(rechecked_stds))
+        if no_peak_interval_std == 0:
+            collect_no_peak_std_max_min_distance_ratio_distance.append(2)
+        elif whole_std_max_min_ratio == 0:
+            collect_no_peak_std_max_min_distance_ratio_distance.append(2)
+        else:
+            collect_no_peak_std_max_min_distance_ratio_distance.append(abs((np.max(interval_without_peak) - np.min(interval_without_peak))/no_peak_interval_std-whole_std_max_min_ratio)/whole_std_max_min_ratio)
     
-    mean_std = np.mean(collect_whole_stds)
-    mean_std_of_rechecked_stds = np.mean(collect_std_of_rechecked_stds)
-    mean_std_max_min_distance_ratio = np.mean(collect_std_max_min_distance_ratios)
+    # checking if the std-max-min-distance-ratio is high enough
+    mean_whole_std_max_min_distance_ratio = np.mean(collect_whole_std_max_min_distance_ratios)
 
-    above_mean_strictness = 1-validation_strictness
-    below_mean_strictness = 1+validation_strictness
-    invalid_intervals = []
+    possibly_valid_stds = []
+    passed_max_min_distance = []
 
-    for i in range(0, len(collect_whole_stds)):
-        passed_conditions = False
-        if collect_whole_stds[i] > validation_strictness*mean_std:
-            if collect_std_max_min_distance_ratios[i] > above_mean_strictness*mean_std_max_min_distance_ratio:
-                if collect_std_of_rechecked_stds[i] > above_mean_strictness*mean_std_of_rechecked_stds:
-                    if collect_whole_stds[i] < below_mean_strictness*mean_std:
-                        passed_conditions = True
-        if not passed_conditions:
+    for i in range(0, len(collect_whole_std_max_min_distance_ratios)):
+        if collect_whole_std_max_min_distance_ratios[i] > check_ecg_validation_strictness*mean_whole_std_max_min_distance_ratio:
+            possibly_valid_stds.append(collect_whole_stds[i])
+            passed_max_min_distance.append(i)
+    
+    # checking if std is neither too high nor too low
+    mean_std = np.mean(possibly_valid_stds)
+    lower_limit = (mean_std - np.std(possibly_valid_stds))*check_ecg_validation_strictness
+    upper_limit = (mean_std + np.std(possibly_valid_stds))*(2-check_ecg_validation_strictness)
+    #print(lower_limit, upper_limit)
+    possibly_valid_max_min_distance = []
+    passed_min_std = []
+
+    for i in range(0, len(possibly_valid_stds)):
+        if possibly_valid_stds[i] > lower_limit and possibly_valid_stds[i] < upper_limit:
+            passed_min_std.append(passed_max_min_distance[i])
+            possibly_valid_max_min_distance.append(collect_no_peak_std_max_min_distance_ratio_distance[passed_max_min_distance[i]])
+    
+    # checking if the std-max-min-distance-ratio after peak removal is close enough to the original
+    valid_intervals = []
+
+    for i in range(0, len(possibly_valid_max_min_distance)):
+        if not possibly_valid_max_min_distance[i] > check_ecg_removed_peak_difference_threshold:
             # make sure upper border is not out of bounds
-            upper_border = i*interval_steps + time_interval_iterations
+            lower_border = passed_min_std[i]*interval_steps
+            upper_border = lower_border + time_interval_iterations
             if upper_border > len(ECG):
                 upper_border = len(ECG)
             # append to valid intervals
-            invalid_intervals.append([i*interval_steps, upper_border])
+            valid_intervals.append([lower_border, upper_border])
     
-    invalid_intervals = concatenate_neighbouring_intervals(invalid_intervals)
-    valid_intervals = retrieve_unincluded_intervals(invalid_intervals, len(ECG))
-
-    return valid_intervals
-
-
-def new_check_ecg(
-        ECG: list, 
-        frequency: int,
-        time_interval_seconds: int, 
-        straighten_ecg_signal: bool
-    ):
-    """
-    Check
-    """
-    # calculate the number of iterations from time and frequency
-    time_interval_iterations = int(time_interval_seconds * frequency)
-    shift_interval_by = int(frequency/10)
-
-    number_of_low_differences = []
-    min_differences = []
-
-    badu = 6292992 #fluctuating
-    badu = 18750000 #bad
-    badu = 15000000 #bad
-    badu = 1008000 #fluctuating
-    badu = 5000000 #good
-    badu = 2091000 #good
-    badu = 50 #bad
-
-    count = 0 
-    for i in np.arange(badu, badu+10*time_interval_iterations, time_interval_iterations):
-        if count > 1000000:
-            print(count)
-            count = 0
-        count += time_interval_iterations
-        # make sure upper border is not out of bounds
-        if i + 2*time_interval_iterations > len(ECG):
-            upper_border = len(ECG)
-            size_difference = i + 2*time_interval_iterations - len(ECG)
-        else:
-            upper_border = i + 2*time_interval_iterations
-            size_difference = 0
-        
-        if straighten_ecg_signal:
-            previous_interval = straighten_ecg(ECG[i+size_difference:i+time_interval_iterations], frequency)
-            next_interval = straighten_ecg(ECG[i+time_interval_iterations:upper_border], frequency)
-        else:
-            previous_interval = ECG[i+size_difference:i+time_interval_iterations]
-            next_interval = ECG[i+time_interval_iterations:upper_border]
-
-        calculated_mean_differences = []
-        for shift_pos in range(int(len(next_interval)-frequency), len(next_interval), shift_interval_by):
-            overlapping_previous_interval = np.array(previous_interval[-shift_pos:])
-            overlapping_next_interval = np.array(next_interval[:shift_pos])
-            this_mean_diff = np.mean(abs((overlapping_previous_interval - overlapping_next_interval)))
-            calculated_mean_differences.append(this_mean_diff)
-
-            overlapping_previous_interval = np.array(previous_interval[:shift_pos])
-            overlapping_next_interval = np.array(next_interval[-shift_pos:])
-            this_mean_diff = np.mean(abs((overlapping_previous_interval - overlapping_next_interval)))
-            calculated_mean_differences.append(this_mean_diff)
-        
-        if len(next_interval) > 0 :
-            height_next_interval = np.max(next_interval) - np.min(next_interval)
-            height_previous_interval = np.max(previous_interval) - np.min(previous_interval)
-            max_height = abs(max(height_next_interval, height_previous_interval))
-
-            count_low_diff = 0
-            for diff in calculated_mean_differences:
-                if diff < 0.2*max_height:
-                    count_low_diff += 1
-            number_of_low_differences.append(count_low_diff)
-            
-            min_differences.append(np.mean(calculated_mean_differences))
-        
-        print(i, count_low_diff, np.mean(calculated_mean_differences))
-
-    mean_number_of_low_differences = np.mean(number_of_low_differences) # for good: above 3k
-    mean_of_mean_differences = np.mean(min_differences) # for good: above 100
-
-    valid_intervals = []
-
-    for i in range(0, len(number_of_low_differences)):
-        if number_of_low_differences[i] > 0.5 * mean_number_of_low_differences and min_differences[i] > 0.5 * mean_of_mean_differences:
-            # make sure upper border is not out of bounds
-            if i + 2*time_interval_iterations > len(ECG):
-                upper_border = len(ECG)
-            else:
-                upper_border = (i + 2)*time_interval_iterations
-            # append to valid intervals (probably many overlaps)
-            valid_intervals.append([i*time_interval_iterations, upper_border])
+    # check the ratio of valid to total ecg data
+    valid_ratio = valid_total_ratio(ECG, valid_intervals)
+    #print(valid_ratio)
+    # if ratio is too low, it means the data consists of too many invalid regions
+    # therefore the mean values will be off for a useful detection and the manual thresholds need to be used
+    if valid_ratio < 0.5:
+        valid_intervals = []
+        for i in range(0, len(collect_whole_stds)):
+            if collect_whole_stds[i] >= check_ecg_std_min_threshold:
+                if collect_whole_stds[i] <= check_ecg_std_max_threshold:
+                    if collect_whole_std_max_min_distance_ratios[i] >= check_ecg_distance_std_ratio_threshold:
+                        if collect_no_peak_std_max_min_distance_ratio_distance[i] <= check_ecg_removed_peak_difference_threshold:
+                            # make sure upper border is not out of bounds
+                            lower_border = i*interval_steps
+                            upper_border = lower_border + time_interval_iterations
+                            if upper_border > len(ECG):
+                                upper_border = len(ECG)
+                            # append to valid intervals
+                            valid_intervals.append([lower_border, upper_border])
     
-    # concatenate intervals
-    concatenated_intervals = [valid_intervals[0]]
-    for i in range(1, len(valid_intervals)):
-        if valid_intervals[i][0] <= concatenated_intervals[-1][1]:
-            concatenated_intervals[-1][1] = valid_intervals[i][1]
-        else:
-            concatenated_intervals.append(valid_intervals[i])
+    # concatenate neighbouring intervals
+    concatenated_intervals = concatenate_neighbouring_intervals(valid_intervals)
+    #print(valid_total_ratio(ECG, concatenated_intervals))
     
-    return concatenated_intervals
+    # include invalid intervals that are too short to be considered as invalid
+    connected_intervals = expand_valid_regions(
+        valid_regions = concatenated_intervals, 
+        min_valid_length_iterations = int(check_ecg_min_valid_length_minutes*60*frequency), 
+        allowed_invalid_region_length_iterations = int(check_ecg_allowed_invalid_region_length_seconds*frequency)
+        )
+
+    return connected_intervals
 
 
 def determine_valid_ecg_regions(
@@ -672,10 +519,15 @@ def determine_valid_ecg_regions(
         preparation_results_path: str,
         file_name_dictionary_key: str,
         valid_ecg_regions_dictionary_key: str,
-        check_ecg_std_min_threshold: float, 
-        check_ecg_distance_std_ratio_threshold: float,
+        # check_ecg arguments:
+        straighten_ecg_signal: bool,
         check_ecg_time_interval_seconds: int, 
         check_ecg_overlapping_interval_steps: int,
+        check_ecg_validation_strictness: float,
+        check_ecg_removed_peak_difference_threshold: float,
+        check_ecg_std_min_threshold: float, 
+        check_ecg_std_max_threshold: float,
+        check_ecg_distance_std_ratio_threshold: float,
         check_ecg_min_valid_length_minutes: int,
         check_ecg_allowed_invalid_region_length_seconds: int,
     ):
@@ -759,14 +611,18 @@ def determine_valid_ecg_regions(
                 # calculate the valid regions
                 this_valid_regions = check_ecg(
                     ECG = ecg_signal, 
-                    frequency = ecg_sampling_frequency, 
+                    frequency = ecg_sampling_frequency,
+                    straighten_ecg_signal = straighten_ecg_signal,
+                    check_ecg_time_interval_seconds = check_ecg_time_interval_seconds, 
+                    check_ecg_overlapping_interval_steps = check_ecg_overlapping_interval_steps,
+                    check_ecg_validation_strictness = check_ecg_validation_strictness,
+                    check_ecg_removed_peak_difference_threshold = check_ecg_removed_peak_difference_threshold,
                     check_ecg_std_min_threshold = check_ecg_std_min_threshold, 
+                    check_ecg_std_max_threshold = check_ecg_std_max_threshold, 
                     check_ecg_distance_std_ratio_threshold = check_ecg_distance_std_ratio_threshold,
-                    time_interval_seconds = check_ecg_time_interval_seconds, 
-                    overlapping_interval_steps = check_ecg_overlapping_interval_steps,
-                    min_valid_length_minutes = check_ecg_min_valid_length_minutes,
-                    allowed_invalid_region_length_seconds = check_ecg_allowed_invalid_region_length_seconds,
-                    )
+                    check_ecg_min_valid_length_minutes = check_ecg_min_valid_length_minutes,
+                    check_ecg_allowed_invalid_region_length_seconds = check_ecg_allowed_invalid_region_length_seconds,
+                )
                 
                 # save the valid regions for this file
                 generator_entry[valid_ecg_regions_dictionary_key] = this_valid_regions
@@ -803,14 +659,18 @@ def determine_valid_ecg_regions(
                 # calculate the valid regions
                 this_valid_regions = check_ecg(
                     ECG = ecg_signal, 
-                    frequency = ecg_sampling_frequency, 
+                    frequency = ecg_sampling_frequency,
+                    straighten_ecg_signal = straighten_ecg_signal,
+                    check_ecg_time_interval_seconds = check_ecg_time_interval_seconds, 
+                    check_ecg_overlapping_interval_steps = check_ecg_overlapping_interval_steps,
+                    check_ecg_validation_strictness = check_ecg_validation_strictness,
+                    check_ecg_removed_peak_difference_threshold = check_ecg_removed_peak_difference_threshold,
                     check_ecg_std_min_threshold = check_ecg_std_min_threshold, 
+                    check_ecg_std_max_threshold = check_ecg_std_max_threshold, 
                     check_ecg_distance_std_ratio_threshold = check_ecg_distance_std_ratio_threshold,
-                    time_interval_seconds = check_ecg_time_interval_seconds, 
-                    overlapping_interval_steps = check_ecg_overlapping_interval_steps,
-                    min_valid_length_minutes = check_ecg_min_valid_length_minutes,
-                    allowed_invalid_region_length_seconds = check_ecg_allowed_invalid_region_length_seconds,
-                    )
+                    check_ecg_min_valid_length_minutes = check_ecg_min_valid_length_minutes,
+                    check_ecg_allowed_invalid_region_length_seconds = check_ecg_allowed_invalid_region_length_seconds,
+                )
                 
                 # save the valid regions for this file
                 this_files_dictionary_entry = {
@@ -841,29 +701,6 @@ def determine_valid_ecg_regions(
         print(" "*5 + "- No matching label in ecg_keys and the files")
         print(" "*5 + "- Physical dimension of label is unknown")
         print(" "*5 + "- Dictionary key that accesses the file name does not exist in the results. Check key in file or recalculate them.")
-
-
-def valid_total_ratio(ECG: list, valid_regions: list):
-    """
-    Calculate the ratio of valid to total ecg data.
-
-    ARGUMENTS:
-    --------------------------------
-    ECG: list
-        list containing the ECG data
-    valid_regions: list
-        list of lists containing the start and end indices of the valid regions
-
-    RETURNS:
-    --------------------------------
-    valid_ratio: float
-        ratio of valid to total ecg data
-    """
-    valid_data = 0
-    for region in valid_regions:
-        valid_data += region[1] - region[0]
-    valid_ratio = valid_data / len(ECG)
-    return valid_ratio
 
 
 """

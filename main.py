@@ -133,8 +133,6 @@ settings_params = {
     "perform_rpeak_comparison": True, # if True, the r-peak detection functions will be compared
     "perform_ecg_validation_comparison": True, # if True, the ECG validations will be compared
     # set what parts of the PREPARATION SECTION should be executed
-    "calculate_ecg_thresholds": True, # if True, you will have the option to recalculate the thresholds for the ecg validation
-    "use_manually_chosen_ecg_thresholds": True, # if True, the manually chosen thresholds will be used, if False, the thresholds will be calculated
     "determine_valid_ecg_regions": True, # if True, you will have the option to recalculate the valid regions for the ECG data
     "detect_rpeaks": True, # if True, the r-peaks will be detected in the ECG data
     "calculate_MAD": True, # if True, the MAD will be calculated for the wrist acceleration data
@@ -163,28 +161,17 @@ preparation_results_dictionary_key_params = {
 
 # parameters for the ECG Validation
 valid_ecg_regions_params = {
-    "ecg_calibration_file_path": ECG_CALIBRATION_DATA_PATH, # path to the EDF file for threshold calibration
-    "ecg_thresholds_save_path": ECG_VALIDATION_THRESHOLDS_PATH, # path to the pickle file where the thresholds are saved
-    "ecg_thresholds_multiplier": 0.5, # multiplier for the thresholds in check_data.check_ecg() (between 0 and 1, the higher the more strict the thresholds are)
-    "ecg_thresholds_dezimal_places": 2, # number of dezimal places for the check ecg thresholds in the pickle files
-    "check_ecg_time_interval_seconds": 10, # time interval considered when determining the valid regions for the ECG data
-    "check_ecg_overlapping_interval_steps": 5, # number of times the interval needs to be shifted to the right until the next check_ecg_time_interval_seconds is reached
+    "straighten_ecg_signal": True, # if True, the ECG signal will be straightened before the validation (see check_data.straighten_ecg_signal() for more information)
+    "check_ecg_time_interval_seconds": 5, # time interval considered when determining the valid regions for the ECG data (as small as possible, but should contain at least two R-peaks)
+    "check_ecg_overlapping_interval_steps": 1, # number of times the interval needs to be shifted to the right until the next check_ecg_time_interval_seconds is reached (only useful to increase if check_ecg_time_interval_seconds is small)
+    "check_ecg_validation_strictness": 0.5, # strictness in relation to mean values (0.0: very unstrict, 1.0: very strict)
+    "check_ecg_removed_peak_difference_threshold": 0.3, # difference between the values of std-max-min-difference before and after removing the highest peak must be below this value (difference usually around 0.03)
+    "check_ecg_std_min_threshold": 80, # if the standard deviation of the ECG data is below this threshold, the data is considered invalid (this is a manual threshold, it is used if the ratio between valid and total regions is below 0.5 after trying it with validation_strictness and the mean values)
+    "check_ecg_std_max_threshold": 800, # if the standard deviation of the ECG data is above this threshold, the data is considered invalid (this is a manual threshold, see above)
+    "check_ecg_distance_std_ratio_threshold": 5, # if the ratio of the max-min difference and the standard deviation of the ECG data is below this threshold, the data is considered invalid
     "check_ecg_min_valid_length_minutes": 5, # minimum length of valid data in minutes
     "check_ecg_allowed_invalid_region_length_seconds": 30, # data region (see directly above) still considered valid if the invalid part is shorter than this
 }
-
-manually_chosen_ecg_thresholds = {
-    "check_ecg_std_min_threshold": 10, # if the standard deviation of the ECG data is below this threshold, the data is considered invalid
-    "check_ecg_distance_std_ratio_threshold": 2, # if the ratio of the distance between two peaks and twice the standard deviation of the ECG data is above this threshold, the data is considered invalid
-}
-
-if settings_params["use_manually_chosen_ecg_thresholds"]:
-    if settings_params["calculate_ecg_thresholds"]:
-        settings_params["calculate_ecg_thresholds"] = False
-        print("\nThe manually chosen ECG thresholds will be used. If you want to recalculate the thresholds, please set the 'use_manually_chosen_ecg_thresholds' parameter to False in the settings section of the script\n")
-    valid_ecg_regions_params.update(manually_chosen_ecg_thresholds)
-
-del manually_chosen_ecg_thresholds
 
 # parameters for the r-peak detection
 detect_rpeaks_params = {
@@ -274,14 +261,12 @@ validate_parameter_settings(parameters)
 # list for the PREPARATION SECTION
 # --------------------------------
 
-ecg_thresholds_variables = ["ecg_thresholds_save_path", "ecg_calibration_file_path", "ecg_keys", 
-    "physical_dimension_correction_dictionary","ecg_thresholds_multiplier", "ecg_thresholds_dezimal_places"]
-
 determine_ecg_region_variables = ["data_directory", "valid_file_types", "ecg_keys", 
     "physical_dimension_correction_dictionary",
     "preparation_results_path", "file_name_dictionary_key", "valid_ecg_regions_dictionary_key", 
-    "check_ecg_std_min_threshold", "check_ecg_distance_std_ratio_threshold", 
-    "check_ecg_time_interval_seconds", "check_ecg_overlapping_interval_steps", 
+    "straighten_ecg_signal", "check_ecg_time_interval_seconds", "check_ecg_overlapping_interval_steps",
+    "check_ecg_validation_strictness", "check_ecg_removed_peak_difference_threshold",
+    "check_ecg_std_min_threshold", "check_ecg_std_max_threshold", "check_ecg_distance_std_ratio_threshold",
     "check_ecg_min_valid_length_minutes", "check_ecg_allowed_invalid_region_length_seconds"]
 
 detect_rpeaks_variables = ["data_directory", "ecg_keys", "physical_dimension_correction_dictionary",
@@ -384,57 +369,14 @@ def additional_section(run_section: bool):
     # set path to pickle file that saves the results from the additions
     parameters["preparation_results_path"] = ADDITIONS_RESULTS_PATH
     
-
-    """
-    --------------------------------
-    SHOW CALIBRATION DATA
-    --------------------------------
-    """
-    # get manually chosen calibration intervals for the ECG validation:
-    manual_calibration_intervals, manual_interval_size = ecg_threshold_calibration_intervals()
-
-    # show calibration data if user requested it
-    if parameters["show_calibration_data"]:
-        # create directory to save plots if it does not exist and make sure it is empty
-        if not os.path.isdir(SHOW_CALIBRATION_DATA_DIRECTORY):
-            os.mkdir(SHOW_CALIBRATION_DATA_DIRECTORY)
-        clear_directory(SHOW_CALIBRATION_DATA_DIRECTORY)
-
-        # plot the calibration data in the manually chosen calibration intervals
-        names = ["perfect_ecg", "fluctuating_ecg", "noisy_ecg", "negative_peaks"]
-        ecg_data, sample_frequency = read_edf.get_data_from_edf_channel(
-            file_path = ECG_CALIBRATION_DATA_PATH,
-            possible_channel_labels = parameters["ecg_keys"],
-            physical_dimension_correction_dictionary = parameters["physical_dimension_correction_dictionary"]
-        )
-        for interval in manual_calibration_intervals:
-            plot_helper.plot_calibration_data(
-                ecg_data[interval[0]:interval[1]], 
-                np.arange(manual_interval_size),
-                SHOW_CALIBRATION_DATA_DIRECTORY + names[manual_calibration_intervals.index(interval)] + ".png"
-                )
-    
     # perform ecg validation if needed
     if parameters["perform_rpeak_comparison"] or parameters["perform_ecg_validation_comparison"]:
-
-        if not parameters["use_manually_chosen_ecg_thresholds"]:
-            # create arguments for ecg thresholds evaluation and calculate them
-            ecg_thresholds_args = create_sub_dict(parameters, ecg_thresholds_variables)
-            ecg_thresholds_args["ecg_calibration_intervals"] = manual_calibration_intervals
-            check_data.create_ecg_thresholds(**ecg_thresholds_args)
-
-            # load the ecg thresholds to the parameters dictionary
-            ecg_validation_thresholds_generator = load_from_pickle(parameters["ecg_thresholds_save_path"])
-            for generator_entry in ecg_validation_thresholds_generator:
-                parameters.update(generator_entry)
-
-            del ecg_thresholds_args
 
         # create arguments for the valid ecg regions evaluation and calculate them
         determine_ecg_region_args = create_sub_dict(parameters, determine_ecg_region_variables)
 
         check_data.determine_valid_ecg_regions(**determine_ecg_region_args)
-        del manual_calibration_intervals, determine_ecg_region_args
+        del determine_ecg_region_args
     
     """
     --------------------------------
@@ -524,26 +466,6 @@ def preparation_section(run_section: bool):
     # create directory if it does not exist
     if not os.path.isdir(PREPARATION_DIRECTORY):
         os.mkdir(PREPARATION_DIRECTORY)
-
-    """
-    --------------------------------
-    ECG THRESHOLD VALIDATION
-    --------------------------------
-    """
-    if parameters["calculate_ecg_thresholds"]:
-        # get manually chosen calibration intervals for the ECG Validation:
-        manual_calibration_intervals, manual_interval_size = ecg_threshold_calibration_intervals()
-
-        # calculate the thresholds for the ECG Validation
-        ecg_thresholds_args = create_sub_dict(parameters, ecg_thresholds_variables)
-        ecg_thresholds_args["ecg_calibration_intervals"] = manual_calibration_intervals
-        check_data.create_ecg_thresholds(**ecg_thresholds_args)
-        del manual_calibration_intervals, ecg_thresholds_args
-
-        # load the ecg thresholds to the parameters dictionary
-        ecg_validation_thresholds_generator = load_from_pickle(ECG_VALIDATION_THRESHOLDS_PATH)
-        for generator_entry in ecg_validation_thresholds_generator:
-            parameters.update(generator_entry)
 
     for DATA_DIRECTORY in DATA_DIRECTORIES:
         """

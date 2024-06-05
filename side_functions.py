@@ -38,10 +38,6 @@ def validate_parameter_settings(parameters: dict):
         raise ValueError("'perform_rpeak_comparison' parameter must be a boolean.")
     if not isinstance(parameters["perform_ecg_validation_comparison"], bool):
         raise ValueError("'perform_ecg_validation_comparison' parameter must be a boolean.")
-    if not isinstance(parameters["calculate_ecg_thresholds"], bool):
-        raise ValueError("'calculate_ecg_thresholds' parameter must be a boolean.")
-    if not isinstance(parameters["use_manually_chosen_ecg_thresholds"], bool):
-        raise ValueError("'use_manually_chosen_ecg_thresholds' parameter must be a boolean.")
     if not isinstance(parameters["determine_valid_ecg_regions"], bool):
         raise ValueError("'determine_valid_ecg_regions' parameter must be a boolean.")
     if not isinstance(parameters["detect_rpeaks"], bool):
@@ -80,20 +76,24 @@ def validate_parameter_settings(parameters: dict):
     """
 
     # parameters for the ECG Validation
-    if not isinstance(parameters["ecg_calibration_file_path"], str):
-        raise ValueError("'ecg_calibration_file_path' parameter must be a string.")
-    if not isinstance(parameters["ecg_thresholds_save_path"], str):
-        raise ValueError("'ecg_thresholds_save_path' parameter must be a string.")
-    if not isinstance(parameters["ecg_thresholds_multiplier"], (int, float)):
-        raise ValueError("'ecg_thresholds_multiplier' parameter must be an integer or a float.")
-    if parameters["ecg_thresholds_multiplier"] <= 0 or parameters["ecg_thresholds_multiplier"] > 1:
-        raise ValueError("'ecg_thresholds_multiplier' parameter must be within (0,1].")
-    if not isinstance(parameters["ecg_thresholds_dezimal_places"], int):
-        raise ValueError("'ecg_thresholds_dezimal_places' parameter must be an integer.")
+    if not isinstance(parameters["straighten_ecg_signal"], bool):
+        raise ValueError("'straighten_ecg_signal' parameter must be a boolean.")
     if not isinstance(parameters["check_ecg_time_interval_seconds"], int):
         raise ValueError("'check_ecg_time_interval_seconds' parameter must be an integer.")
     if not isinstance(parameters["check_ecg_overlapping_interval_steps"], int):
         raise ValueError("'check_ecg_overlapping_interval_steps' parameter must be an integer.")
+    if not isinstance(parameters["check_ecg_validation_strictness"], float):
+        raise ValueError("'check_ecg_validation_strictness' parameter must be a float.")
+    if parameters["check_ecg_validation_strictness"] < 0 or parameters["check_ecg_validation_strictness"] > 1:
+        raise ValueError("'check_ecg_validation_strictness' parameter must be between 0 and 1.")
+    if not isinstance(parameters["check_ecg_removed_peak_difference_threshold"], float):
+        raise ValueError("'check_ecg_removed_peak_difference_threshold' parameter must be a float.")
+    if not isinstance(parameters["check_ecg_std_min_threshold"], float):
+        raise ValueError("'check_ecg_std_min_threshold' parameter must be a float.")
+    if not isinstance(parameters["check_ecg_std_max_threshold"], float):
+        raise ValueError("'check_ecg_std_max_threshold' parameter must be a float.")
+    if not isinstance(parameters["check_ecg_distance_std_ratio_threshold"], float):
+        raise ValueError("'check_ecg_distance_std_ratio_threshold' parameter must be a float.")
     if not isinstance(parameters["check_ecg_min_valid_length_minutes"], int):
         raise ValueError("'check_ecg_min_valid_length_minutes' parameter must be an integer.")
     if not isinstance(parameters["check_ecg_allowed_invalid_region_length_seconds"], int):

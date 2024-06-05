@@ -77,7 +77,14 @@ def visualize_ecg_val_comparison():
     ecg_classification_dictionary = check_data.get_ecg_classification_from_txt_file(file_class_path)
 
     # calc valid regions
-    this_files_valid_ecg_regions = check_data.new_new_check_ecg(ECG=ECG, frequency=frequency, time_interval_seconds=5, recheck_std_times_per_second=5, straighten_ecg_signal=True, overlapping_interval_steps=3, validation_strictness=0.2)
+    this_files_valid_ecg_regions = check_data.new_new_check_ecg(
+        ECG=ECG, 
+        frequency=frequency, 
+        time_interval_seconds=5,  
+        straighten_ecg_signal=True, 
+        overlapping_interval_steps=3, 
+        validation_strictness=0.2,
+        check_ecg_no_peak_std_distance_threshold=0.3)
 
     plot_helper.plot_ecg_validation_comparison(
         ECG = ECG, 
@@ -205,8 +212,9 @@ def visualizing_r_peak_comparison():
 
 # just testing
 # choose a random file
-data_directory = "Data/"
+data_directory = "Data/GIF/SOMNOwatch/"
 file_data_name = "Somnowatch_Messung.edf"
+file_data_name = "SL088_SL088_(1).edf"
 file_data_path = data_directory + file_data_name
 
 # load the ECG data
@@ -216,7 +224,18 @@ ECG, frequency = read_edf.get_data_from_edf_channel(
     physical_dimension_correction_dictionary = parameters["physical_dimension_correction_dictionary"]
     )
 
-valid_regions = check_data.new_new_check_ecg(ECG=ECG, frequency=frequency, time_interval_seconds=5, recheck_std_times_per_second=5, straighten_ecg_signal=True, overlapping_interval_steps=3, validation_strictness=0.2)
+valid_regions = check_data.check_ecg(
+    ECG=ECG, 
+    frequency=frequency, 
+    time_interval_seconds=5,  
+    straighten_ecg_signal=True, 
+    overlapping_interval_steps=1, 
+    validation_strictness=0.5,
+    check_ecg_removed_peak_difference_threshold=0.3,
+    check_ecg_std_min_threshold=80,
+    check_ecg_std_max_threshold=800,
+    check_ecg_distance_std_ratio_threshold=5,
+    )
 
 # calculate the ratio of valid regions to total regions
 valid_regions_ratio = check_data.valid_total_ratio(
@@ -226,7 +245,7 @@ valid_regions_ratio = check_data.valid_total_ratio(
 print("(Valid / Total) Regions Ratio: %f %%" % (round(valid_regions_ratio, 4)*100))
 
 total_length = len(ECG)
-x_lim = [int(0.7*total_length), int(0.9*total_length)]
+x_lim = [int(0.75*total_length), int(0.85*total_length)]
 
 plot_helper.plot_valid_regions(
     ECG = ECG, 

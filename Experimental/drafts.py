@@ -1237,3 +1237,329 @@ def get_all_dim_signal_labels():
         txt_file.write("\n")
 
     txt_file.close()
+
+
+def eval_std_thresholds(
+        ECG: list, 
+        detection_intervals: list,
+        threshold_multiplier: float,
+        threshold_dezimal_places: int,
+    ):
+    """
+    Evaluate useful thresholds (check_ecg_std_min_threshold, check_ecg_distance_std_ratio_threshold) 
+    for the check_ecg function from given data.
+
+    We will estimate the standard deviation for different valuable signals. From this we
+    can create an interval for the standard deviation that is considered good.
+    Of course when the signal is bad, and all we have is noise, the standard deviation can
+    be similar to that of a good signal. 
+    However, the distance between the maximum and minimum value will in this case
+    be about the same as twice the standard deviation. Therefore, we will also calculate
+    the distance between the maximum and minimum value and divide it by twice the standard
+    deviation, to see what this ratio looks like for valuable signals. 
+    Anything less will be considered as invalid.
+
+    ARGUMENTS:
+    --------------------------------
+    ECG: list
+        list containing the ECG data
+    detection_intervals: list
+        list of detection intervals, in which the data is considered valid
+    threshold_multiplier: float between 0 and 1
+        multiplier that is either Multiplier or Divisor for the threshold values
+        (because valid data could also differ slightly from the detection intervals used)
+    threshold_dezimal_places: int
+        number of decimal places for the threshold values
+    
+    RETURNS:
+    --------------------------------
+    check_ecg_std_min_threshold: float
+        minimum threshold for the standard deviation
+    check_ecg_distance_std_ratio_threshold: float
+        threshold for the max-min distance to (2 * standard deviation) ratio
+    """
+
+    # create lists to save the standard deviation and the max-min distance values
+    std_values = []
+    max_min_distance_values = []
+    
+    # calculate the standard deviation and std max-min distance for the detection intervals
+    for interval in detection_intervals:
+        std_values.append(np.std(ECG[interval[0]:interval[1]]))
+        max_min_distance_values.append(np.max(ECG[interval[0]:interval[1]]) - np.min(ECG[interval[0]:interval[1]]))
+    
+    # calculate the ratios
+    std_to_max_min_distance_ratios = 0.5 * np.array(max_min_distance_values) / np.array(std_values)
+    
+    # calculate the thresholds (take values that will include most datapoints)
+    max_std = np.max(std_values)
+    min_std = np.min(std_values)
+    min_std_distance_ratio = np.min(std_to_max_min_distance_ratios)
+    
+    # apply the threshold multiplier and round the values
+    check_ecg_std_min_threshold = round(min_std*threshold_multiplier,threshold_dezimal_places)
+    # check_ecg_std_max_threshold = round(max_std/threshold_multiplier,threshold_dezimal_places)
+    check_ecg_distance_std_ratio_threshold = round(min_std_distance_ratio*threshold_multiplier,threshold_dezimal_places)
+
+    return check_ecg_std_min_threshold, check_ecg_distance_std_ratio_threshold
+
+
+def create_ecg_thresholds(
+        ecg_calibration_file_path: str, 
+        ecg_keys: list,
+        physical_dimension_correction_dictionary: dict,
+        ecg_calibration_intervals: list,
+        ecg_thresholds_multiplier: float,
+        ecg_thresholds_dezimal_places: int,
+        ecg_thresholds_save_path: str
+    ):
+    """
+    This function provides the data and calculates the thresholds for ecg data validation.
+
+    Please note that the intervals will be chosen manually and might need to be adjusted,
+    if you can't use the calibration data. In this case, you can use the option:
+    'show_calibration_data' in the main.py file to show what the calibration data should 
+    look like.
+
+    ARGUMENTS:
+    --------------------------------
+    ecg_calibration_file_path: str
+        path to the EDF file for ecg threshold calibration
+    ecg_keys: list
+        list of possible labels for the ECG data
+    physical_dimension_correction_dictionary: dict
+        dictionary needed to check and correct the physical dimension of all signals
+    ecg_calibration_intervals: list
+        list of tuples containing the start and end indices of the calibration intervals
+    ecg_thresholds_multiplier: float
+        multiplier for the thresholds (see 'eval_std_thresholds()')
+    ecg_thresholds_dezimal_places: int
+        number of dezimal places for the ecg thresholds (see 'eval_std_thresholds()')
+    ecg_thresholds_save_path: str
+        path to the pickle file where the thresholds are saved
+
+    RETURNS:
+    --------------------------------
+    None, but the thresholds are saved as dictionary to a pickle file with the following
+    format:
+        {
+            "check_ecg_std_min_threshold": check_ecg_std_min_threshold,
+            "check_ecg_distance_std_ratio_threshold": check_ecg_distance_std_ratio_threshold
+        }
+    """
+
+    # check if ecg thresholds already exist and if yes: ask for permission to override
+    user_answer = ask_for_permission_to_override_file(file_path = ecg_thresholds_save_path, 
+        message = "\nThresholds for ECG validation (see check_data.check_ecg()) already exist in " + ecg_thresholds_save_path + ".")
+
+    # cancel if user does not want to override
+    if user_answer == "n":
+        return
+    
+    # try to load the data and correct the physical dimension if needed
+    try:
+        ecg_signal, ecg_sampling_frequency = read_edf.get_data_from_edf_channel(
+            file_path = ecg_calibration_file_path,
+            possible_channel_labels = ecg_keys,
+            physical_dimension_correction_dictionary = physical_dimension_correction_dictionary
+        )
+    except:
+        raise SystemExit("No ECG data found in the file " + ecg_calibration_file_path + ". As the ECG thresholds are relevant for further computation, the program was stopped.")
+
+    # Calculate and save the thresholds for check_ecg() function
+    threshold_values = eval_std_thresholds(
+        ECG = ecg_signal, 
+        detection_intervals = ecg_calibration_intervals,
+        threshold_multiplier = ecg_thresholds_multiplier,
+        threshold_dezimal_places = ecg_thresholds_dezimal_places,
+        )
+    
+    # write the thresholds to a dictionary and save them
+    check_ecg_thresholds = dict()
+    check_ecg_thresholds["check_ecg_std_min_threshold"] = threshold_values[0]
+    check_ecg_thresholds["check_ecg_distance_std_ratio_threshold"] = threshold_values[1]
+    
+    append_to_pickle(check_ecg_thresholds, ecg_thresholds_save_path)
+
+
+def old_check_ecg(
+        ECG: list, 
+        frequency: int,
+        check_ecg_std_min_threshold: float, 
+        check_ecg_distance_std_ratio_threshold: float,
+        time_interval_seconds: int, 
+        overlapping_interval_steps: int,
+        min_valid_length_minutes: int,
+        allowed_invalid_region_length_seconds: int,
+    ):
+    """
+    Check where the ECG data is valid.
+    (valid regions must be x minutes long, invalid regions can be as short as possible)
+
+    Data will be checked in overlapping intervals. Those will be concatenated afterwards.
+    Then the gaps between the regions will be checked. If its useful to connect them (regions
+    long enough compared to gap, but not too long that they already fulfill the
+    min_valid_length_minutes condition), they will be connected.
+
+    ARGUMENTS:
+    --------------------------------
+    ECG: list
+        list containing the ECG data
+    frequency: int
+        sampling frequency of the ECG data
+    check_ecg_std_min_threshold: float
+        minimum threshold for the standard deviation
+    check_ecg_distance_std_ratio_threshold: float
+        threshold for the max-min distance to twice the standard deviation ratio
+    time_interval_seconds: int
+        time interval length in seconds to be checked for validity
+    min_valid_length_minutes: int
+        minimum length of valid data in minutes
+    allowed_invalid_region_length_seconds: int
+        length of data in seconds that is allowed to be invalid in a valid region of size min_valid_length_minutes
+
+    RETURNS:
+    --------------------------------
+    valid_regions: list
+        list of lists containing the start and end indices of the valid regions: valid_regions[i] = [start, end] of region i
+    """
+    # calculate the number of iterations from time and frequency
+    time_interval_iterations = int(time_interval_seconds * frequency)
+    
+    check_ecg_std_min_threshold, check_ecg_distance_std_ratio_threshold = locally_calculate_ecg_thresholds(ECG, time_interval_iterations) # type: ignore
+    # print(check_ecg_std_min_threshold, check_ecg_distance_std_ratio_threshold)
+
+    # check condition for given time intervals and add regions (multiple time intervals) to a list if number of invalid intervals is sufficiently low
+    overlapping_valid_regions = []
+    
+    interval_steps = int(time_interval_iterations/overlapping_interval_steps)
+    was_valid = False
+
+    for i in np.arange(0, len(ECG), interval_steps):
+
+        # make sure upper border is not out of bounds
+        if i + time_interval_iterations > len(ECG):
+            upper_border = len(ECG)
+        else:
+            upper_border = i + time_interval_iterations
+        
+        # calc std and max-min-distance ratio
+        this_std = abs(np.std(ECG[i:upper_border]))
+        this_max = np.max(ECG[i:upper_border])
+        this_min = np.min(ECG[i:upper_border])
+        max_min_distance = abs(this_max - this_min)
+
+        if this_std == 0:
+            std_distance_ratio = check_ecg_distance_std_ratio_threshold - 1
+        else:
+            std_distance_ratio = 0.5 * max_min_distance / this_std
+
+        # check if interval is valid
+        if this_std >= check_ecg_std_min_threshold and std_distance_ratio >= check_ecg_distance_std_ratio_threshold:
+            overlapping_valid_regions.append([i,upper_border])
+            was_valid = True
+        else:
+            if was_valid:
+                limit = upper_border - time_interval_iterations/overlapping_interval_steps
+                for j in range(len(overlapping_valid_regions)-1, -1, -1):
+                    if overlapping_valid_regions[j][1] >= limit:
+                        del overlapping_valid_regions[j]
+                    else:
+                        break
+            was_valid = False
+    
+    if len(overlapping_valid_regions) == 0:
+        return []
+
+    # concatenate neighbouring intervals
+    concatenated_intervals = []
+    this_interval = [overlapping_valid_regions[0][0], overlapping_valid_regions[0][1]]
+    for i in range(1, len(overlapping_valid_regions)):
+        if overlapping_valid_regions[i][0] <= this_interval[1]:
+            this_interval[1] = overlapping_valid_regions[i][1]
+        else:
+            concatenated_intervals.append(this_interval)
+            del this_interval
+            this_interval = [overlapping_valid_regions[i][0], overlapping_valid_regions[i][1]]
+    concatenated_intervals.append(this_interval)
+
+    del overlapping_valid_regions
+
+    # calculate thresholds from other units in iterations
+    iterations_per_region = int(min_valid_length_minutes * 60 * frequency)
+    allowed_invalid_iterations = int(allowed_invalid_region_length_seconds * frequency)
+    allowed_wrong_total_ratio = allowed_invalid_region_length_seconds / min_valid_length_minutes / 60
+
+    # collect possible connections (gap between regions is smaller than allowed_invalid_iterations)
+    possible_connections = []
+    
+    for i in range(1, len(concatenated_intervals)):
+        if concatenated_intervals[i][0] - concatenated_intervals[i-1][1] < allowed_invalid_iterations:
+            possible_connections.append([i-1, i])
+    
+    # check which connections are useful to make
+    current_invalid_iterations = 0
+    total_iterations = 0
+
+    validated_connections = []
+    last_connection = -1
+
+    for i in range(len(possible_connections)):
+        # calculate the length of the regions and the distance between them
+        len_region_1 = concatenated_intervals[possible_connections[i][0]][1] - concatenated_intervals[possible_connections[i][0]][0]
+        len_region_2 = concatenated_intervals[possible_connections[i][1]][1] - concatenated_intervals[possible_connections[i][1]][0]
+        distance = concatenated_intervals[possible_connections[i][1]][0] - concatenated_intervals[possible_connections[i][0]][1]
+
+        # check if the regions are not too short and not too long
+        if len_region_1 > iterations_per_region and len_region_2 > iterations_per_region:
+            continue
+        
+        if len_region_1 < 2*allowed_invalid_iterations or len_region_2 < 2*allowed_invalid_iterations:
+            continue
+        
+        # check if last connection was established and check if you can append to it
+        if last_connection == possible_connections[i][0]:
+            current_invalid_iterations += distance
+            total_iterations += len_region_2 + distance
+            if current_invalid_iterations / total_iterations <= allowed_wrong_total_ratio:
+                validated_connections[-1].append(possible_connections[i][1])
+                # we don't want to add to much errors, should the interval be long enough, therefore we just compare the last two connections (reset values)
+                current_invalid_iterations = distance
+                total_iterations = len_region_1 + len_region_2 + distance
+                last_connection = possible_connections[i][1]
+                continue
+        
+        # check if you can establish a new connection
+        current_invalid_iterations = distance
+        total_iterations = len_region_1 + len_region_2 + distance
+        if current_invalid_iterations / total_iterations <= allowed_wrong_total_ratio:
+            validated_connections.append(possible_connections[i])
+            last_connection = possible_connections[i][1]
+        else:
+            last_connection = -1
+
+    # create the intervals for the valid connections
+    connected_regions = []
+    for con in validated_connections:
+        connected_regions.append([concatenated_intervals[con[0]][0], concatenated_intervals[con[-1]][1]])
+
+    # replace the connections in the concatenated intervals
+    replaced_connections = []
+    for i in range(len(concatenated_intervals)-1, -1, -1):
+        for con_index in range(len(validated_connections)):
+            if i in validated_connections[con_index]:
+                if con_index in replaced_connections:
+                    del concatenated_intervals[i]
+                    break
+                else:
+                    concatenated_intervals[i] = connected_regions[con_index]
+                    replaced_connections.append(con_index)
+                    break
+    
+    # append long enough regions to the valid regions
+    valid_regions = []
+    for region in concatenated_intervals:
+        if region[1] - region[0] >= iterations_per_region:
+            valid_regions.append(region)
+    
+    return valid_regions
