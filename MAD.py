@@ -305,11 +305,12 @@ def calculate_MAD_in_acceleration_data(
     progress_bar(progressed_files, total_files)
 
     # rename the file that stores the calculated data
-    try:
-        os.remove(preparation_results_path)
-    except:
-        pass
-    os.rename(temporary_file_path, preparation_results_path)
+    if os.path.isfile(temporary_file_path):
+        try:
+            os.remove(preparation_results_path)
+        except:
+            pass
+        os.rename(temporary_file_path, preparation_results_path)
 
     # print unprocessable files
     if len(unprocessable_files) > 0:

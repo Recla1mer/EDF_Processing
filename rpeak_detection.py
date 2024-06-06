@@ -413,8 +413,9 @@ def detect_rpeaks(
     progress_bar(progressed_files, total_files)
 
     # rename the file that stores the calculated data
-    os.remove(preparation_results_path)
-    os.rename(temporary_file_path, preparation_results_path)
+    if os.path.isfile(temporary_file_path):
+        os.remove(preparation_results_path)
+        os.rename(temporary_file_path, preparation_results_path)
 
     # print unprocessable files
     if len(unprocessable_files) > 0:
@@ -552,8 +553,9 @@ def correct_rpeak_locations(
     progress_bar(progressed_files, total_files)
 
     # rename the file that stores the calculated data
-    os.remove(preparation_results_path)
-    os.rename(temporary_file_path, preparation_results_path)
+    if os.path.isfile(temporary_file_path):
+        os.remove(preparation_results_path)
+        os.rename(temporary_file_path, preparation_results_path)
 
     # print unprocessable files
     if len(unprocessable_files) > 0:
@@ -801,8 +803,9 @@ def combine_detected_rpeaks(
     progress_bar(progressed_files, total_files)
 
     # rename the file that stores the calculated data
-    os.remove(preparation_results_path)
-    os.rename(temporary_file_path, preparation_results_path)
+    if os.path.isfile(temporary_file_path):
+        os.remove(preparation_results_path)
+        os.rename(temporary_file_path, preparation_results_path)
 
     # print unprocessable files
     if len(unprocessable_files) > 0:
@@ -1221,11 +1224,12 @@ def read_rpeaks_from_rri_files(
     progress_bar(progressed_files, total_files)
 
     # rename the file that stores the calculated data
-    try:
-        os.remove(additions_results_path)
-    except:
-        pass
-    os.rename(temporary_file_path, additions_results_path)
+    if os.path.isfile(temporary_file_path):
+        try:
+            os.remove(additions_results_path)
+        except:
+            pass
+        os.rename(temporary_file_path, additions_results_path)
 
     # print unprocessable files 
     if len(unprocessable_files) > 0:
@@ -1387,8 +1391,9 @@ def rpeak_detection_comparison(
     progress_bar(progressed_files, total_files)
 
     # rename the file that stores the calculated data
-    os.remove(additions_results_path)
-    os.rename(temporary_file_path, additions_results_path)
+    if os.path.isfile(temporary_file_path):
+        os.remove(additions_results_path)
+        os.rename(temporary_file_path, additions_results_path)
 
 
 def rpeak_detection_comparison_report(

@@ -498,7 +498,7 @@ def check_ecg(
         #print(valid_ratio)
         # if ratio is too low, it means the data consists of too many invalid regions
         # therefore the mean values will be off for a useful detection and the manual thresholds need to be used
-        if valid_ratio < 0.5:
+        if valid_ratio < 0.5 and not ecg_comparison_mode:
             valid_intervals = []
             for i in range(0, len(collect_whole_stds)):
                 if collect_whole_stds[i] >= check_ecg_std_min_threshold:
@@ -653,8 +653,10 @@ def determine_valid_ecg_regions(
                 # save the valid regions for this file
                 if ecg_comparison_mode:
                     for strictness_index in range(0, len(store_strictness)):
+                        generator_entry[valid_ecg_regions_dictionary_key] = store_valid_intervals_for_strictness[int(len(store_valid_intervals_for_strictness)/2)]
+                        if store_strictness[strictness_index] == check_ecg_validation_strictness:
+                            generator_entry[valid_ecg_regions_dictionary_key] = store_valid_intervals_for_strictness[strictness_index]
                         generator_entry[valid_ecg_regions_dictionary_key + "_" + str(store_strictness[strictness_index])] = store_valid_intervals_for_strictness[strictness_index]
-                    generator_entry[valid_ecg_regions_dictionary_key] = []
                 else:
                     generator_entry[valid_ecg_regions_dictionary_key] = store_valid_intervals_for_strictness[0]
                 append_to_pickle(generator_entry, temporary_file_path)
@@ -708,9 +710,11 @@ def determine_valid_ecg_regions(
                 this_files_dictionary_entry = {file_name_dictionary_key: file_name}
                 
                 if ecg_comparison_mode:
+                    this_files_dictionary_entry[valid_ecg_regions_dictionary_key] = store_valid_intervals_for_strictness[int(len(store_valid_intervals_for_strictness)/2)]
                     for strictness_index in range(0, len(store_strictness)):
+                        if store_strictness[strictness_index] == check_ecg_validation_strictness:
+                            this_files_dictionary_entry[valid_ecg_regions_dictionary_key] = store_valid_intervals_for_strictness[strictness_index]
                         this_files_dictionary_entry[valid_ecg_regions_dictionary_key + "_" + str(store_strictness[strictness_index])] = store_valid_intervals_for_strictness[strictness_index]
-                    this_files_dictionary_entry[valid_ecg_regions_dictionary_key] = [] # type: ignore
                 else:
                     this_files_dictionary_entry[valid_ecg_regions_dictionary_key] = store_valid_intervals_for_strictness[0]
 
@@ -723,11 +727,12 @@ def determine_valid_ecg_regions(
     progress_bar(progressed_files, total_files)
 
     # rename the file that stores the calculated data
-    try:
-        os.remove(preparation_results_path)
-    except:
-        pass
-    os.rename(temporary_file_path, preparation_results_path)
+    if os.path.isfile(temporary_file_path):
+        try:
+            os.remove(preparation_results_path)
+        except:
+            pass
+        os.rename(temporary_file_path, preparation_results_path)
 
     # print the files that could not be processed
     if len(unprocessable_files) > 0:
@@ -1116,15 +1121,20 @@ def ecg_validation_comparison_report(
     for generator_entry in all_files_ecg_validation_generator:
         if ecg_validation_comparison_dictionary_key in generator_entry and file_name_dictionary_key in generator_entry:
             file_names.append(generator_entry[file_name_dictionary_key])
-            strictness_values.append(str(generator_entry[ecg_validation_comparison_dictionary_key][0]))
             ecg_validation_comparison_values.append(generator_entry[ecg_validation_comparison_dictionary_key][1])
+            if len(strictness_values) == 0:
+                strictness_values = generator_entry[ecg_validation_comparison_dictionary_key][0]
     
     strictness_max_length = max([len(strict_val) for strict_val in strictness_values])
 
     # write the file header
     message = "ECG VALIDATION COMPARISON REPORT"
     comparison_file.write(message + "\n")
-    comparison_file.write("=" * len(message) + "\n\n\n")
+    comparison_file.write("=" * len(message) + "\n\n")
+
+    comparison_file.write("The following ratios were calculated for different values of validation_strictness.\n")
+    comparison_file.write("The cells are written in following format: strictness_value:  ratio_value\n")
+    comparison_file.write("This was done so that we can use the best value for our check_ecg_validation_strictness variable.\n\n")
 
     # set the table captions
     CORRECT_VALID_CAPTION = "Correct Valid"
@@ -1134,12 +1144,6 @@ def ecg_validation_comparison_report(
     INCORRECT_INVALID_CAPTION = "Wrong Invalid"
 
     MEAN_ROW_CAPTION = "Mean values"
-
-    # create lists to collect all acccuracy values and print the mean of them
-    correct_valid_values = []
-    correct_invalid_values = []
-    wrong_as_valid_values = []
-    wrong_as_invalid_values = []
 
     # collect all comparison values
     correct_valid_column = []
@@ -1158,19 +1162,19 @@ def ecg_validation_comparison_report(
 
             correct_valid_value = strictness_comp_values[i][0]
             mean_correct_valid_for_strictness[i].append(correct_valid_value)
-            correct_valid_column.append(strictness_values[i] + " "*length_addition + ":" + str(round(correct_valid_value, ecg_validation_comparison_report_dezimal_places)))
+            correct_valid_column.append(strictness_values[i] + " "*length_addition + ":  " + str(round(correct_valid_value, ecg_validation_comparison_report_dezimal_places)))
 
             correct_invalid_value = strictness_comp_values[i][1]
-            mean_correct_invalid_for_strictness.append(correct_invalid_value)
-            correct_invalid_column.append(strictness_values[i] + " "*length_addition + ":" + str(round(correct_invalid_value, ecg_validation_comparison_report_dezimal_places)))
+            mean_correct_invalid_for_strictness[i].append(correct_invalid_value)
+            correct_invalid_column.append(strictness_values[i] + " "*length_addition + ":  " + str(round(correct_invalid_value, ecg_validation_comparison_report_dezimal_places)))
 
             incorrect_valid_value = strictness_comp_values[i][2]
             mean_incorrect_valid_for_strictness[i].append(incorrect_valid_value)
-            incorrect_valid_column.append(strictness_values[i] + " "*length_addition + ":" + str(round(incorrect_valid_value, ecg_validation_comparison_report_dezimal_places)))
+            incorrect_valid_column.append(strictness_values[i] + " "*length_addition + ":  " + str(round(incorrect_valid_value, ecg_validation_comparison_report_dezimal_places)))
 
             incorrect_invalid_value = strictness_comp_values[i][3]
-            mean_incorrect_invalid_for_strictness.append(incorrect_invalid_value)
-            incorrect_invalid_column.append(strictness_values[i] + " "*length_addition + ":" + str(round(incorrect_invalid_value, ecg_validation_comparison_report_dezimal_places)))
+            mean_incorrect_invalid_for_strictness[i].append(incorrect_invalid_value)
+            incorrect_invalid_column.append(strictness_values[i] + " "*length_addition + ":  " + str(round(incorrect_invalid_value, ecg_validation_comparison_report_dezimal_places)))
     
     # calculate mean of them
     mean_correct_valid = np.mean(mean_correct_valid_for_strictness, axis=1)
@@ -1180,10 +1184,10 @@ def ecg_validation_comparison_report(
 
     for i in range(0, len(strictness_values)):
         length_addition = strictness_max_length - len(strictness_values[i])
-        correct_valid_column.insert(i, strictness_values[i] + " "*length_addition + ":" + str(round(mean_correct_valid[i], ecg_validation_comparison_report_dezimal_places)))
-        correct_invalid_column.insert(i, strictness_values[i] + " "*length_addition + ":" + str(round(mean_correct_invalid[i], ecg_validation_comparison_report_dezimal_places)))
-        incorrect_valid_column.insert(i, strictness_values[i] + " "*length_addition + ":" + str(round(mean_incorrect_valid[i], ecg_validation_comparison_report_dezimal_places)))
-        incorrect_invalid_column.insert(i, strictness_values[i] + " "*length_addition + ":" + str(round(mean_incorrect_invalid[i], ecg_validation_comparison_report_dezimal_places)))
+        correct_valid_column.insert(i, strictness_values[i] + " "*length_addition + ":  " + str(round(mean_correct_valid[i], ecg_validation_comparison_report_dezimal_places)))
+        correct_invalid_column.insert(i, strictness_values[i] + " "*length_addition + ":  " + str(round(mean_correct_invalid[i], ecg_validation_comparison_report_dezimal_places)))
+        incorrect_valid_column.insert(i, strictness_values[i] + " "*length_addition + ":  " + str(round(mean_incorrect_valid[i], ecg_validation_comparison_report_dezimal_places)))
+        incorrect_invalid_column.insert(i, strictness_values[i] + " "*length_addition + ":  " + str(round(mean_incorrect_invalid[i], ecg_validation_comparison_report_dezimal_places)))
     
     # calculate max column wide
     file_names.insert(0, MEAN_ROW_CAPTION)
@@ -1228,15 +1232,13 @@ def ecg_validation_comparison_report(
     num_of_strictness_vals = len(strictness_values)
     for file_index in range(0, len(file_names)):
         file = file_names[file_index]
-        comparison_file.write(print_in_middle(file, max_file_column_length) + " | ")
-        first_strictness_value = True
-        additional_length = max_file_column_length + 3
+        print_file_name_at = int((file_index + 0.5)*num_of_strictness_vals)
 
-        for strictness_index in range(file_index*num_of_strictness_vals, (file_index+1)*num_of_strictness_vals):
-            if first_strictness_value:
-                first_strictness_value = False
+        for i in range(file_index*num_of_strictness_vals, (file_index+1)*num_of_strictness_vals):
+            if i == print_file_name_at:
+                comparison_file.write(print_in_middle(file, max_file_column_length) + " | ")
             else:
-                comparison_file.write(" "*additional_length)
+                comparison_file.write(" "*max_file_column_length + " | ")
             comparison_file.write(print_left_aligned(correct_valid_column[i], max_correct_valid_column_length))
             comparison_file.write(" | ")
             comparison_file.write(print_left_aligned(correct_invalid_column[i], max_correct_invalid_column_length))
@@ -1244,7 +1246,8 @@ def ecg_validation_comparison_report(
             comparison_file.write(print_left_aligned(incorrect_valid_column[i], max_incorrect_valid_column_length))
             comparison_file.write(" | ")
             comparison_file.write(print_left_aligned(incorrect_invalid_column[i], max_incorrect_invalid_column_length))
+            comparison_file.write("\n")
         
-        comparison_file.write("\n")
+        comparison_file.write("-" * total_length + "\n")
 
     comparison_file.close()
