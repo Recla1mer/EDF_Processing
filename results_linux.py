@@ -19,9 +19,43 @@ parameters = main.parameters
 additions_results_path = parameters["additions_results_path"]
 
 """
-Plot valid ecg regions
+==========================
+PREPARATION AND ADDITIONS
+==========================
 """
-def evaluate_and_plot_valid_ecg_regions():
+
+"""
+--------------------------
+ECG VALIDATION
+--------------------------
+"""
+
+def straighten_the_ecg_signal():
+    # choose a random file
+    data_directory = "Data/"
+    file_data_name = "Somnowatch_Messung.edf"
+    file_data_path = data_directory + file_data_name
+
+    # load the ECG data
+    ECG, frequency = read_edf.get_data_from_edf_channel(
+        file_path = file_data_path,
+        possible_channel_labels = parameters["ecg_keys"],
+        physical_dimension_correction_dictionary = parameters["physical_dimension_correction_dictionary"]
+        )
+
+    lower_border = 1012500
+    interval_size = 1280
+    interval = [lower_border, lower_border + interval_size]
+    ecg_signal = ECG[lower_border:lower_border + interval_size]
+
+    plot_helper.simple_plot(ecg_signal)
+
+    straightened_ecg = check_data.straighten_ecg(ecg_signal, frequency)
+
+    plot_helper.simple_plot(straightened_ecg)
+
+
+def evaluate_and_show_valid_ecg_regions():
     # choose a random file
     data_directory = "Data/GIF/SOMNOwatch/"
     file_data_name = "Somnowatch_Messung.edf"
@@ -70,7 +104,7 @@ def evaluate_and_plot_valid_ecg_regions():
         )
 
 
-def show_valid_ecg_regions():
+def show_evaluated_valid_ecg_regions():
     # choose a random file
     data_directory = "Data/GIF/SOMNOwatch/"
     file_data_name = "SL214_SL214_(1).edf"
@@ -108,7 +142,14 @@ def show_valid_ecg_regions():
         )
 
 
-def visualize_ecg_val_comparison():
+"""
+--------------------------
+ECG VALIDATION COMPARISON
+--------------------------
+"""
+
+
+def compare_ecg_validation_and_gif_classification():
     # choose random file
     file_data_name = "SL001_SL001_(1).edf"
     file_class_name = file_data_name[:-4] + "Somno.txt"
@@ -153,68 +194,53 @@ def visualize_ecg_val_comparison():
         )
 
 """
-Plot Non-Intersecting R-Peaks
+--------------------------
+CALCULATING R_PEAKS
+--------------------------
 """
 
-def plot_non_intersecting_r_peaks():
+
+def calculating_rpeaks_from_scratch():
     # choose a random file
-    data_directory = "Data/GIF/SOMNOwatch/"
-    file_data_name = "SL001_SL001_(1).edf"
+    data_directory = "Calibration_Data/"
+    file_data_name = "Somnowatch_Messung.edf"
 
-    file_data_path = data_directory + file_data_name
-
-    # choose size of interval
+    # choose interval
     interval_size = 2560
-
-    # get r-peak function names ("wfdb", "ecgdetectors", "hamilton", "christov", "gif_classification")
-    first_rpeak_function_name = "wfdb"
-    second_rpeak_function_name = "gif_classification"
-
-    # load the valid regions
-    additions_results_generator = main.load_from_pickle(additions_results_path)
-    for generator_entry in additions_results_generator:
-        if generator_entry[parameters["file_name_dictionary_key"]] == file_data_name:
-            first_rpeaks = generator_entry[first_rpeak_function_name]
-            second_rpeaks = generator_entry[second_rpeak_function_name]
-            break
+    lower_bound = 1781760
+    interval = [lower_bound, lower_bound + interval_size]
 
     # load the ECG data
-    ECG, frequency = main.read_edf.get_data_from_edf_channel(
-        file_path = file_data_path,
+    ECG, frequency = read_edf.get_data_from_edf_channel(
+        file_path = data_directory + file_data_name,
         possible_channel_labels = parameters["ecg_keys"],
         physical_dimension_correction_dictionary = parameters["physical_dimension_correction_dictionary"]
         )
 
-    # combine the r-peaks, retrieve the intersected r-peaks and the r-peaks that are only in the first or second list
-    rpeaks_intersected, rpeaks_only_primary, rpeaks_only_secondary = main.rpeak_detection.combine_rpeaks(
-        rpeaks_primary = first_rpeaks,
-        rpeaks_secondary = second_rpeaks,
-        frequency = frequency,
-        rpeak_distance_threshold_seconds = parameters["rpeak_distance_threshold_seconds"]
+    ecg_signal = ECG[interval[0]:interval[1]]
+
+    # calculate r-peaks
+    rpeaks_hamilton = rpeak_detection.get_rpeaks_hamilton(ecg_signal, frequency, None) # type: ignore
+    rpeaks_christov = rpeak_detection.get_rpeaks_christov(ecg_signal, frequency, None) # type: ignore
+    rpeaks_wfdb = rpeak_detection.get_rpeaks_wfdb(ecg_signal, frequency, None) # type: ignore
+    rpeaks_ecgdet = rpeak_detection.get_rpeaks_ecgdetectors(ecg_signal, frequency, None) # type: ignore
+
+    # plot the r-peaks
+    plot_helper.plot_rpeak_detection(
+        ECG = ecg_signal,
+        rpeaks = [rpeaks_hamilton,rpeaks_christov,rpeaks_wfdb],
+        rpeaks_name = ["Hamilton","Christov","WFDB"],
     )
 
-    # choose random r-peak for plotting
-    random_first_rpeak = random.choice(rpeaks_only_primary)
-    random_second_rpeak = random.choice(rpeaks_only_secondary)
-    random_rpeak = random.choice([random_first_rpeak, random_second_rpeak])
-    print("Random r-peak location: %d" % random_rpeak)
-
-    # nice values for plotting
-    # random_rpeak = 10625000 # for Data/GIF/SOMNOwatch/SL001_SL001_(1).edf, wfdb, gif_classification
-
-    x_lim = [int(random_rpeak-interval_size/2), int(random_rpeak+interval_size/2)]
-
-    main.plot_helper.plot_rpeak_detection(
-        ECG = ECG,
-        rpeaks = [rpeaks_only_primary, rpeaks_only_secondary, rpeaks_intersected],
-        rpeaks_name = ["only " + first_rpeak_function_name, "only " + second_rpeak_function_name, "intersected"],
-        xlim = x_lim)
 
 """
-Visualizing R-Peak Comparison
+--------------------------
+R-PEAK DETECTION COMPARISON
+--------------------------
 """
 
-def visualizing_r_peak_comparison():
+
+def visualize_rpeak_comparison():
     # choose a random detection method pair
     first_function_name = "wfdb"
     second_function_name = "gif_classification"
@@ -245,11 +271,11 @@ def visualizing_r_peak_comparison():
         this_files_rpeak_comparison_values = generator_entry[parameters["rpeak_comparison_dictionary_key"]]
         try:
             analogue_ratios_first_function.append(this_files_rpeak_comparison_values[position_in_list][3]/this_files_rpeak_comparison_values[position_in_list][4])
-        except ZeroDivisionError:
+        except:
             pass
         try:
             analogue_ratios_second_function.append(this_files_rpeak_comparison_values[position_in_list][3]/this_files_rpeak_comparison_values[position_in_list][5])
-        except ZeroDivisionError:
+        except:
             pass
 
     # plot the data
@@ -259,14 +285,107 @@ def visualizing_r_peak_comparison():
         label_title = "R-Peak Detection Method",
         x_label = "Analogue Ratio",
         y_label = "Count",
-        kde=True,
-        binwidth = 0.1,
         x_lim = [0, 1],
+        binrange = (0.75, 1),
+        kde=False,
     )
 
 
-#show_valid_ecg_regions()
-# visualize_ecg_val_comparison()
-#plot_non_intersecting_r_peaks()
-#visualizing_r_peak_comparison()
-evaluate_and_plot_valid_ecg_regions()
+def plot_non_intersecting_r_peaks():
+    # choose a random file
+    data_directory = "Data/GIF/SOMNOwatch/"
+    file_data_name = "SL001_SL001_(1).edf"
+
+    file_data_path = data_directory + file_data_name
+
+    # choose size of interval
+    interval_size = 2560
+
+    # get r-peak function names ("wfdb", "ecgdetectors", "hamilton", "christov", "gif_classification")
+    first_rpeak_function_name = "wfdb"
+    second_rpeak_function_name = "gif_classification"
+
+    # load the valid regions
+    additions_results_generator = load_from_pickle(additions_results_path)
+    for generator_entry in additions_results_generator:
+        if generator_entry[parameters["file_name_dictionary_key"]] == file_data_name:
+            first_rpeaks = generator_entry[first_rpeak_function_name]
+            second_rpeaks = generator_entry[second_rpeak_function_name]
+            break
+
+    # load the ECG data
+    ECG, frequency = read_edf.get_data_from_edf_channel(
+        file_path = file_data_path,
+        possible_channel_labels = parameters["ecg_keys"],
+        physical_dimension_correction_dictionary = parameters["physical_dimension_correction_dictionary"]
+        )
+
+    # combine the r-peaks, retrieve the intersected r-peaks and the r-peaks that are only in the first or second list
+    rpeaks_intersected, rpeaks_only_primary, rpeaks_only_secondary = main.rpeak_detection.combine_rpeaks(
+        rpeaks_primary = first_rpeaks,
+        rpeaks_secondary = second_rpeaks,
+        frequency = frequency,
+        rpeak_distance_threshold_seconds = parameters["rpeak_distance_threshold_seconds"]
+    )
+
+    # choose random r-peak for plotting
+    random_first_rpeak = random.choice(rpeaks_only_primary)
+    random_second_rpeak = random.choice(rpeaks_only_secondary)
+    random_rpeak = random.choice([random_first_rpeak, random_second_rpeak])
+    print("Random r-peak location: %d" % random_rpeak)
+
+    # nice values for plotting
+    # random_rpeak = 10625000 # for Data/GIF/SOMNOwatch/SL001_SL001_(1).edf, wfdb, gif_classification
+
+    x_lim = [int(random_rpeak-interval_size/2), int(random_rpeak+interval_size/2)]
+
+    plot_helper.plot_rpeak_detection(
+        ECG = ECG,
+        rpeaks = [rpeaks_only_primary, rpeaks_only_secondary, rpeaks_intersected],
+        rpeaks_name = ["only " + first_rpeak_function_name, "only " + second_rpeak_function_name, "intersected"],
+        xlim = x_lim)
+
+
+"""
+==========================
+PREPARATION AND ADDITIONS
+==========================
+"""
+
+"""
+--------------------------
+ECG VALIDATION
+--------------------------
+"""
+
+# straighten_the_ecg_signal()
+
+# evaluate_and_show_valid_ecg_regions()
+
+# show_evaluated_valid_ecg_regions()
+
+"""
+--------------------------
+ECG VALIDATION COMPARISON
+--------------------------
+"""
+
+# compare_ecg_validation_and_gif_classification()
+
+"""
+--------------------------
+CALCULATING R_PEAKS
+--------------------------
+"""
+
+# calculating_rpeaks_from_scratch()
+
+"""
+--------------------------
+R-PEAK DETECTION COMPARISON
+--------------------------
+"""
+
+# visualize_rpeak_comparison()
+
+# plot_non_intersecting_r_peaks()

@@ -128,6 +128,8 @@ def concatenate_neighbouring_intervals(
     concatenated_intervals: list
         list of lists containing the start and end indices of the concatenated intervals
     """
+    if len(intervals) == 0:
+        return []
     # concatenate neighbouring intervals
     concatenated_intervals = [intervals[0]]
     for i in range(1, len(intervals)):
@@ -158,6 +160,8 @@ def retrieve_unincluded_intervals(
     unincluded_intervals: list
         list of lists containing the start and end indices of the unincluded intervals
     """
+    if len(included_intervals) == 0:
+        return [[0, total_length]]
     unincluded_intervals = []
     if included_intervals[0][0] > 0:
         unincluded_intervals.append([0, included_intervals[0][0]])
@@ -495,7 +499,6 @@ def check_ecg(
         
         # check the ratio of valid to total ecg data
         valid_ratio = valid_total_ratio(ECG, valid_intervals)
-        #print(valid_ratio)
         # if ratio is too low, it means the data consists of too many invalid regions
         # therefore the mean values will be off for a useful detection and the manual thresholds need to be used
         if valid_ratio < 0.5 and not ecg_comparison_mode:

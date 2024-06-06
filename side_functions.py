@@ -100,10 +100,10 @@ def validate_parameter_settings(parameters: dict):
         raise ValueError("'check_ecg_allowed_invalid_region_length_seconds' parameter must be an integer.")
 
     # parameters for the R peak detection
-    if not callable(parameters["rpeak_primary_function"]):
-        raise ValueError("'rpeak_primary_function' parameter must be a function.")
-    if not callable(parameters["rpeak_secondary_function"]):
-        raise ValueError("'rpeak_secondary_function' parameter must be a function.")
+    if not isinstance(parameters["rpeak_functions"], list):
+        raise ValueError("'rpeak_functions' parameter must be a list.")
+    if not isinstance(parameters["rpeak_function_names"], list):
+        raise ValueError("'rpeak_function_names' parameter must be a list.")
     if not isinstance(parameters["rpeak_primary_function_name"], str):
         raise ValueError("'rpeak_primary_function_name' parameter must be a string.")
     if not isinstance(parameters["rpeak_secondary_function_name"], str):

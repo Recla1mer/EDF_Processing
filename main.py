@@ -171,8 +171,8 @@ valid_ecg_regions_params = {
 
 # parameters for the r-peak detection
 detect_rpeaks_params = {
-    "rpeak_primary_function": rpeak_detection.get_rpeaks_wfdb, # primary r-peak detection function
-    "rpeak_secondary_function": rpeak_detection.get_rpeaks_ecgdetectors, # secondary r-peak detection function
+    "rpeak_functions": [rpeak_detection.get_rpeaks_wfdb, rpeak_detection.get_rpeaks_ecgdetectors, rpeak_detection.get_rpeaks_hamilton, rpeak_detection.get_rpeaks_christov], # r-peak detection functions
+    "rpeak_function_names": ["wfdb", "ecgdetectors", "hamilton", "christov"], # names of all used r-peak functions
     "rpeak_primary_function_name": "wfdb", # name of the primary r-peak detection function
     "rpeak_secondary_function_name": "ecgdetectors", # name of the secondary r-peak detection function
     "rpeak_distance_threshold_seconds": 0.05, # If r-peaks in the two functions differ by this value, they are still considered the same (max 50ms)
@@ -504,29 +504,20 @@ def preparation_section(run_section: bool):
             detect_rpeaks_args = create_sub_dict(parameters, detect_rpeaks_variables)
             correct_rpeaks_args = create_sub_dict(parameters, correct_rpeaks_variables)
 
-            # detect r-peaks using the primary function
-            detect_rpeaks_args["rpeak_function"] = parameters["rpeak_primary_function"]
-            detect_rpeaks_args["rpeak_function_name"] = parameters["rpeak_primary_function_name"]
-            rpeak_detection.detect_rpeaks(**detect_rpeaks_args)
+            # detect and correct r-peaks in the valid regions of the ECG data
+            for i in range(len(parameters["rpeak_functions"])):
+                detect_rpeaks_args["rpeak_function"] = parameters["rpeak_functions"][i]
+                detect_rpeaks_args["rpeak_function_name"] = parameters["rpeak_function_names"][i]
+                rpeak_detection.detect_rpeaks(**detect_rpeaks_args)
 
-            # correct the detected primary r-peaks
-            correct_rpeaks_args["rpeak_function_name"] = parameters["rpeak_primary_function_name"]
-            rpeak_detection.correct_rpeak_locations(**correct_rpeaks_args)
-
-            # detect r-peaks using the secondary function
-            detect_rpeaks_args["rpeak_function"] = parameters["rpeak_secondary_function"]
-            detect_rpeaks_args["rpeak_function_name"] = parameters["rpeak_secondary_function_name"]
-            rpeak_detection.detect_rpeaks(**detect_rpeaks_args)
-
-            # correct the detected secondary r-peaks
-            correct_rpeaks_args["rpeak_function_name"] = parameters["rpeak_secondary_function_name"]
-            rpeak_detection.correct_rpeak_locations(**correct_rpeaks_args)
+                correct_rpeaks_args["rpeak_function_name"] = parameters["rpeak_function_names"][i]
+                rpeak_detection.correct_rpeak_locations(**correct_rpeaks_args)
 
             # combine the detected r-peaks into certain and uncertain r-peaks
             combine_detected_rpeaks_args = create_sub_dict(parameters, combine_detected_rpeaks_variables)
             rpeak_detection.combine_detected_rpeaks(**combine_detected_rpeaks_args)
 
-        del detect_rpeaks_args, correct_rpeaks_args, combine_detected_rpeaks_args
+            del detect_rpeaks_args, correct_rpeaks_args, combine_detected_rpeaks_args
     
         """
         --------------------------------
@@ -552,7 +543,7 @@ In this section we will run the functions we have created until now.
 def main():
 
     # run additional section
-    additional_section(parameters["run_additionals_section"])
+    # additional_section(parameters["run_additionals_section"])
     # delete variables not needed anymore
     global ADDITIONALS_DIRECTORY, ADDITIONS_RESULTS_PATH, ADDITIONS_RAW_DATA_DIRECTORY, SHOW_CALIBRATION_DATA_DIRECTORY, RPEAK_COMPARISON_DIRECTORY, ECG_VALIDATION_COMPARISON_DIRECTORY 
     del ADDITIONALS_DIRECTORY, ADDITIONS_RESULTS_PATH, ADDITIONS_RAW_DATA_DIRECTORY, SHOW_CALIBRATION_DATA_DIRECTORY, RPEAK_COMPARISON_DIRECTORY, ECG_VALIDATION_COMPARISON_DIRECTORY
