@@ -370,6 +370,7 @@ def additional_section(run_section: bool):
 
         # create arguments for the valid ecg regions evaluation and calculate them
         determine_ecg_region_args = create_sub_dict(parameters, determine_ecg_region_variables)
+        determine_ecg_region_args["ecg_comparison_mode"] = True
 
         check_data.determine_valid_ecg_regions(**determine_ecg_region_args)
         del determine_ecg_region_args
