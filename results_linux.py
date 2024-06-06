@@ -21,6 +21,55 @@ additions_results_path = parameters["additions_results_path"]
 """
 Plot valid ecg regions
 """
+def evaluate_and_plot_valid_ecg_regions():
+    # choose a random file
+    data_directory = "Data/GIF/SOMNOwatch/"
+    file_data_name = "Somnowatch_Messung.edf"
+    file_data_name = "SL104_SL104_(1).edf"
+    file_data_path = data_directory + file_data_name
+
+    # load the ECG data
+    ECG, frequency = read_edf.get_data_from_edf_channel(
+        file_path = file_data_path,
+        possible_channel_labels = parameters["ecg_keys"],
+        physical_dimension_correction_dictionary = parameters["physical_dimension_correction_dictionary"]
+        )
+
+    results = check_data.check_ecg(
+        ECG=ECG, 
+        frequency=frequency, 
+        check_ecg_time_interval_seconds=5,  
+        straighten_ecg_signal=True, 
+        check_ecg_overlapping_interval_steps=1, 
+        check_ecg_validation_strictness=0.5,
+        check_ecg_removed_peak_difference_threshold=0.3,
+        check_ecg_std_min_threshold=80,
+        check_ecg_std_max_threshold=800,
+        check_ecg_distance_std_ratio_threshold=5,
+        check_ecg_allowed_invalid_region_length_seconds=30,
+        check_ecg_min_valid_length_minutes=5,
+        ecg_comparison_mode = False,
+        )
+    valid_regions = results[1][0] # looks weird I know, but it is the way it is (reason is behind ecg validation comparison)
+
+    # calculate the ratio of valid regions to total regions
+    valid_regions_ratio = check_data.valid_total_ratio(
+        ECG = ECG, 
+        valid_regions = valid_regions
+        )
+    print("(Valid / Total) Regions Ratio: %f %%" % (round(valid_regions_ratio, 4)*100))
+
+    # choose region to plot
+    total_length = len(ECG)
+    x_lim = [int(0*total_length), int(1*total_length)]
+
+    plot_helper.plot_valid_regions(
+        ECG = ECG, 
+        valid_regions = valid_regions,
+        xlim = x_lim
+        )
+
+
 def show_valid_ecg_regions():
     # choose a random file
     data_directory = "Data/GIF/SOMNOwatch/"
@@ -66,6 +115,9 @@ def visualize_ecg_val_comparison():
     file_data_path = ADDITIONS_RAW_DATA_DIRECTORY + file_data_name
     file_class_path = parameters["ecg_classification_values_directory"] + file_class_name
 
+    # choose validation_strictness
+    validation_strictness = 0.5
+
     # load the ECG data
     ECG, frequency = read_edf.get_data_from_edf_channel(
         file_path = file_data_path,
@@ -76,21 +128,29 @@ def visualize_ecg_val_comparison():
     # get the classification values
     ecg_classification_dictionary = check_data.get_ecg_classification_from_txt_file(file_class_path)
 
-    # calc valid regions
-    this_files_valid_ecg_regions = check_data.new_new_check_ecg(
-        ECG=ECG, 
-        frequency=frequency, 
-        time_interval_seconds=5,  
-        straighten_ecg_signal=True, 
-        overlapping_interval_steps=3, 
-        validation_strictness=0.2,
-        check_ecg_no_peak_std_distance_threshold=0.3)
+    # retrieve evaluated valid regions
+    additions_results_generator = load_from_pickle(additions_results_path)
+    for generator_entry in additions_results_generator:
+        if generator_entry[parameters["file_name_dictionary_key"]] == file_data_name:
+            this_files_valid_ecg_regions = generator_entry[parameters["valid_ecg_regions_dictionary_key"] + "_" + str(validation_strictness)]
+            break
 
+    # plot the valid regions for easy comparison
     plot_helper.plot_ecg_validation_comparison(
         ECG = ECG, 
         valid_regions = this_files_valid_ecg_regions,
         ecg_classification = ecg_classification_dictionary,
     )
+
+    # afterwards look at a specific region that does not match
+    total_length = len(ECG)
+    x_lim = [int(0.1*total_length), int(0.5*total_length)]
+
+    plot_helper.plot_valid_regions(
+        ECG = ECG, 
+        valid_regions = this_files_valid_ecg_regions,
+        xlim = x_lim
+        )
 
 """
 Plot Non-Intersecting R-Peaks
@@ -209,46 +269,4 @@ def visualizing_r_peak_comparison():
 # visualize_ecg_val_comparison()
 #plot_non_intersecting_r_peaks()
 #visualizing_r_peak_comparison()
-
-# just testing
-# choose a random file
-data_directory = "Data/GIF/SOMNOwatch/"
-file_data_name = "Somnowatch_Messung.edf"
-file_data_name = "SL088_SL088_(1).edf"
-file_data_path = data_directory + file_data_name
-
-# load the ECG data
-ECG, frequency = read_edf.get_data_from_edf_channel(
-    file_path = file_data_path,
-    possible_channel_labels = parameters["ecg_keys"],
-    physical_dimension_correction_dictionary = parameters["physical_dimension_correction_dictionary"]
-    )
-
-valid_regions = check_data.check_ecg(
-    ECG=ECG, 
-    frequency=frequency, 
-    time_interval_seconds=5,  
-    straighten_ecg_signal=True, 
-    overlapping_interval_steps=1, 
-    validation_strictness=0.5,
-    check_ecg_removed_peak_difference_threshold=0.3,
-    check_ecg_std_min_threshold=80,
-    check_ecg_std_max_threshold=800,
-    check_ecg_distance_std_ratio_threshold=5,
-    )
-
-# calculate the ratio of valid regions to total regions
-valid_regions_ratio = check_data.valid_total_ratio(
-    ECG = ECG, 
-    valid_regions = valid_regions
-    )
-print("(Valid / Total) Regions Ratio: %f %%" % (round(valid_regions_ratio, 4)*100))
-
-total_length = len(ECG)
-x_lim = [int(0.75*total_length), int(0.85*total_length)]
-
-plot_helper.plot_valid_regions(
-    ECG = ECG, 
-    valid_regions = valid_regions,
-    xlim = x_lim
-    )
+evaluate_and_plot_valid_ecg_regions()

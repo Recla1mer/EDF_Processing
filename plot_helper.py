@@ -133,6 +133,8 @@ def plot_valid_regions(ECG: list, valid_regions: list, **kwargs):
             cropped_valid_regions.append([region[0], kwargs["xlim"][1]])
         elif region[0] < kwargs["xlim"][0] and region[1] <= kwargs["xlim"][1]:
             cropped_valid_regions.append([kwargs["xlim"][0], region[1]])
+        elif region[0] < kwargs["xlim"][0] and region[1] > kwargs["xlim"][1]:
+            cropped_valid_regions.append([kwargs["xlim"][0], kwargs["xlim"][1]])
     for region in invalid_regions:
         if region[1] < kwargs["xlim"][0] or region[0] > kwargs["xlim"][1]:
             continue
@@ -142,7 +144,8 @@ def plot_valid_regions(ECG: list, valid_regions: list, **kwargs):
             cropped_invalid_regions.append([region[0], kwargs["xlim"][1]])
         elif region[0] < kwargs["xlim"][0] and region[1] <= kwargs["xlim"][1]:
             cropped_invalid_regions.append([kwargs["xlim"][0], region[1]])
-    
+        elif region[0] < kwargs["xlim"][0] and region[1] > kwargs["xlim"][1]:
+            cropped_valid_regions.append([kwargs["xlim"][0], kwargs["xlim"][1]])
     del valid_regions
     del invalid_regions
     valid_regions = copy.deepcopy(cropped_valid_regions)
