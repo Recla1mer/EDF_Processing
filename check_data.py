@@ -48,10 +48,9 @@ def straighten_ecg(
     differences = []
     minima = []
     for i in range(0, len(ecg_interval), step_iterations):
-        if i + step_iterations > len(ecg_interval):
+        upper_border = i + step_iterations
+        if upper_border > len(ecg_interval):
             upper_border = len(ecg_interval)
-        else:
-            upper_border = i + step_iterations
         
         this_interval = ecg_interval[i:upper_border]
         this_max = np.max(this_interval)
@@ -462,6 +461,7 @@ def check_ecg(
 
     # evaluate valid intervals for different strictness values
     for validation_strictness in np.arange(start_strictness, end_strictness+strictness_step_size, strictness_step_size):
+        store_strictness.append(round(validation_strictness, 2))
         possibly_valid_stds = []
         passed_max_min_distance = []
 
@@ -472,6 +472,9 @@ def check_ecg(
                 passed_max_min_distance.append(i)
         
         # checking if std is neither too high nor too low
+        if len(possibly_valid_stds) == 0:
+            store_connected_intervals.append([])
+            continue
         mean_std = np.mean(possibly_valid_stds)
         lower_limit = (mean_std - np.std(possibly_valid_stds))*validation_strictness
         upper_limit = (mean_std + np.std(possibly_valid_stds))*(2-validation_strictness)
@@ -527,7 +530,6 @@ def check_ecg(
             allowed_invalid_region_length_iterations = int(check_ecg_allowed_invalid_region_length_seconds*frequency)
             )
         
-        store_strictness.append(round(validation_strictness, 2))
         store_connected_intervals.append(connected_intervals)
 
     return store_strictness, store_connected_intervals
