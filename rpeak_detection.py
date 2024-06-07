@@ -348,10 +348,6 @@ def detect_rpeaks(
         file_path = preparation_results_path,
         dictionary_entry = rpeak_function_name
     )
-    
-    # cancel if user does not want to override
-    if user_answer == "n":
-        return
 
     # cancel if needed data is missing
     if user_answer == "no_file_found":
@@ -364,7 +360,7 @@ def detect_rpeaks(
         os.remove(temporary_file_path)
 
     # create variables to track progress
-    total_files = get_pickle_length(preparation_results_path)
+    total_files = get_pickle_length(preparation_results_path, rpeak_function_name)
     progressed_files = 0
 
     # create lists to store unprocessable files
@@ -373,9 +369,16 @@ def detect_rpeaks(
     # load preparation results
     preparation_results_generator = load_from_pickle(preparation_results_path)
 
+    if total_files > 0:
+        print("\nDetecting r-peaks of the ECG data in %i files from \"%s\" using %s:" % (total_files, data_directory, rpeak_function_name))
+    
     # detect rpeaks in the valid regions of the ECG data
-    print("\nDetecting r-peaks of the ECG data in %i files from \"%s\" using %s:" % (total_files, data_directory, rpeak_function_name))
     for generator_entry in preparation_results_generator:
+        # skip if the r-peak detection already exists and the user does not want to override
+        if user_answer == "n" and rpeak_function_name in generator_entry.keys():
+            append_to_pickle(generator_entry, temporary_file_path)
+            continue
+
         # show progress
         progress_bar(progressed_files, total_files)
         progressed_files += 1
@@ -483,10 +486,6 @@ def correct_rpeak_locations(
         file_path = preparation_results_path,
         dictionary_entry = before_correction_rpeak_function_name
     )
-    
-    # cancel if user does not want to override
-    if user_answer == "n":
-        return
 
     # cancel if needed data is missing
     if user_answer == "no_file_found":
@@ -499,7 +498,7 @@ def correct_rpeak_locations(
         os.remove(temporary_file_path)
 
     # create variables to track progress
-    total_files = get_pickle_length(preparation_results_path)
+    total_files = get_pickle_length(preparation_results_path, before_correction_rpeak_function_name)
     progressed_files = 0
 
     # create lists to store unprocessable files
@@ -508,9 +507,16 @@ def correct_rpeak_locations(
     # load preparation results
     preparation_results_generator = load_from_pickle(preparation_results_path)
 
+    if total_files > 0:
+        print("\nCorrecting r-peaks detected by %s in %i files:" % (rpeak_function_name, total_files))
+    
     # correct rpeaks
-    print("\nCorrecting r-peaks detected by %s in %i files:" % (rpeak_function_name, total_files))
     for generator_entry in preparation_results_generator:
+        # skip if corrected r-peaks already exist and the user does not want to override
+        if user_answer == "n" and before_correction_rpeak_function_name in generator_entry.keys():
+            append_to_pickle(generator_entry, temporary_file_path)
+            continue
+
         # show progress
         progress_bar(progressed_files, total_files)
         progressed_files += 1
@@ -738,10 +744,6 @@ def combine_detected_rpeaks(
         additionally_remove_entries = [uncertain_primary_rpeaks_dictionary_key, uncertain_secondary_rpeaks_dictionary_key]
     )
     
-    # cancel if user does not want to override
-    if user_answer == "n":
-        return
-    
     # cancel if needed data is missing
     if user_answer == "no_file_found":
         print("\nFile containing r-peak detections is missing. Obviously they are needed to combine different r-peak detections. Therefore the combination will be skipped.")
@@ -753,7 +755,7 @@ def combine_detected_rpeaks(
         os.remove(temporary_file_path)
 
     # create variables to track progress
-    total_files = get_pickle_length(preparation_results_path)
+    total_files = get_pickle_length(preparation_results_path, certain_rpeaks_dictionary_key)
     progressed_files = 0
 
     # create lists to store unprocessable files
@@ -762,9 +764,16 @@ def combine_detected_rpeaks(
     # load preparation results
     preparation_results_generator = load_from_pickle(preparation_results_path)
 
+    if total_files > 0:
+        print("\nCombining detected r-peaks for %i files from \"%s\":" % (total_files, data_directory))
+    
     # combine detected r-peaks
-    print("\nCombining detected r-peaks for %i files from \"%s\":" % (total_files, data_directory))
     for generator_entry in preparation_results_generator:
+        # skip if combined r-peaks already exist and the user does not want to override
+        if user_answer == "n" and certain_rpeaks_dictionary_key in generator_entry.keys():
+            append_to_pickle(generator_entry, temporary_file_path)
+            continue
+
         # show progress
         progress_bar(progressed_files, total_files)
         progressed_files += 1
@@ -1107,18 +1116,40 @@ def read_rpeaks_from_rri_files(
         dictionary_entry = rpeak_classification_dictionary_key
     )
     
-    # cancel if user does not want to override
-    if user_answer == "n":
-        return
-    
     # path to pickle file which will store results
     temporary_file_path = get_path_without_filename(additions_results_path) + "computation_in_progress.pkl"
     if os.path.isfile(temporary_file_path):
         os.remove(temporary_file_path)
-    
+
     # get all valid files that contain r-peak classifications for the ECG data in data_directory
     all_values_files = os.listdir(rpeaks_values_directory)
     valid_values_files = [file for file in all_values_files if get_file_type(file) in valid_rpeak_values_file_types]
+
+    # get all valid files
+    all_data_files = os.listdir(data_directory)
+    valid_data_files = [file for file in all_data_files if get_file_type(file) in valid_file_types]
+   
+    # skip reading if user does not want to override
+    if user_answer == "n":
+        # load existing results
+        additions_results_generator = load_from_pickle(additions_results_path)
+
+        for generator_entry in additions_results_generator:
+                # get current file name
+                file_name = generator_entry[file_name_dictionary_key]
+
+                if file_name in all_data_files:
+                    valid_data_files.remove(file_name)
+                
+                append_to_pickle(generator_entry, temporary_file_path)
+    
+    # create variables to track progress
+    total_files = len(valid_data_files)
+    progressed_files = 0
+
+
+    if len(valid_data_files) > 0:
+        print("\nReading r-peak values from %i files from \"%s\":" % (total_files, data_directory))
     
     # create lists to store unprocessable files
     unprocessable_files = []
@@ -1127,12 +1158,7 @@ def read_rpeaks_from_rri_files(
         # load existing results
         additions_results_generator = load_from_pickle(additions_results_path)
 
-        # create variables to track progress
-        total_files = get_pickle_length(additions_results_path)
-        progressed_files = 0
-
         # read the r-peaks from the files
-        print("\nReading r-peak values from %i files from \"%s\":" % (total_files, data_directory))
         for generator_entry in additions_results_generator:
             # show progress
             progress_bar(progressed_files, total_files)
@@ -1176,56 +1202,45 @@ def read_rpeaks_from_rri_files(
                 unprocessable_files.append(file_name)
                 continue
 
-    elif user_answer == "no_file_found":
+    # read the r-peaks for the remaining files
+    for file_name in valid_data_files:
+        # show progress
+        progress_bar(progressed_files, total_files)
+        progressed_files += 1
 
-        # get all valid files
-        all_data_files = os.listdir(data_directory)
-        valid_data_files = [file for file in all_data_files if get_file_type(file) in valid_file_types]
+        try:
+            # get the file name without the file type
+            this_file_name = os.path.splitext(file_name)[0]
 
-        # create variables to track progress
-        total_files = len(valid_data_files)
-        progressed_files = 0
+            # get corresponding r-peak value file name for this file
+            for value_file in valid_values_files:
+                if this_file_name in value_file:
+                    this_value_file = value_file
+
+            rpeaks_values = get_rpeaks_classification_from_rri_file(
+                file_path = rpeaks_values_directory + this_value_file,
+                add_offset = add_offset_to_classification
+            )
         
-        # read the r-peaks from the files
-        print("\nReading r-peak values from %i files from \"%s\":" % (total_files, data_directory))
-        for file_name in valid_data_files:
-            # show progress
-            progress_bar(progressed_files, total_files)
-            progressed_files += 1
-
-            try:
-                # get the file name without the file type
-                this_file_name = os.path.splitext(file_name)[0]
-
-                # get corresponding r-peak value file name for this file
-                for value_file in valid_values_files:
-                    if this_file_name in value_file:
-                        this_value_file = value_file
-
-                rpeaks_values = get_rpeaks_classification_from_rri_file(
-                    file_path = rpeaks_values_directory + this_value_file,
-                    add_offset = add_offset_to_classification
-                )
+            # get r-peak values with wanted classification
+            this_rpeaks = np.array([], dtype = int)
+            for classification in include_rpeak_value_classifications:
+                try:
+                    this_rpeaks = np.append(this_rpeaks, rpeaks_values[classification])
+                except KeyError:
+                    # print("Classification %s is missing in %s. Skipping this classification." % (classification, file))
+                    pass
             
-                # get r-peak values with wanted classification
-                this_rpeaks = np.array([], dtype = int)
-                for classification in include_rpeak_value_classifications:
-                    try:
-                        this_rpeaks = np.append(this_rpeaks, rpeaks_values[classification])
-                    except KeyError:
-                        # print("Classification %s is missing in %s. Skipping this classification." % (classification, file))
-                        pass
-                
-                # save the r-peak values for this file
-                this_files_dictionary_entry = {
-                    file_name_dictionary_key: file_name,
-                    rpeak_classification_dictionary_key: this_rpeaks
-                    }
-                append_to_pickle(this_files_dictionary_entry, temporary_file_path)
+            # save the r-peak values for this file
+            this_files_dictionary_entry = {
+                file_name_dictionary_key: file_name,
+                rpeak_classification_dictionary_key: this_rpeaks
+                }
+            append_to_pickle(this_files_dictionary_entry, temporary_file_path)
 
-            except:
-                unprocessable_files.append(file_name)
-                continue
+        except:
+            unprocessable_files.append(file_name)
+            continue
     
     progress_bar(progressed_files, total_files)
 
@@ -1299,10 +1314,6 @@ def rpeak_detection_comparison(
         dictionary_entry = rpeak_comparison_dictionary_key
     )
     
-    # cancel if user does not want to override
-    if user_answer == "n":
-        return
-    
     # cancel if needed data is missing
     if user_answer == "no_file_found":
         print("\nFile containing r-peak detections not found. Therefore they can not be compared and the comparison is skipped.")
@@ -1317,12 +1328,19 @@ def rpeak_detection_comparison(
     additions_results_generator = load_from_pickle(additions_results_path)
 
     # create variables to track progress
-    total_files = get_pickle_length(additions_results_path)
+    total_files = get_pickle_length(additions_results_path, rpeak_comparison_dictionary_key)
     progressed_files = 0
     
+    if total_files > 0:
+        print("\nCalculating r-peak comparison values for %i files from \"%s\":" % (total_files, data_directory))
+    
     # calculate the r-peak comparison values
-    print("\nCalculating r-peak comparison values for %i files from \"%s\":" % (total_files, data_directory))
     for generator_entry in additions_results_generator:
+        # skip if the comparison values already exist and the user does not want to override
+        if user_answer == "n" and rpeak_comparison_dictionary_key in generator_entry.keys():
+            append_to_pickle(generator_entry, temporary_file_path)
+            continue
+
         # show progress
         progress_bar(progressed_files, total_files)
         progressed_files += 1

@@ -541,8 +541,6 @@ In this section we will run the functions we have created until now.
 """
 
 def main():
-    ecg_validation_comparison_args = create_sub_dict(parameters, ecg_validation_comparison_variables)
-    check_data.clean_mistake(**ecg_validation_comparison_args)
 
     # run additional section
     additional_section(parameters["run_additionals_section"])

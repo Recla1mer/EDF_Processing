@@ -960,66 +960,6 @@ def compare_ecg_validations(
     return [correct_valid_ratio, correct_invalid_ratio, valid_wrong_ratio, invalid_wrong_ratio]
 
 
-def clean_mistake(
-        ecg_classification_values_directory: str,
-        ecg_classification_file_types: list,
-        additions_results_path: str,
-        file_name_dictionary_key: str,
-        valid_ecg_regions_dictionary_key: str,
-        ecg_validation_comparison_dictionary_key: str
-    ):
-    """
-    Clean
-    """
-    # get all determined ECG Validation files
-    addition_results_generator = load_from_pickle(additions_results_path)
-
-    # get all ECG classification files
-    all_classification_files = os.listdir(ecg_classification_values_directory)
-    valid_classification_files = [file for file in all_classification_files if get_file_type(file) in ecg_classification_file_types]
-
-    # path to pickle file which will store results
-    temporary_file_path = get_path_without_filename(additions_results_path) + "computation_in_progress.pkl"
-    if os.path.isfile(temporary_file_path):
-        os.remove(temporary_file_path)
-
-    # create lists to store unprocessable files
-    unprocessable_files = []
-    
-    # calculate the ECG Validation comparison values for all files
-    for generator_entry in addition_results_generator:
-
-        try:
-            # get the file key and the validated ECG regions
-            this_file = generator_entry[file_name_dictionary_key]
-
-            # get the file name without the file type
-            this_file_name = os.path.splitext(this_file)[0]
-
-            # get corresponding ECG classification file name for this file
-            file_found = False
-            for clfc_file in valid_classification_files:
-                if this_file_name in clfc_file:
-                    file_found = True
-                    this_classification_file = clfc_file
-                    break
-            if not file_found:
-                # save the comparison values for this file
-                if ecg_validation_comparison_dictionary_key in generator_entry.keys():
-                    del generator_entry[ecg_validation_comparison_dictionary_key]
-        
-            append_to_pickle(generator_entry, temporary_file_path)
-
-        except:
-            unprocessable_files.append(this_file)
-            continue
-
-    # rename the file that stores the calculated data
-    if os.path.isfile(temporary_file_path):
-        os.remove(additions_results_path)
-        os.rename(temporary_file_path, additions_results_path)
-
-
 def ecg_validation_comparison(
         ecg_classification_values_directory: str,
         ecg_classification_file_types: list,
@@ -1090,8 +1030,10 @@ def ecg_validation_comparison(
     # create lists to store unprocessable files
     unprocessable_files = []
     
+    if total_data_files > 0:
+        print("\nCalculating ECG validation comparison values for %i files:" % total_data_files)
+    
     # calculate the ECG Validation comparison values for all files
-    print("\nCalculating ECG validation comparison values for %i files:" % total_data_files)
     for generator_entry in addition_results_generator:
         # skip if the comparison values already exist and the user does not want to override
         if user_answer == "n" and ecg_validation_comparison_dictionary_key in generator_entry.keys():
