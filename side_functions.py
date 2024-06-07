@@ -487,14 +487,16 @@ def load_from_pickle(file_name: str):
                 break
 
 
-def get_pickle_length(file_name: str):
+def get_pickle_length(file_name: str, dictionary_key: str):
     """
-    Get the number of items in a pickle file.
+    Get the number of items in a pickle file that do not contain the given dictionary key.
 
     ARGUMENTS:
     --------------------------------
     file_name: str
         path to the pickle file
+    dictionary_key: str
+        key of the dictionary
     
     RETURNS:
     --------------------------------
@@ -505,8 +507,9 @@ def get_pickle_length(file_name: str):
         counter = 0
         while True:
             try:
-                pickle.load(f)
-                counter += 1
+                this_dictionary = pickle.load(f)
+                if dictionary_key not in this_dictionary:
+                    counter += 1
             except EOFError:
                 break
     return counter

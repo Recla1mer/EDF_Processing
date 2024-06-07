@@ -1144,9 +1144,15 @@ def read_rpeaks_from_rri_files(
                 file_name_without_extension = os.path.splitext(file_name)[0]
 
                 # get corresponding r-peak value file name for this file
+                file_found = False
                 for value_file in valid_values_files:
                     if file_name_without_extension in value_file:
+                        file_found = True
                         this_value_file = value_file
+                        break
+                if not file_found:
+                    unprocessable_files.append(file_name)
+                    continue
 
                 rpeaks_values = get_rpeaks_classification_from_rri_file(
                     file_path = rpeaks_values_directory + this_value_file,

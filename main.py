@@ -541,15 +541,17 @@ In this section we will run the functions we have created until now.
 """
 
 def main():
+    ecg_validation_comparison_args = create_sub_dict(parameters, ecg_validation_comparison_variables)
+    check_data.clean_mistake(**ecg_validation_comparison_args)
 
     # run additional section
-    # additional_section(parameters["run_additionals_section"])
+    additional_section(parameters["run_additionals_section"])
     # delete variables not needed anymore
     global ADDITIONALS_DIRECTORY, ADDITIONS_RESULTS_PATH, ADDITIONS_RAW_DATA_DIRECTORY, SHOW_CALIBRATION_DATA_DIRECTORY, RPEAK_COMPARISON_DIRECTORY, ECG_VALIDATION_COMPARISON_DIRECTORY 
     del ADDITIONALS_DIRECTORY, ADDITIONS_RESULTS_PATH, ADDITIONS_RAW_DATA_DIRECTORY, SHOW_CALIBRATION_DATA_DIRECTORY, RPEAK_COMPARISON_DIRECTORY, ECG_VALIDATION_COMPARISON_DIRECTORY
     
     # run preparation section
-    preparation_section(parameters["run_preparation_section"])
+    # preparation_section(parameters["run_preparation_section"])
     # delete variables not needed anymore
     global PREPARATION_DIRECTORY, PREPARATION_RESULTS_NAME, ECG_VALIDATION_THRESHOLDS_PATH
     del PREPARATION_DIRECTORY, PREPARATION_RESULTS_NAME
