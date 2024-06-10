@@ -160,7 +160,7 @@ valid_ecg_regions_params = {
     "straighten_ecg_signal": True, # if True, the ECG signal will be straightened before the validation (see check_data.straighten_ecg_signal() for more information)
     "check_ecg_time_interval_seconds": 5, # time interval considered when determining the valid regions for the ECG data (as small as possible, but should contain at least two R-peaks)
     "check_ecg_overlapping_interval_steps": 1, # number of times the interval needs to be shifted to the right until the next check_ecg_time_interval_seconds is reached (only useful to increase if check_ecg_time_interval_seconds is small)
-    "check_ecg_validation_strictness": 0.5, # strictness in relation to mean values (0.0: very unstrict, 1.0: very strict)
+    "check_ecg_validation_strictness": 0.6, # strictness in relation to mean values (0.0: very unstrict, 1.0: very strict)
     "check_ecg_removed_peak_difference_threshold": 0.3, # difference between the values of std-max-min-difference before and after removing the highest peak must be below this value (difference usually around 0.03)
     "check_ecg_std_min_threshold": 80.0, # if the standard deviation of the ECG data is below this threshold, the data is considered invalid (this is a manual threshold, it is used if the ratio between valid and total regions is below 0.5 after trying it with validation_strictness and the mean values)
     "check_ecg_std_max_threshold": 800.0, # if the standard deviation of the ECG data is above this threshold, the data is considered invalid (this is a manual threshold, see above)
@@ -514,10 +514,10 @@ def preparation_section(run_section: bool):
                 rpeak_detection.correct_rpeak_locations(**correct_rpeaks_args)
 
             # combine the detected r-peaks into certain and uncertain r-peaks
-            combine_detected_rpeaks_args = create_sub_dict(parameters, combine_detected_rpeaks_variables)
-            rpeak_detection.combine_detected_rpeaks(**combine_detected_rpeaks_args)
+            # combine_detected_rpeaks_args = create_sub_dict(parameters, combine_detected_rpeaks_variables)
+            # rpeak_detection.combine_detected_rpeaks(**combine_detected_rpeaks_args)
 
-            del detect_rpeaks_args, correct_rpeaks_args, combine_detected_rpeaks_args
+            del detect_rpeaks_args, correct_rpeaks_args, # combine_detected_rpeaks_args
     
         """
         --------------------------------
@@ -543,13 +543,13 @@ In this section we will run the functions we have created until now.
 def main():
 
     # run additional section
-    additional_section(parameters["run_additionals_section"])
+    # additional_section(parameters["run_additionals_section"])
     # delete variables not needed anymore
     global ADDITIONALS_DIRECTORY, ADDITIONS_RESULTS_PATH, ADDITIONS_RAW_DATA_DIRECTORY, SHOW_CALIBRATION_DATA_DIRECTORY, RPEAK_COMPARISON_DIRECTORY, ECG_VALIDATION_COMPARISON_DIRECTORY 
     del ADDITIONALS_DIRECTORY, ADDITIONS_RESULTS_PATH, ADDITIONS_RAW_DATA_DIRECTORY, SHOW_CALIBRATION_DATA_DIRECTORY, RPEAK_COMPARISON_DIRECTORY, ECG_VALIDATION_COMPARISON_DIRECTORY
     
     # run preparation section
-    # preparation_section(parameters["run_preparation_section"])
+    preparation_section(parameters["run_preparation_section"])
     # delete variables not needed anymore
     global PREPARATION_DIRECTORY, PREPARATION_RESULTS_NAME, ECG_VALIDATION_THRESHOLDS_PATH
     del PREPARATION_DIRECTORY, PREPARATION_RESULTS_NAME

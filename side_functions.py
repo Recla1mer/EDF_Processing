@@ -200,8 +200,12 @@ def print_smart_time(time_seconds: int):
     else:
         time_seconds = int(time_seconds)
         days = time_seconds // 86400
+        if days > 0:
+            time_seconds = time_seconds % 86400
         hours = time_seconds // 3600
-        minutes = (time_seconds % 3600) // 60
+        if hours > 0:
+            time_seconds = time_seconds % 3600
+        minutes = time_seconds // 60
         seconds = time_seconds % 60
 
         if days > 0:
