@@ -187,10 +187,6 @@ def calculate_MAD_in_acceleration_data(
         dictionary_entry = MAD_dictionary_key
     )
     
-    # cancel if user does not want to override
-    if user_answer == "n":
-        return
-    
     # path to pickle file which will store results
     temporary_file_path = get_path_without_filename(preparation_results_path) + "computation_in_progress.pkl"
     if os.path.isfile(temporary_file_path):
@@ -199,16 +195,48 @@ def calculate_MAD_in_acceleration_data(
     # create list to store unprocessable files
     unprocessable_files = []
 
+    # get all valid files
+    all_files = os.listdir(data_directory)
+    valid_files = [file for file in all_files if get_file_type(file) in valid_file_types]
+
+    # create dictionary to store dictionaries that do not contain the needed key
+    # (needed to avoid overwriting these entries in the pickle file if user answer is "n")
+    store_previous_dictionary_entries = dict()
+   
+    # skip calculation if user does not want to override
+    if user_answer == "n":
+        # load existing results
+        preparation_results_generator = load_from_pickle(preparation_results_path)
+
+        for generator_entry in preparation_results_generator:
+                # check if needed dictionary keys exist
+                if file_name_dictionary_key not in generator_entry.keys():
+                    continue
+
+                if MAD_dictionary_key not in generator_entry.keys():
+                    store_previous_dictionary_entries[generator_entry[file_name_dictionary_key]] = generator_entry
+                    continue
+
+                # get current file name
+                file_name = generator_entry[file_name_dictionary_key]
+
+                if file_name in valid_files:
+                    valid_files.remove(file_name)
+                
+                append_to_pickle(generator_entry, temporary_file_path)
+    
+    # create variables to track progress
+    total_files = len(valid_files)
+    progressed_files = 0
+
+    if total_files > 0:
+        print("\nCalculating MAD in the wrist acceleration data in %i files from \"%s\":" % (total_files, data_directory))
+
     if user_answer == "y":
         # load existing results
         preparation_results_generator = load_from_pickle(preparation_results_path)
 
-        # create variables to track progress
-        total_files = get_pickle_length(preparation_results_path)
-        progressed_files = 0
-
         # calculate MAD in the wrist acceleration data
-        print("\nCalculating MAD in the wrist acceleration data in %i files from \"%s\":" % (total_files, data_directory))
         for generator_entry in preparation_results_generator:
             # show progress
             progress_bar(progressed_files, total_files)
@@ -217,6 +245,9 @@ def calculate_MAD_in_acceleration_data(
             try:
                 # get current file name
                 file_name = generator_entry[file_name_dictionary_key]
+
+                if file_name in valid_files:
+                    valid_files.remove(file_name)
 
                 # create lists to save the acceleration data and frequencies for each axis
                 acceleration_data = []
@@ -244,63 +275,56 @@ def calculate_MAD_in_acceleration_data(
                 
                 # save MAD values
                 generator_entry[MAD_dictionary_key] = this_MAD_values
-                append_to_pickle(generator_entry, temporary_file_path)
 
             except:
                 unprocessable_files.append(file_name)
-                continue
+            
+            append_to_pickle(generator_entry, temporary_file_path)
     
-    elif user_answer == "no_file_found":
-        # get all valid files
-        all_files = os.listdir(data_directory)
-        valid_files = [file for file in all_files if get_file_type(file) in valid_file_types]
+    for file_name in valid_files:
+        # show progress
+        progress_bar(progressed_files, total_files)
+        progressed_files += 1
 
-        # create variables to track progress
-        total_files = len(valid_files)
-        progressed_files = 0
+        if file_name in store_previous_dictionary_entries.keys():
+            generator_entry = store_previous_dictionary_entries[file_name]
+        else:
+            generator_entry = {file_name_dictionary_key: file_name}
 
-        # calculate MAD in the wrist acceleration data
-        print("\nCalculating MAD in the wrist acceleration data in %i files from \"%s\":" % (total_files, data_directory))
-        for file_name in valid_files:
-            # show progress
-            progress_bar(progressed_files, total_files)
-            progressed_files += 1
+        try:
+            # create lists to save the acceleration data and frequencies for each axis
+            acceleration_data = []
+            acceleration_data_frequencies = []
 
-            try:
-                # create lists to save the acceleration data and frequencies for each axis
-                acceleration_data = []
-                acceleration_data_frequencies = []
+            # try to load the data and correct the physical dimension if needed
+            # (get the acceleration data and frequency for each axis)
+            for possible_axis_keys in wrist_acceleration_keys:
+                this_axis_signal, this_axis_frequency = read_edf.get_data_from_edf_channel(
+                    file_path = data_directory + file_name,
+                    possible_channel_labels = possible_axis_keys,
+                    physical_dimension_correction_dictionary = physical_dimension_correction_dictionary
+                )
 
-                # try to load the data and correct the physical dimension if needed
-                # (get the acceleration data and frequency for each axis)
-                for possible_axis_keys in wrist_acceleration_keys:
-                    this_axis_signal, this_axis_frequency = read_edf.get_data_from_edf_channel(
-                        file_path = data_directory + file_name,
-                        possible_channel_labels = possible_axis_keys,
-                        physical_dimension_correction_dictionary = physical_dimension_correction_dictionary
-                    )
+                # append data to corresponding lists
+                acceleration_data.append(this_axis_signal)
+                acceleration_data_frequencies.append(this_axis_frequency)
+            
+            # calculate MAD values
+            this_MAD_values = calc_mad(
+                acceleration_data_lists = acceleration_data,
+                frequencies = acceleration_data_frequencies,
+                time_period = mad_time_period_seconds, 
+                )
+            
+            # save MAD values for this file to the dictionary
+            generator_entry[MAD_dictionary_key] = this_MAD_values # type: ignore    
 
-                    # append data to corresponding lists
-                    acceleration_data.append(this_axis_signal)
-                    acceleration_data_frequencies.append(this_axis_frequency)
-                
-                # calculate MAD values
-                this_MAD_values = calc_mad(
-                    acceleration_data_lists = acceleration_data,
-                    frequencies = acceleration_data_frequencies,
-                    time_period = mad_time_period_seconds, 
-                    )
-                
-                # save MAD values for this file
-                this_files_dictionary_entry = {
-                    file_name_dictionary_key: file_name,
-                    MAD_dictionary_key: this_MAD_values
-                    }
-                append_to_pickle(this_files_dictionary_entry, temporary_file_path)
-
-            except:
-                unprocessable_files.append(file_name)
-                continue
+        except:
+            unprocessable_files.append(file_name)
+        
+        # if more than the file name is in the dictionary, save the dictionary to the pickle file
+        if len(generator_entry) > 1:
+            append_to_pickle(generator_entry, temporary_file_path)
     
     progress_bar(progressed_files, total_files)
 

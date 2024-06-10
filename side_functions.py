@@ -236,6 +236,8 @@ def progress_bar(index: int, total: int, bar_len=50, title="Please wait"):
     --------------------------------
     None, but prints the progress bar to the console
     """
+    if total == 0:
+        return
 
     # estimate time remaining
     temporary_file_path = "temporarily_store_time.pkl"

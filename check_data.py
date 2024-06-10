@@ -605,7 +605,6 @@ def determine_valid_ecg_regions(
         additionally_remove_entries=additionally_remove_keys
         )
     
-    
     # path to pickle file which will store results
     temporary_file_path = get_path_without_filename(preparation_results_path) + "computation_in_progress.pkl"
     if os.path.isfile(temporary_file_path):
@@ -618,6 +617,9 @@ def determine_valid_ecg_regions(
     all_files = os.listdir(data_directory)
     valid_files = [file for file in all_files if get_file_type(file) in valid_file_types]
 
+    # create dictionary to store dictionaries that do not contain the needed key
+    # (needed to avoid overwriting these entries in the pickle file if user answer is "n")
+    store_previous_dictionary_entries = dict()
    
     # skip calculation if user does not want to override
     if user_answer == "n":
@@ -625,6 +627,14 @@ def determine_valid_ecg_regions(
         preparation_results_generator = load_from_pickle(preparation_results_path)
 
         for generator_entry in preparation_results_generator:
+                # check if needed dictionary keys exist
+                if file_name_dictionary_key not in generator_entry.keys():
+                    continue
+
+                if valid_ecg_regions_dictionary_key not in generator_entry.keys():
+                    store_previous_dictionary_entries[generator_entry[file_name_dictionary_key]] = generator_entry
+                    continue
+
                 # get current file name
                 file_name = generator_entry[file_name_dictionary_key]
 
@@ -637,7 +647,7 @@ def determine_valid_ecg_regions(
     total_files = len(valid_files)
     progressed_files = 0
 
-    if len(valid_files) > 0:
+    if total_files > 0:
         print("\nCalculating valid regions for the ECG data in %i files from \"%s\":" % (total_files, data_directory))
 
     if user_answer == "y":
@@ -689,17 +699,22 @@ def determine_valid_ecg_regions(
                         generator_entry[valid_ecg_regions_dictionary_key + "_" + str(store_strictness[strictness_index])] = store_valid_intervals_for_strictness[strictness_index]
                 else:
                     generator_entry[valid_ecg_regions_dictionary_key] = store_valid_intervals_for_strictness[0]
-                append_to_pickle(generator_entry, temporary_file_path)
 
             except:
                 unprocessable_files.append(file_name)
-                continue
+            
+            append_to_pickle(generator_entry, temporary_file_path)
     
     # calculate the valid regions for the remaining files
     for file_name in valid_files:
         # show progress
         progress_bar(progressed_files, total_files)
         progressed_files += 1
+
+        if file_name in store_previous_dictionary_entries.keys():
+            generator_entry = store_previous_dictionary_entries[file_name]
+        else:
+            generator_entry = {file_name_dictionary_key: file_name}
 
         try:
             # try to load the data and correct the physical dimension if needed
@@ -726,24 +741,23 @@ def determine_valid_ecg_regions(
                 check_ecg_allowed_invalid_region_length_seconds = check_ecg_allowed_invalid_region_length_seconds,
             )
             
-            # save the valid regions for this file
-            this_files_dictionary_entry = {file_name_dictionary_key: file_name}
-            
+            # save the valid regions for this file to the dictionary
             if ecg_comparison_mode:
-                this_files_dictionary_entry[valid_ecg_regions_dictionary_key] = store_valid_intervals_for_strictness[int(len(store_valid_intervals_for_strictness)/2)]
+                generator_entry[valid_ecg_regions_dictionary_key] = store_valid_intervals_for_strictness[int(len(store_valid_intervals_for_strictness)/2)]
                 for strictness_index in range(0, len(store_strictness)):
                     if store_strictness[strictness_index] == check_ecg_validation_strictness:
-                        this_files_dictionary_entry[valid_ecg_regions_dictionary_key] = store_valid_intervals_for_strictness[strictness_index]
-                    this_files_dictionary_entry[valid_ecg_regions_dictionary_key + "_" + str(store_strictness[strictness_index])] = store_valid_intervals_for_strictness[strictness_index]
+                        generator_entry[valid_ecg_regions_dictionary_key] = store_valid_intervals_for_strictness[strictness_index]
+                    generator_entry[valid_ecg_regions_dictionary_key + "_" + str(store_strictness[strictness_index])] = store_valid_intervals_for_strictness[strictness_index]
             else:
-                this_files_dictionary_entry[valid_ecg_regions_dictionary_key] = store_valid_intervals_for_strictness[0]
-
-            append_to_pickle(this_files_dictionary_entry, temporary_file_path)
+                generator_entry[valid_ecg_regions_dictionary_key] = store_valid_intervals_for_strictness[0]
 
         except:
             unprocessable_files.append(file_name)
-            continue
-
+        
+        # if more than the file name is in the dictionary, save the dictionary to the pickle file
+        if len(generator_entry) > 1:
+            append_to_pickle(generator_entry, temporary_file_path)
+    
     progress_bar(progressed_files, total_files)
 
     # rename the file that stores the calculated data
@@ -1059,8 +1073,7 @@ def ecg_validation_comparison(
                     this_classification_file = clfc_file
                     break
             if not file_found:
-                unprocessable_files.append(this_file)
-                continue
+                raise FileNotFoundError
 
             ecg_classification_dictionary = get_ecg_classification_from_txt_file(ecg_classification_values_directory + this_classification_file)
         
@@ -1076,14 +1089,14 @@ def ecg_validation_comparison(
                         ecg_classification = ecg_classification_dictionary
                         ))
         
-            # save the comparison values for this file
+            # add comparison values for this file
             generator_entry[ecg_validation_comparison_dictionary_key] = [strictness_values, comparison_values_for_strictness]
-            append_to_pickle(generator_entry, temporary_file_path)
 
         except:
             unprocessable_files.append(this_file)
-            continue
         
+        append_to_pickle(generator_entry, temporary_file_path)
+    
     progress_bar(progressed_data_files, total_data_files)
 
     # rename the file that stores the calculated data
