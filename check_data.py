@@ -845,25 +845,28 @@ def choose_valid_ecg_regions_for_further_computation(
             continue
         file_name = generator_entry[file_name_dictionary_key]
         
-        # try to load the data and correct the physical dimension if needed
-        ecg_signal_length = read_edf.get_data_length_from_edf_channel(
-            file_path = data_directory + file_name,
-            possible_channel_labels = ecg_keys,
-        )
+        # load the data and correct the physical dimension if needed
+        try:
+            ecg_signal_length = read_edf.get_data_length_from_edf_channel(
+                file_path = data_directory + file_name,
+                possible_channel_labels = ecg_keys,
+            )
 
-        for dict_key in generator_entry.keys():
-            if valid_ecg_regions_dictionary_key in dict_key:
-                valid_total_ratio = determine_valid_total_ecg_ratio(
-                    ECG_length = ecg_signal_length, 
-                    valid_regions = generator_entry[dict_key]
-                )
+            for dict_key in generator_entry.keys():
+                if valid_ecg_regions_dictionary_key in dict_key:
+                    valid_total_ratio = determine_valid_total_ecg_ratio(
+                        ECG_length = ecg_signal_length, 
+                        valid_regions = generator_entry[dict_key]
+                    )
 
-                strictness_value = dict_key.split("_")[-1]
-                if strictness_value not in store_strictness_values:
-                    store_strictness_values.append(strictness_value)
-                    store_valid_total_ratios.append([valid_total_ratio])
-                else:
-                    store_valid_total_ratios[store_strictness_values.index(strictness_value)].append(valid_total_ratio)
+                    strictness_value = dict_key.split("_")[-1]
+                    if strictness_value not in store_strictness_values:
+                        store_strictness_values.append(strictness_value)
+                        store_valid_total_ratios.append([valid_total_ratio])
+                    else:
+                        store_valid_total_ratios[store_strictness_values.index(strictness_value)].append(valid_total_ratio)
+        except:
+            continue
     
     if len(store_strictness_values) == 0:
         print("\nNo valid regions found in the pickle file. Please recalculate the valid regions.")
@@ -1355,6 +1358,8 @@ def ecg_validation_comparison_report(
     mean_incorrect_valid = np.mean(mean_incorrect_valid_for_strictness, axis=1)
     mean_incorrect_invalid = np.mean(mean_incorrect_invalid_for_strictness, axis=1)
 
+    mean_correct_valid_times_invalid = mean_correct_valid * mean_correct_invalid
+
     for i in range(0, len(strictness_values)):
         length_addition = strictness_max_length - len(strictness_values[i])
         correct_valid_column.insert(i, strictness_values[i] + " "*length_addition + ":  " + str(round(mean_correct_valid[i], ecg_validation_comparison_report_dezimal_places)))
@@ -1388,7 +1393,23 @@ def ecg_validation_comparison_report(
     comparison_file.write(INCORRECT_VALID_CAPTION + "... valid (detected) / invalid (gif) ratio\n")
     comparison_file.write(INCORRECT_INVALID_CAPTION + "... invalid (detected) / valid (gif) ratio\n\n\n")
 
-    message = "Table with comparison values for each file:"
+    # write best strictness value
+    message = "Best strictness value (framed):"
+    comparison_file.write(message + "\n")
+    comparison_file.write("-" * len(message) + "\n")
+    comparison_file.write("Strictness Value: Multiplication of mean correct valid and invalid ratios\n\n")
+    index_best_strictness = np.argmax(mean_correct_valid_times_invalid)
+    for i in range(0, len(strictness_values)):
+        length_addition = strictness_max_length - len(strictness_values[i])
+        message = strictness_values[i] + " "*length_addition + ":  " + str(round(mean_correct_valid_times_invalid[i], ecg_validation_comparison_report_dezimal_places))
+        if i == index_best_strictness:
+            comparison_file.write("-" * len(message) + "\n")
+            comparison_file.write(message + "\n")
+            comparison_file.write("-" * len(message) + "\n")
+        else:
+            comparison_file.write(message + "\n")
+
+    message = "\n\nTable with comparison values for each file:"
     comparison_file.write(message + "\n")
     comparison_file.write("-" * len(message) + "\n\n")
 
