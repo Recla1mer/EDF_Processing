@@ -82,13 +82,12 @@ def evaluate_and_show_valid_ecg_regions():
         check_ecg_distance_std_ratio_threshold=5,
         check_ecg_allowed_invalid_region_length_seconds=30,
         check_ecg_min_valid_length_minutes=5,
-        ecg_comparison_mode = True,
         )
     valid_regions = results[0] # looks weird I know, but it is the way it is (reason is behind ecg validation comparison)
 
     # calculate the ratio of valid regions to total regions
-    valid_regions_ratio = check_data.valid_total_ratio(
-        ECG = ECG, 
+    valid_regions_ratio = check_data.determine_valid_total_ecg_ratio(
+        ECG_length = len(ECG), 
         valid_regions = valid_regions
         )
     print("(Valid / Total) Regions Ratio: %f %%" % (round(valid_regions_ratio, 4)*100))
@@ -126,8 +125,8 @@ def show_evaluated_valid_ecg_regions():
         )
 
     # calculate the ratio of valid regions to total regions
-    valid_regions_ratio = check_data.valid_total_ratio(
-        ECG = ECG, 
+    valid_regions_ratio = check_data.determine_valid_total_ecg_ratio(
+        ECG_length = len(ECG), 
         valid_regions = this_files_valid_ecg_regions
         )
     print("(Valid / Total) Regions Ratio: %f %%" % (round(valid_regions_ratio, 4)*100))

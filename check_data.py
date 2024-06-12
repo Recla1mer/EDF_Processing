@@ -172,7 +172,7 @@ def retrieve_unincluded_intervals(
     return unincluded_intervals
 
 
-def valid_total_ratio(ECG: list, valid_regions: list):
+def determine_valid_total_ecg_ratio(ECG_length, valid_regions: list):
     """
     Calculate the ratio of valid to total ecg data.
 
@@ -191,7 +191,7 @@ def valid_total_ratio(ECG: list, valid_regions: list):
     valid_data = 0
     for region in valid_regions:
         valid_data += region[1] - region[0]
-    valid_ratio = valid_data / len(ECG)
+    valid_ratio = valid_data / ECG_length
     return valid_ratio
 
 
@@ -359,7 +359,7 @@ def check_ecg(
         length of the interval to be checked for validity in seconds
     check_ecg_overlapping_interval_steps: int
         number of steps the interval needs to be shifted to the right until the next check_ecg_time_interval_seconds interval starts
-    check_ecg_validation_strictness: float
+    check_ecg_validation_strictness: list
         strictness of the validation (0: very unstrict, 1: very strict)
     check_ecg_removed_peak_difference_threshold: float
         threshold for the difference of the max-min distance to the standard deviation after and before removing the highest peak
@@ -512,7 +512,7 @@ def check_ecg(
                     valid_intervals.append([lower_border, upper_border])
             
             # check the ratio of valid to total ecg data
-            valid_ratio = valid_total_ratio(ECG, valid_intervals)
+            valid_ratio = determine_valid_total_ecg_ratio(len(ECG), valid_intervals)
             
             # if the ratio is too low, the mean values are off and the manual thresholds need to be used
             if valid_ratio < 0.5:
@@ -605,27 +605,28 @@ def determine_valid_ecg_regions(
             ...
     See check_ecg() for the format of the valid_regions.
     """
-    # load existing results
-    prep_results_generator = load_from_pickle(preparation_results_path)
-
-    # additionally remove keys if in ecg_comparison_mode
+    remove_key = valid_ecg_regions_dictionary_key
     additionally_remove_keys = []
-    for generator_entry in prep_results_generator:
-        for dict_key in generator_entry.keys():
-            if valid_ecg_regions_dictionary_key in dict_key:
-                additionally_remove_keys.append(dict_key)
-    
-    if len(additionally_remove_keys) == 0:
-        remove_key = valid_ecg_regions_dictionary_key
-        additionally_remove_keys = []
-    elif len(additionally_remove_keys) == 1:
-        remove_key = additionally_remove_keys[0]
-        additionally_remove_keys = []
-    else:
-        remove_key = additionally_remove_keys[0]
-        additionally_remove_keys = additionally_remove_keys[1:]
+    if os.path.isfile(preparation_results_path):
+        # load existing results to collect keys for valid ecg regions with different strictness values
+        prep_results_generator = load_from_pickle(preparation_results_path)
 
-
+        # additionally remove keys
+        additionally_remove_keys = []
+        for generator_entry in prep_results_generator:
+            for dict_key in generator_entry.keys():
+                if valid_ecg_regions_dictionary_key in dict_key and dict_key not in additionally_remove_keys:
+                    additionally_remove_keys.append(dict_key)
+        
+        if len(additionally_remove_keys) == 0:
+            remove_key = valid_ecg_regions_dictionary_key
+            additionally_remove_keys = []
+        elif len(additionally_remove_keys) == 1:
+            remove_key = additionally_remove_keys[0]
+            additionally_remove_keys = []
+        else:
+            remove_key = additionally_remove_keys[0]
+            additionally_remove_keys = additionally_remove_keys[1:]
 
     # check if valid regions already exist and if yes: ask for permission to override
     user_answer = ask_for_permission_to_override_dictionary_entry(
@@ -660,7 +661,7 @@ def determine_valid_ecg_regions(
                 if file_name_dictionary_key not in generator_entry.keys():
                     continue
 
-                if valid_ecg_regions_dictionary_key not in generator_entry.keys():
+                if remove_key not in generator_entry.keys():
                     store_previous_dictionary_entries[generator_entry[file_name_dictionary_key]] = generator_entry
                     continue
 
@@ -795,10 +796,9 @@ def determine_valid_ecg_regions(
         print(" "*5 + "- Dictionary key that accesses the file name does not exist in the results. Check key in file or recalculate them.")
 
 
-def choose_valid_ecg_regions(
+def choose_valid_ecg_regions_for_further_computation(
         data_directory: str,
         ecg_keys: list,
-        physical_dimension_correction_dictionary: dict,
         preparation_results_path: str,
         file_name_dictionary_key: str,
         valid_ecg_regions_dictionary_key: str,
@@ -844,18 +844,17 @@ def choose_valid_ecg_regions(
         if file_name_dictionary_key not in generator_entry.keys():
             continue
         file_name = generator_entry[file_name_dictionary_key]
+        
+        # try to load the data and correct the physical dimension if needed
+        ecg_signal_length = read_edf.get_data_length_from_edf_channel(
+            file_path = data_directory + file_name,
+            possible_channel_labels = ecg_keys,
+        )
 
         for dict_key in generator_entry.keys():
             if valid_ecg_regions_dictionary_key in dict_key:
-                # try to load the data and correct the physical dimension if needed
-                ecg_signal, ecg_sampling_frequency = read_edf.get_data_from_edf_channel(
-                    file_path = data_directory + file_name,
-                    possible_channel_labels = ecg_keys,
-                    physical_dimension_correction_dictionary = physical_dimension_correction_dictionary
-                )
-
-                valid_total_ratio = valid_total_ratio(
-                    ECG = ecg_signal, 
+                valid_total_ratio = determine_valid_total_ecg_ratio(
+                    ECG_length = ecg_signal_length, 
                     valid_regions = generator_entry[dict_key]
                 )
 
@@ -866,21 +865,32 @@ def choose_valid_ecg_regions(
                 else:
                     store_valid_total_ratios[store_strictness_values.index(strictness_value)].append(valid_total_ratio)
     
-    # calculate mean valid_total_ratios for strictness values
-    mean_valid_total_ratios = np.mean(store_valid_total_ratios, axis=1)
-
-    # print results to console
-    print("\nMean valid to total ratios for different strictness values:")
-    for i in range(0, len(store_strictness_values)):
-        print("Strictness value: %s, Mean valid to total ratio: %.2f" % (store_strictness_values[i], mean_valid_total_ratios[i]))
+    if len(store_strictness_values) == 0:
+        print("\nNo valid regions found in the pickle file. Please recalculate the valid regions.")
+        return
     
-    # ask user for the strictness value
-    while True:
-        strictness_value = input("\nChoose a strictness value to assign the valid regions to the dictionary key \"%s\": " % valid_ecg_regions_dictionary_key)
-        if strictness_value in store_strictness_values:
-            break
-        else:
-            print("Invalid input. Please choose a valid strictness value.")
+    if len(store_strictness_values) == 1:
+        strictness_value = store_strictness_values[0]
+    else:
+        # calculate mean valid_total_ratios for strictness values
+        mean_valid_total_ratios = np.mean(store_valid_total_ratios, axis=1)
+
+        # print results to console
+        max_length = max([len(value) for value in store_strictness_values])
+        print("\nStrictness value | Mean valid to total ECG regions ratio:")
+        for i in range(0, len(store_strictness_values)):
+            print(print_left_aligned(store_strictness_values[i], max_length) + " | " + str(mean_valid_total_ratios[i]))
+        
+        # ask user for the strictness value
+        while True:
+            strictness_value = input("\nChoose a strictness value to assign the valid regions to the dictionary key \"%s\": " % valid_ecg_regions_dictionary_key)
+            if strictness_value in store_strictness_values:
+                break
+            else:
+                print("Invalid input. Please choose a valid strictness value.")
+    
+    # load existing results
+    preparation_results_generator = load_from_pickle(preparation_results_path)
     
     # assign the valid regions to the dictionary key
     for generator_entry in preparation_results_generator:
@@ -1096,10 +1106,11 @@ def compare_ecg_validations(
 def ecg_validation_comparison(
         ecg_classification_values_directory: str,
         ecg_classification_file_types: list,
+        check_ecg_validation_strictness: list,
         additions_results_path: str,
         file_name_dictionary_key: str,
         valid_ecg_regions_dictionary_key: str,
-        ecg_validation_comparison_dictionary_key: str
+        ecg_validation_comparison_dictionary_key: str,
     ):
     """
     Compare the ECG validation with the ECG classification values.
@@ -1198,19 +1209,20 @@ def ecg_validation_comparison(
             ecg_classification_dictionary = get_ecg_classification_from_txt_file(ecg_classification_values_directory + this_classification_file)
         
             # compare the differnt ECG validations
-            strictness_values = []
             comparison_values_for_strictness = []
 
-            for dict_key in generator_entry:
-                if valid_ecg_regions_dictionary_key in dict_key and dict_key != valid_ecg_regions_dictionary_key:
-                    strictness_values.append(dict_key.split("_")[-1])
+            for strictness_index in range(0, len(check_ecg_validation_strictness)):
+                strictness_dict_key = valid_ecg_regions_dictionary_key + "_" + str(check_ecg_validation_strictness[strictness_index])
+                if strictness_dict_key in generator_entry.keys():
                     comparison_values_for_strictness.append(compare_ecg_validations(
-                        validated_intervals = generator_entry[dict_key],
+                        validated_intervals = generator_entry[strictness_dict_key],
                         ecg_classification = ecg_classification_dictionary
                         ))
+                else:
+                    raise KeyError
         
             # add comparison values for this file
-            generator_entry[ecg_validation_comparison_dictionary_key] = [strictness_values, comparison_values_for_strictness]
+            generator_entry[ecg_validation_comparison_dictionary_key] = comparison_values_for_strictness
 
         except:
             unprocessable_files.append(this_file)
@@ -1237,6 +1249,7 @@ def ecg_validation_comparison(
 def ecg_validation_comparison_report(
         ecg_validation_comparison_report_path: str,
         additions_results_path: str,
+        check_ecg_validation_strictness: list,
         file_name_dictionary_key: str,
         ecg_validation_comparison_dictionary_key: str,
         ecg_validation_comparison_report_dezimal_places: int,
@@ -1276,17 +1289,15 @@ def ecg_validation_comparison_report(
 
     # load the data
     file_names = []
-    strictness_values = []
     ecg_validation_comparison_values = []
 
     all_files_ecg_validation_generator = load_from_pickle(additions_results_path)
     for generator_entry in all_files_ecg_validation_generator:
         if ecg_validation_comparison_dictionary_key in generator_entry and file_name_dictionary_key in generator_entry:
             file_names.append(generator_entry[file_name_dictionary_key])
-            ecg_validation_comparison_values.append(generator_entry[ecg_validation_comparison_dictionary_key][1])
-            if len(strictness_values) == 0:
-                strictness_values = generator_entry[ecg_validation_comparison_dictionary_key][0]
+            ecg_validation_comparison_values.append(generator_entry[ecg_validation_comparison_dictionary_key])
     
+    strictness_values = [str(strictness) for strictness in check_ecg_validation_strictness]
     strictness_max_length = max([len(strict_val) for strict_val in strictness_values])
 
     # write the file header

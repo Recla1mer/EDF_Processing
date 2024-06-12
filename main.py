@@ -265,6 +265,9 @@ determine_ecg_region_variables = ["data_directory", "valid_file_types", "ecg_key
     "check_ecg_std_min_threshold", "check_ecg_std_max_threshold", "check_ecg_distance_std_ratio_threshold",
     "check_ecg_min_valid_length_minutes", "check_ecg_allowed_invalid_region_length_seconds"]
 
+choose_valid_ecg_regions_for_further_computation_variables = ["data_directory", "ecg_keys", 
+    "preparation_results_path", "file_name_dictionary_key", "valid_ecg_regions_dictionary_key"]
+
 detect_rpeaks_variables = ["data_directory", "ecg_keys", "physical_dimension_correction_dictionary",
     "preparation_results_path", "file_name_dictionary_key", "valid_ecg_regions_dictionary_key"]
 
@@ -285,12 +288,12 @@ calculate_MAD_variables = ["data_directory", "valid_file_types", "wrist_accelera
 # ---------------------------------
 
 ecg_validation_comparison_variables = ["ecg_classification_values_directory", "ecg_classification_file_types", 
-    "additions_results_path", "file_name_dictionary_key", "valid_ecg_regions_dictionary_key",
-    "ecg_validation_comparison_dictionary_key"]
+    "check_ecg_validation_strictness", "additions_results_path", "file_name_dictionary_key", 
+    "valid_ecg_regions_dictionary_key", "ecg_validation_comparison_dictionary_key"]
 
 ecg_validation_comparison_report_variables = ["ecg_validation_comparison_report_path", 
-    "ecg_validation_comparison_report_dezimal_places", "additions_results_path",
-    "file_name_dictionary_key", "ecg_validation_comparison_dictionary_key"]
+    "ecg_validation_comparison_report_dezimal_places", "check_ecg_validation_strictness",
+    "additions_results_path", "file_name_dictionary_key", "ecg_validation_comparison_dictionary_key"]
 
 read_rpeak_classification_variables = ["data_directory", "valid_file_types", "rpeaks_values_directory", 
     "valid_rpeak_values_file_types", "include_rpeak_value_classifications", "add_offset_to_classification",
@@ -373,6 +376,12 @@ def additional_section(run_section: bool):
 
         check_data.determine_valid_ecg_regions(**determine_ecg_region_args)
         del determine_ecg_region_args
+
+        # create arguments for choosing the valid ecg regions for further computation
+        choose_valid_ecg_regions_for_further_computation_args = create_sub_dict(parameters, choose_valid_ecg_regions_for_further_computation_variables)
+        check_data.choose_valid_ecg_regions_for_further_computation(**choose_valid_ecg_regions_for_further_computation_args)
+
+        del choose_valid_ecg_regions_for_further_computation_args
     
     """
     --------------------------------
@@ -490,6 +499,11 @@ def preparation_section(run_section: bool):
             determine_ecg_region_args = create_sub_dict(parameters, determine_ecg_region_variables)
             check_data.determine_valid_ecg_regions(**determine_ecg_region_args)
             del determine_ecg_region_args
+
+            # create arguments for choosing the valid ecg regions for further computation
+            choose_valid_ecg_regions_for_further_computation_args = create_sub_dict(parameters, choose_valid_ecg_regions_for_further_computation_variables)
+            check_data.choose_valid_ecg_regions_for_further_computation(**choose_valid_ecg_regions_for_further_computation_args)
+            del choose_valid_ecg_regions_for_further_computation_args
     
         """
         --------------------------------
@@ -554,4 +568,8 @@ def main():
     del PREPARATION_DIRECTORY, PREPARATION_RESULTS_NAME
 
 if __name__ == "__main__":
+    # preparation_results_generator = load_from_pickle(ADDITIONS_RESULTS_PATH)
+    # for generator in preparation_results_generator:
+    #     print(generator.keys())
+    #     print("\n\n")
     main()

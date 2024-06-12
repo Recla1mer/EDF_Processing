@@ -108,6 +108,39 @@ def get_data_from_edf_channel(
     return signal, sample_frequency
 
 
+def get_data_length_from_edf_channel(file_path: str, possible_channel_labels: list):
+    """
+    Reads the length of the signal from an EDF file.
+
+    ARGUMENTS:
+    --------------------------------
+    file_path: str
+        path to the EDF file
+    possible_channel_labels: list
+        list of possible labels for the signal
+    
+    RETURNS:
+    --------------------------------
+    data_length: int
+        length of the signal
+    """
+    f = pyedflib.EdfReader(file_path)
+    n = f.signals_in_file
+    signal_labels = f.getSignalLabels()
+
+    for i in np.arange(n):
+        if signal_labels[i] in possible_channel_labels:
+            channel = signal_labels[i]
+
+    for i in np.arange(n):
+        if signal_labels[i] == channel:
+            data_length = f.getNSamples()[i]
+            break
+    f._close()
+
+    return data_length
+
+
 def get_frequency_from_edf_channel(file_path: str, possible_channel_labels: list):
     """
     Reads the frequency of the channel from an EDF file.
@@ -174,13 +207,14 @@ def get_dimensions_and_signal_labels(directory, valid_file_types = [".edf"]):
     all_physical_dimensions = []
 
     # variables to track the progress
+    start_time = time.time()
     total_files = len(valid_files)
     progressed_files = 0
     error_in_files = []
 
     print("Reading signal labels and their physical dimensions from %i files:" % total_files)
     for file in valid_files:
-        progress_bar(progressed_files, total_files)
+        progress_bar(progressed_files, total_files, start_time)
         progressed_files += 1
 
         try:
@@ -205,7 +239,7 @@ def get_dimensions_and_signal_labels(directory, valid_file_types = [".edf"]):
             if sigdims[key] not in all_physical_dimensions[key_to_index]:
                 all_physical_dimensions[key_to_index].append(sigdims[key])
     
-    progress_bar(progressed_files, total_files)
+    progress_bar(progressed_files, total_files, start_time)
 
     if len(error_in_files) > 0:
         print("Due to an error in the following files, they could not be read and were skipped:")
@@ -230,7 +264,7 @@ def library_overview(file_name):
     """
     f = pyedflib.EdfReader(file_name)
     #f = pyedflib.data.test_generator()
-    print("\nlibrary version: %s" % pyedflib.version.version)
+    print("\nlibrary version: %s" % pyedflib.version.version) # type: ignore
 
     print("\ngeneral header:\n")
 
