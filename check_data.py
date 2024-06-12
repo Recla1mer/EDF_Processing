@@ -853,7 +853,7 @@ def choose_valid_ecg_regions_for_further_computation(
             )
 
             for dict_key in generator_entry.keys():
-                if valid_ecg_regions_dictionary_key in dict_key:
+                if valid_ecg_regions_dictionary_key in dict_key and dict_key != valid_ecg_regions_dictionary_key:
                     valid_total_ratio = determine_valid_total_ecg_ratio(
                         ECG_length = ecg_signal_length, 
                         valid_regions = generator_entry[dict_key]
