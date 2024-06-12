@@ -614,12 +614,24 @@ def determine_valid_ecg_regions(
         for dict_key in generator_entry.keys():
             if valid_ecg_regions_dictionary_key in dict_key:
                 additionally_remove_keys.append(dict_key)
+    
+    if len(additionally_remove_keys) == 0:
+        remove_key = valid_ecg_regions_dictionary_key
+        additionally_remove_keys = []
+    elif len(additionally_remove_keys) == 1:
+        remove_key = additionally_remove_keys[0]
+        additionally_remove_keys = []
+    else:
+        remove_key = additionally_remove_keys[0]
+        additionally_remove_keys = additionally_remove_keys[1:]
+
+
 
     # check if valid regions already exist and if yes: ask for permission to override
     user_answer = ask_for_permission_to_override_dictionary_entry(
         file_path = preparation_results_path,
-        dictionary_entry = additionally_remove_keys[0],
-        additionally_remove_entries = additionally_remove_keys[1:]
+        dictionary_entry = remove_key,
+        additionally_remove_entries = additionally_remove_keys
         )
     
     # path to pickle file which will store results
