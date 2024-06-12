@@ -151,7 +151,7 @@ ECG VALIDATION COMPARISON
 
 def compare_ecg_validation_and_gif_classification():
     # choose random file
-    file_data_name = "SL001_SL001_(1).edf"
+    file_data_name = "SL088_SL088_(1).edf"
     file_class_name = file_data_name[:-4] + "Somno.txt"
     file_data_path = ADDITIONS_RAW_DATA_DIRECTORY + file_data_name
     file_class_path = parameters["ecg_classification_values_directory"] + file_class_name
@@ -262,21 +262,32 @@ def visualize_rpeak_comparison():
         if found_pair:
             break
 
-    # load the data
+    low_ratio_threshold = 0.75
     analogue_ratios_first_function = []
     analogue_ratios_second_function = []
+    low_ratio_file_names = []
+    low_ratio_values = []
 
+    # load the data
     additions_results_generator = load_from_pickle(additions_results_path)
     for generator_entry in additions_results_generator:
+        if parameters["rpeak_comparison_dictionary_key"] not in generator_entry:
+            continue
         this_files_rpeak_comparison_values = generator_entry[parameters["rpeak_comparison_dictionary_key"]]
         try:
-            analogue_ratios_first_function.append(this_files_rpeak_comparison_values[position_in_list][3]/this_files_rpeak_comparison_values[position_in_list][4])
+            first_ratio = this_files_rpeak_comparison_values[position_in_list][3]/this_files_rpeak_comparison_values[position_in_list][4]
+            second_ratio = this_files_rpeak_comparison_values[position_in_list][3]/this_files_rpeak_comparison_values[position_in_list][5]
+            analogue_ratios_first_function.append(first_ratio)
+            analogue_ratios_second_function.append(second_ratio)
+            if first_ratio < low_ratio_threshold or second_ratio < low_ratio_threshold:
+                low_ratio_values.append([first_ratio, second_ratio])
+                low_ratio_file_names.append(generator_entry[parameters["file_name_dictionary_key"]])
         except:
             pass
-        try:
-            analogue_ratios_second_function.append(this_files_rpeak_comparison_values[position_in_list][3]/this_files_rpeak_comparison_values[position_in_list][5])
-        except:
-            pass
+    
+    print("Low Ratio Files: [" + first_function_name + ", " + second_function_name+ "], Total: " + str(len(low_ratio_file_names)) + " Files")
+    for i in range(len(low_ratio_file_names)):
+        print(low_ratio_file_names[i] + ": " + str(low_ratio_values[i]))
 
     # plot the data
     plot_helper.plot_simple_histogram(
@@ -285,8 +296,8 @@ def visualize_rpeak_comparison():
         label_title = "R-Peak Detection Method",
         x_label = "Analogue Ratio",
         y_label = "Count",
-        x_lim = [0, 1],
-        binrange = (0.75, 1),
+        xlim = [-0.1, 1.1],
+        #binrange = (0.75, 1),
         kde=False,
     )
 
@@ -294,12 +305,12 @@ def visualize_rpeak_comparison():
 def plot_non_intersecting_r_peaks():
     # choose a random file
     data_directory = "Data/GIF/SOMNOwatch/"
-    file_data_name = "SL001_SL001_(1).edf"
+    file_data_name = "SL088_SL088_(1).edf"
 
     file_data_path = data_directory + file_data_name
 
     # choose size of interval
-    interval_size = 2560
+    interval_size = 1280
 
     # get r-peak function names ("wfdb", "ecgdetectors", "hamilton", "christov", "gif_classification")
     first_rpeak_function_name = "wfdb"
@@ -336,6 +347,7 @@ def plot_non_intersecting_r_peaks():
 
     # nice values for plotting
     # random_rpeak = 10625000 # for Data/GIF/SOMNOwatch/SL001_SL001_(1).edf, wfdb, gif_classification
+    random_rpeak = 9040256
 
     x_lim = [int(random_rpeak-interval_size/2), int(random_rpeak+interval_size/2)]
 
@@ -370,7 +382,7 @@ ECG VALIDATION COMPARISON
 --------------------------
 """
 
-# compare_ecg_validation_and_gif_classification()
+compare_ecg_validation_and_gif_classification()
 
 """
 --------------------------

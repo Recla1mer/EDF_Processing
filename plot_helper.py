@@ -581,12 +581,13 @@ def plot_simple_histogram(
     kwargs.setdefault("edgecolor", "black")
     kwargs.setdefault("kde", False)
     kwargs.setdefault("bw_adjust", 2)
-    kwargs.setdefault("binwidth", 0.01)
+    kwargs.setdefault("binwidth", 0.05)
     kwargs.setdefault("binrange", None)
     kwargs.setdefault("common_bins", True)
     kwargs.setdefault("multiple", "layer")
     kwargs.setdefault("alpha", 0.5)
     kwargs.setdefault("y_scale", "linear")
+    kwargs.setdefault("zorder", 2)
     
     # xlim and ylim
     x_min = min(data[0])
@@ -597,6 +598,8 @@ def plot_simple_histogram(
     
     kwargs.setdefault("xlim", [x_min-0.01*abs(x_max), x_max+0.01*abs(x_max)])
 
+    print(kwargs["xlim"])
+
     sns_args = dict(
         kde=kwargs["kde"],
         binwidth=kwargs["binwidth"],
@@ -604,6 +607,7 @@ def plot_simple_histogram(
         common_bins=kwargs["common_bins"],
         multiple=kwargs["multiple"],
         alpha=kwargs["alpha"],
+        zorder=kwargs["zorder"]
     )
     if kwargs["binrange"] is not None:
         sns_args["binrange"] = kwargs["binrange"]

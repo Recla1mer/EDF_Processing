@@ -359,15 +359,16 @@ def detect_rpeaks(
     if os.path.isfile(temporary_file_path):
         os.remove(temporary_file_path)
 
-    # create variables to track progress
-    total_files = get_pickle_length(preparation_results_path, rpeak_function_name)
-    progressed_files = 0
-
     # create lists to store unprocessable files
     unprocessable_files = []
 
     # load preparation results
     preparation_results_generator = load_from_pickle(preparation_results_path)
+   
+    # create variables to track progress
+    start_time = time.time()
+    total_files = get_pickle_length(preparation_results_path, rpeak_function_name)
+    progressed_files = 0
 
     if total_files > 0:
         print("\nDetecting r-peaks of the ECG data in %i files from \"%s\" using %s:" % (total_files, data_directory, rpeak_function_name))
@@ -380,7 +381,7 @@ def detect_rpeaks(
             continue
 
         # show progress
-        progress_bar(progressed_files, total_files)
+        progress_bar(progressed_files, total_files, start_time)
         progressed_files += 1
 
         try:
@@ -413,7 +414,7 @@ def detect_rpeaks(
         
         append_to_pickle(generator_entry, temporary_file_path)
     
-    progress_bar(progressed_files, total_files)
+    progress_bar(progressed_files, total_files, start_time)
 
     # rename the file that stores the calculated data
     if os.path.isfile(temporary_file_path):
@@ -497,15 +498,17 @@ def correct_rpeak_locations(
     if os.path.isfile(temporary_file_path):
         os.remove(temporary_file_path)
 
-    # create variables to track progress
-    total_files = get_pickle_length(preparation_results_path, before_correction_rpeak_function_name)
-    progressed_files = 0
 
     # create lists to store unprocessable files
     unprocessable_files = []
 
     # load preparation results
     preparation_results_generator = load_from_pickle(preparation_results_path)
+    
+    # create variables to track progress
+    start_time = time.time()
+    total_files = get_pickle_length(preparation_results_path, before_correction_rpeak_function_name)
+    progressed_files = 0
 
     if total_files > 0:
         print("\nCorrecting r-peaks detected by %s in %i files:" % (rpeak_function_name, total_files))
@@ -518,7 +521,7 @@ def correct_rpeak_locations(
             continue
 
         # show progress
-        progress_bar(progressed_files, total_files)
+        progress_bar(progressed_files, total_files, start_time)
         progressed_files += 1
 
         try:
@@ -556,7 +559,7 @@ def correct_rpeak_locations(
         
         append_to_pickle(generator_entry, temporary_file_path)
     
-    progress_bar(progressed_files, total_files)
+    progress_bar(progressed_files, total_files, start_time)
 
     # rename the file that stores the calculated data
     if os.path.isfile(temporary_file_path):
@@ -754,15 +757,16 @@ def combine_detected_rpeaks(
     if os.path.isfile(temporary_file_path):
         os.remove(temporary_file_path)
 
-    # create variables to track progress
-    total_files = get_pickle_length(preparation_results_path, certain_rpeaks_dictionary_key)
-    progressed_files = 0
-
     # create lists to store unprocessable files
     unprocessable_files = []
 
     # load preparation results
     preparation_results_generator = load_from_pickle(preparation_results_path)
+    
+    # create variables to track progress
+    start_time = time.time()
+    total_files = get_pickle_length(preparation_results_path, certain_rpeaks_dictionary_key)
+    progressed_files = 0
 
     if total_files > 0:
         print("\nCombining detected r-peaks for %i files from \"%s\":" % (total_files, data_directory))
@@ -775,7 +779,7 @@ def combine_detected_rpeaks(
             continue
 
         # show progress
-        progress_bar(progressed_files, total_files)
+        progress_bar(progressed_files, total_files, start_time)
         progressed_files += 1
         
         try:
@@ -809,7 +813,7 @@ def combine_detected_rpeaks(
         
         append_to_pickle(generator_entry, temporary_file_path)
 
-    progress_bar(progressed_files, total_files)
+    progress_bar(progressed_files, total_files, start_time)
 
     # rename the file that stores the calculated data
     if os.path.isfile(temporary_file_path):
@@ -1156,6 +1160,7 @@ def read_rpeaks_from_rri_files(
                 append_to_pickle(generator_entry, temporary_file_path)
     
     # create variables to track progress
+    start_time = time.time()
     total_files = len(valid_data_files)
     progressed_files = 0
 
@@ -1172,7 +1177,7 @@ def read_rpeaks_from_rri_files(
         # read the r-peaks from the files
         for generator_entry in additions_results_generator:
             # show progress
-            progress_bar(progressed_files, total_files)
+            progress_bar(progressed_files, total_files, start_time)
             progressed_files += 1
 
             try:
@@ -1218,7 +1223,7 @@ def read_rpeaks_from_rri_files(
     # read the r-peaks for the remaining files
     for file_name in valid_data_files:
         # show progress
-        progress_bar(progressed_files, total_files)
+        progress_bar(progressed_files, total_files, start_time)
         progressed_files += 1
 
         if file_name in store_previous_dictionary_entries.keys():
@@ -1259,7 +1264,7 @@ def read_rpeaks_from_rri_files(
         if len(generator_entry) > 1:
             append_to_pickle(generator_entry, temporary_file_path)
     
-    progress_bar(progressed_files, total_files)
+    progress_bar(progressed_files, total_files, start_time)
 
     # rename the file that stores the calculated data
     if os.path.isfile(temporary_file_path):
@@ -1345,6 +1350,7 @@ def rpeak_detection_comparison(
     additions_results_generator = load_from_pickle(additions_results_path)
 
     # create variables to track progress
+    start_time = time.time()
     total_files = get_pickle_length(additions_results_path, rpeak_comparison_dictionary_key)
     progressed_files = 0
 
@@ -1362,7 +1368,7 @@ def rpeak_detection_comparison(
             continue
 
         # show progress
-        progress_bar(progressed_files, total_files)
+        progress_bar(progressed_files, total_files, start_time)
         progressed_files += 1
 
         try:
@@ -1438,7 +1444,7 @@ def rpeak_detection_comparison(
 
         append_to_pickle(generator_entry, temporary_file_path)
     
-    progress_bar(progressed_files, total_files)
+    progress_bar(progressed_files, total_files, start_time)
 
     # rename the file that stores the calculated data
     if os.path.isfile(temporary_file_path):

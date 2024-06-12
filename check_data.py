@@ -482,6 +482,8 @@ def check_ecg(
             continue
         mean_std = np.mean(possibly_valid_stds)
         lower_limit = (mean_std - np.std(possibly_valid_stds))*validation_strictness
+        if lower_limit < 0:
+            lower_limit = check_ecg_std_min_threshold
         upper_limit = (mean_std + np.std(possibly_valid_stds))*(2-validation_strictness)
         #print(lower_limit, upper_limit)
         possibly_valid_max_min_distance = []
@@ -644,6 +646,7 @@ def determine_valid_ecg_regions(
                 append_to_pickle(generator_entry, temporary_file_path)
     
     # create variables to track progress
+    start_time = time.time()
     total_files = len(valid_files)
     progressed_files = 0
 
@@ -656,7 +659,7 @@ def determine_valid_ecg_regions(
 
         for generator_entry in preparation_results_generator:
             # show progress
-            progress_bar(progressed_files, total_files)
+            progress_bar(progressed_files, total_files, start_time)
             progressed_files += 1
 
             try:
@@ -708,7 +711,7 @@ def determine_valid_ecg_regions(
     # calculate the valid regions for the remaining files
     for file_name in valid_files:
         # show progress
-        progress_bar(progressed_files, total_files)
+        progress_bar(progressed_files, total_files, start_time)
         progressed_files += 1
 
         if file_name in store_previous_dictionary_entries.keys():
@@ -758,7 +761,7 @@ def determine_valid_ecg_regions(
         if len(generator_entry) > 1:
             append_to_pickle(generator_entry, temporary_file_path)
     
-    progress_bar(progressed_files, total_files)
+    progress_bar(progressed_files, total_files, start_time)
 
     # rename the file that stores the calculated data
     if os.path.isfile(temporary_file_path):
@@ -1038,6 +1041,7 @@ def ecg_validation_comparison(
         os.remove(temporary_file_path)
 
     # create variables to track progress
+    start_time = time.time()
     total_data_files = get_pickle_length(additions_results_path, ecg_validation_comparison_dictionary_key)
     progressed_data_files = 0
 
@@ -1055,7 +1059,7 @@ def ecg_validation_comparison(
             continue
 
         # show progress
-        progress_bar(progressed_data_files, total_data_files)
+        progress_bar(progressed_data_files, total_data_files, start_time)
         progressed_data_files += 1
 
         try:
@@ -1097,7 +1101,7 @@ def ecg_validation_comparison(
         
         append_to_pickle(generator_entry, temporary_file_path)
     
-    progress_bar(progressed_data_files, total_data_files)
+    progress_bar(progressed_data_files, total_data_files, start_time)
 
     # rename the file that stores the calculated data
     if os.path.isfile(temporary_file_path):

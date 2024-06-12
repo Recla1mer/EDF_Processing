@@ -181,7 +181,7 @@ def validate_parameter_settings(parameters: dict):
             raise ValueError("'rpeak_comparison_report_path' parameter must be a string.")
 
 
-def print_smart_time(time_seconds: int):
+def print_smart_time(time_seconds: float):
     """
     Convert seconds to a time format that is easier to read.
 
@@ -198,7 +198,7 @@ def print_smart_time(time_seconds: int):
     if time_seconds <= 1:
         return str(round(time_seconds, 1)) + "s"
     else:
-        time_seconds = int(time_seconds)
+        time_seconds = round(time_seconds)
         days = time_seconds // 86400
         if days > 0:
             time_seconds = time_seconds % 86400
@@ -218,7 +218,7 @@ def print_smart_time(time_seconds: int):
             return str(seconds) + "s"
 
 
-def progress_bar(index: int, total: int, bar_len=50, title="Please wait"):
+def progress_bar(index: int, total: int, start_time: float, bar_len=50, title="Please wait"):
     """
     Prints a progress bar to the console.
 
@@ -244,17 +244,9 @@ def progress_bar(index: int, total: int, bar_len=50, title="Please wait"):
         return
 
     # estimate time remaining
-    temporary_file_path = "temporarily_store_time.pkl"
-
     if index == 0:
-        start_time = time.time()
-        with open(temporary_file_path, 'wb') as f:
-            pickle.dump(start_time, f)
         time_remaining_str = "Calculating..."
     else:
-        with open(temporary_file_path, 'rb') as f:
-            start_time = pickle.load(f)
-        
         time_passed = time.time() - start_time
         time_remaining = time_passed/index*(total-index)
         time_remaining_str = print_smart_time(time_remaining)
@@ -273,7 +265,6 @@ def progress_bar(index: int, total: int, bar_len=50, title="Please wait"):
     print(f'\t⏳{title}: [{done_str}{togo_str}] {rounded_percent_done}% done. Time remaining: {time_remaining_str}', end='\r')
 
     if percent_done == 100:
-        os.remove(temporary_file_path)
         print('\t✅')
 
 

@@ -226,6 +226,7 @@ def calculate_MAD_in_acceleration_data(
                 append_to_pickle(generator_entry, temporary_file_path)
     
     # create variables to track progress
+    start_time = time.time()
     total_files = len(valid_files)
     progressed_files = 0
 
@@ -239,7 +240,7 @@ def calculate_MAD_in_acceleration_data(
         # calculate MAD in the wrist acceleration data
         for generator_entry in preparation_results_generator:
             # show progress
-            progress_bar(progressed_files, total_files)
+            progress_bar(progressed_files, total_files, start_time)
             progressed_files += 1
 
             try:
@@ -283,7 +284,7 @@ def calculate_MAD_in_acceleration_data(
     
     for file_name in valid_files:
         # show progress
-        progress_bar(progressed_files, total_files)
+        progress_bar(progressed_files, total_files, start_time)
         progressed_files += 1
 
         if file_name in store_previous_dictionary_entries.keys():
@@ -326,7 +327,7 @@ def calculate_MAD_in_acceleration_data(
         if len(generator_entry) > 1:
             append_to_pickle(generator_entry, temporary_file_path)
     
-    progress_bar(progressed_files, total_files)
+    progress_bar(progressed_files, total_files, start_time)
 
     # rename the file that stores the calculated data
     if os.path.isfile(temporary_file_path):
