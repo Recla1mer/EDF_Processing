@@ -59,7 +59,7 @@ def evaluate_and_show_valid_ecg_regions():
     # choose a random file
     data_directory = "Data/GIF/SOMNOwatch/"
     file_data_name = "Somnowatch_Messung.edf"
-    file_data_name = "SL104_SL104_(1).edf"
+    file_data_name = "SL088_SL088_(1).edf"
     file_data_path = data_directory + file_data_name
 
     # load the ECG data
@@ -75,16 +75,16 @@ def evaluate_and_show_valid_ecg_regions():
         check_ecg_time_interval_seconds=5,  
         straighten_ecg_signal=True, 
         check_ecg_overlapping_interval_steps=1, 
-        check_ecg_validation_strictness=0.5,
+        check_ecg_validation_strictness=[0.5],
         check_ecg_removed_peak_difference_threshold=0.3,
         check_ecg_std_min_threshold=80,
         check_ecg_std_max_threshold=800,
         check_ecg_distance_std_ratio_threshold=5,
         check_ecg_allowed_invalid_region_length_seconds=30,
         check_ecg_min_valid_length_minutes=5,
-        ecg_comparison_mode = False,
+        ecg_comparison_mode = True,
         )
-    valid_regions = results[1][0] # looks weird I know, but it is the way it is (reason is behind ecg validation comparison)
+    valid_regions = results[0] # looks weird I know, but it is the way it is (reason is behind ecg validation comparison)
 
     # calculate the ratio of valid regions to total regions
     valid_regions_ratio = check_data.valid_total_ratio(
@@ -372,7 +372,7 @@ ECG VALIDATION
 
 # straighten_the_ecg_signal()
 
-# evaluate_and_show_valid_ecg_regions()
+evaluate_and_show_valid_ecg_regions()
 
 # show_evaluated_valid_ecg_regions()
 
@@ -382,7 +382,7 @@ ECG VALIDATION COMPARISON
 --------------------------
 """
 
-compare_ecg_validation_and_gif_classification()
+# compare_ecg_validation_and_gif_classification()
 
 """
 --------------------------

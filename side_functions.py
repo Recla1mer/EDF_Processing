@@ -82,10 +82,9 @@ def validate_parameter_settings(parameters: dict):
         raise ValueError("'check_ecg_time_interval_seconds' parameter must be an integer.")
     if not isinstance(parameters["check_ecg_overlapping_interval_steps"], int):
         raise ValueError("'check_ecg_overlapping_interval_steps' parameter must be an integer.")
-    if not isinstance(parameters["check_ecg_validation_strictness"], float):
-        raise ValueError("'check_ecg_validation_strictness' parameter must be a float.")
-    if parameters["check_ecg_validation_strictness"] < 0 or parameters["check_ecg_validation_strictness"] > 1:
-        raise ValueError("'check_ecg_validation_strictness' parameter must be between 0 and 1.")
+    if not isinstance(parameters["check_ecg_validation_strictness"], list):
+        if not isinstance(parameters["check_ecg_validation_strictness"], np.ndarray):
+            raise ValueError("'check_ecg_validation_strictness' parameter must be a list.")
     if not isinstance(parameters["check_ecg_removed_peak_difference_threshold"], float):
         raise ValueError("'check_ecg_removed_peak_difference_threshold' parameter must be a float.")
     if not isinstance(parameters["check_ecg_std_min_threshold"], float):

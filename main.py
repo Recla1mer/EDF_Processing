@@ -160,7 +160,7 @@ valid_ecg_regions_params = {
     "straighten_ecg_signal": True, # if True, the ECG signal will be straightened before the validation (see check_data.straighten_ecg_signal() for more information)
     "check_ecg_time_interval_seconds": 5, # time interval considered when determining the valid regions for the ECG data (as small as possible, but should contain at least two R-peaks)
     "check_ecg_overlapping_interval_steps": 1, # number of times the interval needs to be shifted to the right until the next check_ecg_time_interval_seconds is reached (only useful to increase if check_ecg_time_interval_seconds is small)
-    "check_ecg_validation_strictness": 0.6, # strictness in relation to mean values (0.0: very unstrict, 1.0: very strict)
+    "check_ecg_validation_strictness": [round(strict_val, 2) for strict_val in np.arange(0.0, 1.05, 0.05)], # strictness in relation to mean values (0.0: very unstrict, 1.0: very strict)
     "check_ecg_removed_peak_difference_threshold": 0.3, # difference between the values of std-max-min-difference before and after removing the highest peak must be below this value (difference usually around 0.03)
     "check_ecg_std_min_threshold": 20.0, # if the standard deviation of the ECG data is below this threshold, the data is considered invalid (this is a manual threshold, it is used if the ratio between valid and total regions is below 0.5 after trying it with validation_strictness and the mean values)
     "check_ecg_std_max_threshold": 800.0, # if the standard deviation of the ECG data is above this threshold, the data is considered invalid (this is a manual threshold, see above)
@@ -370,7 +370,6 @@ def additional_section(run_section: bool):
 
         # create arguments for the valid ecg regions evaluation and calculate them
         determine_ecg_region_args = create_sub_dict(parameters, determine_ecg_region_variables)
-        determine_ecg_region_args["ecg_comparison_mode"] = True
 
         check_data.determine_valid_ecg_regions(**determine_ecg_region_args)
         del determine_ecg_region_args

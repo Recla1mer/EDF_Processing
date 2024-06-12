@@ -316,10 +316,9 @@ def check_ecg(
         ECG: list, 
         frequency: int,
         straighten_ecg_signal: bool,
-        ecg_comparison_mode: bool,
         check_ecg_time_interval_seconds: int, 
         check_ecg_overlapping_interval_steps: int,
-        check_ecg_validation_strictness: float,
+        check_ecg_validation_strictness: list,
         check_ecg_removed_peak_difference_threshold: float,
         check_ecg_std_min_threshold: float, 
         check_ecg_std_max_threshold: float, 
@@ -444,29 +443,19 @@ def check_ecg(
             collect_no_peak_std_max_min_distance_ratio_distance.append(abs((np.max(interval_without_peak) - np.min(interval_without_peak))/no_peak_interval_std-whole_std_max_min_ratio)/whole_std_max_min_ratio)
     
     # now starts the evaluation part of the function
+    # - we will first calculate the mean values of whole max-min-std ratio and sort out the invalid intervals (step 1)
+    # - from the remaining intervals we will calculate the mean values of the standard deviation and sort out the invalid intervals (step 2)
+    # - from the remaining intervals we will sort out invalid intervals from the max-min difference after removing the highest peak (step 3)
 
-    # when comparing the ECG validation (comparison mode), multiple strictness values are tested
-    # thats why it looks so messy
-
-    # create start and end values for the strictness values
-    strictness_step_size = 0.05
-    if ecg_comparison_mode:
-        start_strictness = 0.0
-        end_strictness = 1.0
-    else:
-        start_strictness = check_ecg_validation_strictness
-        end_strictness = check_ecg_validation_strictness
-    
-    store_strictness = []
+    # create lists to store the results for the different strictness values
     store_connected_intervals = []
-
-    del check_ecg_validation_strictness
 
     mean_whole_std_max_min_distance_ratio = np.mean(collect_whole_std_max_min_distance_ratios)
 
-    # evaluate valid intervals for different strictness values (if not in comparison mode, this is only done for the given strictness value)
-    for validation_strictness in np.arange(start_strictness, end_strictness+strictness_step_size, strictness_step_size):
-        store_strictness.append(round(validation_strictness, 2))
+    # evaluate valid intervals for different strictness values
+    for validation_strictness in check_ecg_validation_strictness:
+        # step 1:
+        # create lists to store intervals that passed the max-min-std ratio comparison
         possibly_valid_stds = []
         passed_max_min_distance = []
 
@@ -476,42 +465,60 @@ def check_ecg(
                 possibly_valid_stds.append(collect_whole_stds[i])
                 passed_max_min_distance.append(i)
         
-        # checking if std is neither too high nor too low
+        # skip the next steps if no valid intervals are found
+        recalculate_with_manual_thresholds = False
         if len(possibly_valid_stds) == 0:
-            store_connected_intervals.append([])
-            continue
-        mean_std = np.mean(possibly_valid_stds)
-        lower_limit = (mean_std - np.std(possibly_valid_stds))*validation_strictness
-        if lower_limit < 0:
-            lower_limit = check_ecg_std_min_threshold
-        upper_limit = (mean_std + np.std(possibly_valid_stds))*(2-validation_strictness)
-        #print(lower_limit, upper_limit)
-        possibly_valid_max_min_distance = []
-        passed_min_std = []
-
-        for i in range(0, len(possibly_valid_stds)):
-            if possibly_valid_stds[i] > lower_limit and possibly_valid_stds[i] < upper_limit:
-                passed_min_std.append(passed_max_min_distance[i])
-                possibly_valid_max_min_distance.append(collect_no_peak_std_max_min_distance_ratio_distance[passed_max_min_distance[i]])
+            recalculate_with_manual_thresholds = True
         
+        # step 2:
+        # checking if std is neither too high nor too low
+        if not recalculate_with_manual_thresholds:
+            mean_std = np.mean(possibly_valid_stds)
+
+            lower_limit = (mean_std - np.std(possibly_valid_stds))*validation_strictness
+            # prevent if signal is too noisy, that invalid regions are not falsely included:
+            if lower_limit < 0.5*check_ecg_std_min_threshold:
+                lower_limit = check_ecg_std_min_threshold
+
+            upper_limit = (mean_std + np.std(possibly_valid_stds))*(2-validation_strictness)
+            # prevent if signal is too flat (std in average too low), that valid regions are not falsely excluded:
+            if upper_limit < 0.5*check_ecg_std_max_threshold:
+                upper_limit = check_ecg_std_max_threshold
+
+            possibly_valid_max_min_distance = []
+            passed_min_std = []
+
+            for i in range(0, len(possibly_valid_stds)):
+                if possibly_valid_stds[i] > lower_limit and possibly_valid_stds[i] < upper_limit:
+                    passed_min_std.append(passed_max_min_distance[i])
+                    possibly_valid_max_min_distance.append(collect_no_peak_std_max_min_distance_ratio_distance[passed_max_min_distance[i]])
+            
+            if len(possibly_valid_max_min_distance) == 0:
+                recalculate_with_manual_thresholds = True
+        
+        # step 3:
         # checking if the std-max-min-distance-ratio after peak removal is close enough to the original
-        valid_intervals = []
+        if not recalculate_with_manual_thresholds:
+            valid_intervals = []
 
-        for i in range(0, len(possibly_valid_max_min_distance)):
-            if not possibly_valid_max_min_distance[i] > check_ecg_removed_peak_difference_threshold:
-                # make sure upper border is not out of bounds
-                lower_border = passed_min_std[i]*interval_steps
-                upper_border = lower_border + time_interval_iterations
-                if upper_border > len(ECG):
-                    upper_border = len(ECG)
-                # append to valid intervals
-                valid_intervals.append([lower_border, upper_border])
-        
-        # check the ratio of valid to total ecg data
-        valid_ratio = valid_total_ratio(ECG, valid_intervals)
-        # if ratio is too low, it means the data consists of too many invalid regions
-        # therefore the mean values will be off for a useful detection and the manual thresholds need to be used
-        if valid_ratio < 0.5 and not ecg_comparison_mode:
+            for i in range(0, len(possibly_valid_max_min_distance)):
+                if not possibly_valid_max_min_distance[i] > check_ecg_removed_peak_difference_threshold:
+                    # make sure upper border is not out of bounds
+                    lower_border = passed_min_std[i]*interval_steps
+                    upper_border = lower_border + time_interval_iterations
+                    if upper_border > len(ECG):
+                        upper_border = len(ECG)
+                    # append to valid intervals
+                    valid_intervals.append([lower_border, upper_border])
+            
+            # check the ratio of valid to total ecg data
+            valid_ratio = valid_total_ratio(ECG, valid_intervals)
+            
+            # if the ratio is too low, the mean values are off and the manual thresholds need to be used
+            if valid_ratio < 0.5:
+                recalculate_with_manual_thresholds = True
+
+        if recalculate_with_manual_thresholds:
             valid_intervals = []
             for i in range(0, len(collect_whole_stds)):
                 if collect_whole_stds[i] >= check_ecg_std_min_threshold:
@@ -525,6 +532,10 @@ def check_ecg(
                                     upper_border = len(ECG)
                                 # append to valid intervals
                                 valid_intervals.append([lower_border, upper_border])
+
+        # if recalculate_with_manual_thresholds and ecg_comparison_mode:
+        #     store_connected_intervals.append([])
+        #     continue
         
         # concatenate neighbouring intervals
         concatenated_intervals = concatenate_neighbouring_intervals(valid_intervals)
@@ -539,7 +550,7 @@ def check_ecg(
         
         store_connected_intervals.append(connected_intervals)
 
-    return store_strictness, store_connected_intervals
+    return store_connected_intervals
 
 
 def determine_valid_ecg_regions(
@@ -554,14 +565,13 @@ def determine_valid_ecg_regions(
         straighten_ecg_signal: bool,
         check_ecg_time_interval_seconds: int, 
         check_ecg_overlapping_interval_steps: int,
-        check_ecg_validation_strictness: float,
+        check_ecg_validation_strictness: list,
         check_ecg_removed_peak_difference_threshold: float,
         check_ecg_std_min_threshold: float, 
         check_ecg_std_max_threshold: float,
         check_ecg_distance_std_ratio_threshold: float,
         check_ecg_min_valid_length_minutes: int,
         check_ecg_allowed_invalid_region_length_seconds: int,
-        ecg_comparison_mode = False,
     ):
     """
     Determine the valid ECG regions for all valid file types in the given data directory.
@@ -595,16 +605,21 @@ def determine_valid_ecg_regions(
             ...
     See check_ecg() for the format of the valid_regions.
     """
+    # load existing results
+    prep_results_generator = load_from_pickle(preparation_results_path)
+
+    # additionally remove keys if in ecg_comparison_mode
     additionally_remove_keys = []
-    if ecg_comparison_mode:
-        for float_value in np.arange(0.0, 1.05, 0.05):
-            additionally_remove_keys.append(valid_ecg_regions_dictionary_key + "_" + str(round(float_value, 2)))
+    for generator_entry in prep_results_generator:
+        for dict_key in generator_entry.keys():
+            if valid_ecg_regions_dictionary_key in dict_key:
+                additionally_remove_keys.append(dict_key)
 
     # check if valid regions already exist and if yes: ask for permission to override
     user_answer = ask_for_permission_to_override_dictionary_entry(
         file_path = preparation_results_path,
-        dictionary_entry = valid_ecg_regions_dictionary_key,
-        additionally_remove_entries=additionally_remove_keys
+        dictionary_entry = additionally_remove_keys[0],
+        additionally_remove_entries = additionally_remove_keys[1:]
         )
     
     # path to pickle file which will store results
@@ -677,10 +692,9 @@ def determine_valid_ecg_regions(
                 )
 
                 # calculate the valid regions
-                store_strictness, store_valid_intervals_for_strictness = check_ecg(
+                store_valid_intervals_for_strictness = check_ecg(
                     ECG = ecg_signal, 
                     frequency = ecg_sampling_frequency,
-                    ecg_comparison_mode = ecg_comparison_mode,
                     straighten_ecg_signal = straighten_ecg_signal,
                     check_ecg_time_interval_seconds = check_ecg_time_interval_seconds, 
                     check_ecg_overlapping_interval_steps = check_ecg_overlapping_interval_steps,
@@ -694,14 +708,8 @@ def determine_valid_ecg_regions(
                 )
                 
                 # save the valid regions for this file
-                if ecg_comparison_mode:
-                    for strictness_index in range(0, len(store_strictness)):
-                        generator_entry[valid_ecg_regions_dictionary_key] = store_valid_intervals_for_strictness[int(len(store_valid_intervals_for_strictness)/2)]
-                        if store_strictness[strictness_index] == check_ecg_validation_strictness:
-                            generator_entry[valid_ecg_regions_dictionary_key] = store_valid_intervals_for_strictness[strictness_index]
-                        generator_entry[valid_ecg_regions_dictionary_key + "_" + str(store_strictness[strictness_index])] = store_valid_intervals_for_strictness[strictness_index]
-                else:
-                    generator_entry[valid_ecg_regions_dictionary_key] = store_valid_intervals_for_strictness[0]
+                for strictness_index in range(0, len(check_ecg_validation_strictness)):
+                    generator_entry[valid_ecg_regions_dictionary_key + "_" + str(check_ecg_validation_strictness[strictness_index])] = store_valid_intervals_for_strictness[strictness_index]
 
             except:
                 unprocessable_files.append(file_name)
@@ -728,10 +736,9 @@ def determine_valid_ecg_regions(
             )
 
             # calculate the valid regions
-            store_strictness, store_valid_intervals_for_strictness = check_ecg(
+            store_valid_intervals_for_strictness = check_ecg(
                 ECG = ecg_signal, 
                 frequency = ecg_sampling_frequency,
-                ecg_comparison_mode = ecg_comparison_mode,
                 straighten_ecg_signal = straighten_ecg_signal,
                 check_ecg_time_interval_seconds = check_ecg_time_interval_seconds, 
                 check_ecg_overlapping_interval_steps = check_ecg_overlapping_interval_steps,
@@ -745,14 +752,8 @@ def determine_valid_ecg_regions(
             )
             
             # save the valid regions for this file to the dictionary
-            if ecg_comparison_mode:
-                generator_entry[valid_ecg_regions_dictionary_key] = store_valid_intervals_for_strictness[int(len(store_valid_intervals_for_strictness)/2)]
-                for strictness_index in range(0, len(store_strictness)):
-                    if store_strictness[strictness_index] == check_ecg_validation_strictness:
-                        generator_entry[valid_ecg_regions_dictionary_key] = store_valid_intervals_for_strictness[strictness_index]
-                    generator_entry[valid_ecg_regions_dictionary_key + "_" + str(store_strictness[strictness_index])] = store_valid_intervals_for_strictness[strictness_index]
-            else:
-                generator_entry[valid_ecg_regions_dictionary_key] = store_valid_intervals_for_strictness[0]
+            for strictness_index in range(0, len(check_ecg_validation_strictness)):
+                generator_entry[valid_ecg_regions_dictionary_key + "_" + str(check_ecg_validation_strictness[strictness_index])] = store_valid_intervals_for_strictness[strictness_index]
 
         except:
             unprocessable_files.append(file_name)
@@ -780,6 +781,109 @@ def determine_valid_ecg_regions(
         print(" "*5 + "- No matching label in ecg_keys and the files")
         print(" "*5 + "- Physical dimension of label is unknown")
         print(" "*5 + "- Dictionary key that accesses the file name does not exist in the results. Check key in file or recalculate them.")
+
+
+def choose_valid_ecg_regions(
+        data_directory: str,
+        ecg_keys: list,
+        physical_dimension_correction_dictionary: dict,
+        preparation_results_path: str,
+        file_name_dictionary_key: str,
+        valid_ecg_regions_dictionary_key: str,
+    ):
+    """
+    Prints mean valid to total ratios for the evaluation of ecg data for different 
+    strictness values and asks the user to choose one, which will be used for further
+    computation.
+
+    ARGUMENTS:
+    --------------------------------
+    data_directory: str
+        directory where the data is stored
+    ecg_keys: list
+        list of possible labels for the ECG data
+    physical_dimension_correction_dictionary: dict
+        dictionary needed to check and correct the physical dimension of all signals
+    preparation_results_path: str
+        path to the pickle file where the valid regions are saved
+    file_name_dictionary_key
+        dictionary key to access the file name
+    valid_ecg_regions_dictionary_key: str
+        dictionary key to access the valid ecg regions
+
+    RETURNS:
+    --------------------------------
+    None, but the valid regions for one strictness value are assigned to the valid_ecg_regions_dictionary_key
+    """
+
+    # path to pickle file which will store results
+    temporary_file_path = get_path_without_filename(preparation_results_path) + "computation_in_progress.pkl"
+    if os.path.isfile(temporary_file_path):
+        os.remove(temporary_file_path)
+    
+    # load existing results
+    preparation_results_generator = load_from_pickle(preparation_results_path)
+
+    store_strictness_values = []
+    store_valid_total_ratios = []
+
+    for generator_entry in preparation_results_generator:
+        # check if needed dictionary keys exist
+        if file_name_dictionary_key not in generator_entry.keys():
+            continue
+        file_name = generator_entry[file_name_dictionary_key]
+
+        for dict_key in generator_entry.keys():
+            if valid_ecg_regions_dictionary_key in dict_key:
+                # try to load the data and correct the physical dimension if needed
+                ecg_signal, ecg_sampling_frequency = read_edf.get_data_from_edf_channel(
+                    file_path = data_directory + file_name,
+                    possible_channel_labels = ecg_keys,
+                    physical_dimension_correction_dictionary = physical_dimension_correction_dictionary
+                )
+
+                valid_total_ratio = valid_total_ratio(
+                    ECG = ecg_signal, 
+                    valid_regions = generator_entry[dict_key]
+                )
+
+                strictness_value = dict_key.split("_")[-1]
+                if strictness_value not in store_strictness_values:
+                    store_strictness_values.append(strictness_value)
+                    store_valid_total_ratios.append([valid_total_ratio])
+                else:
+                    store_valid_total_ratios[store_strictness_values.index(strictness_value)].append(valid_total_ratio)
+    
+    # calculate mean valid_total_ratios for strictness values
+    mean_valid_total_ratios = np.mean(store_valid_total_ratios, axis=1)
+
+    # print results to console
+    print("\nMean valid to total ratios for different strictness values:")
+    for i in range(0, len(store_strictness_values)):
+        print("Strictness value: %s, Mean valid to total ratio: %.2f" % (store_strictness_values[i], mean_valid_total_ratios[i]))
+    
+    # ask user for the strictness value
+    while True:
+        strictness_value = input("\nChoose a strictness value to assign the valid regions to the dictionary key \"%s\": " % valid_ecg_regions_dictionary_key)
+        if strictness_value in store_strictness_values:
+            break
+        else:
+            print("Invalid input. Please choose a valid strictness value.")
+    
+    # assign the valid regions to the dictionary key
+    for generator_entry in preparation_results_generator:
+        strictness_key = valid_ecg_regions_dictionary_key + "_" + strictness_value
+        if strictness_key in generator_entry.keys():
+            generator_entry[valid_ecg_regions_dictionary_key] = generator_entry[strictness_key]
+        append_to_pickle(generator_entry, temporary_file_path)
+    
+    # rename the file that stores the calculated data
+    if os.path.isfile(temporary_file_path):
+        try:
+            os.remove(preparation_results_path)
+        except:
+            pass
+        os.rename(temporary_file_path, preparation_results_path)
 
 
 """
