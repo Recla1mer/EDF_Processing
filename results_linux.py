@@ -30,10 +30,13 @@ ECG VALIDATION
 --------------------------
 """
 
-def straighten_the_ecg_signal():
+def straighten_the_ecg_signal(
+        data_directory: str, 
+        file_data_name: str,
+        lower_border: int,
+        interval_size: int
+        ):
     # choose a random file
-    data_directory = "Data/"
-    file_data_name = "Somnowatch_Messung.edf"
     file_data_path = data_directory + file_data_name
 
     # load the ECG data
@@ -43,8 +46,6 @@ def straighten_the_ecg_signal():
         physical_dimension_correction_dictionary = parameters["physical_dimension_correction_dictionary"]
         )
 
-    lower_border = 1012500
-    interval_size = 1280
     interval = [lower_border, lower_border + interval_size]
     ecg_signal = ECG[lower_border:lower_border + interval_size]
 
@@ -55,11 +56,12 @@ def straighten_the_ecg_signal():
     plot_helper.simple_plot(straightened_ecg)
 
 
-def evaluate_and_show_valid_ecg_regions():
+def evaluate_and_show_valid_ecg_regions(
+        data_directory: str,
+        file_data_name: str,
+        x_lim_ratio: list,
+):
     # choose a random file
-    data_directory = "Data/GIF/SOMNOwatch/"
-    file_data_name = "Somnowatch_Messung.edf"
-    file_data_name = "SL088_SL088_(1).edf"
     file_data_path = data_directory + file_data_name
 
     # load the ECG data
@@ -94,7 +96,7 @@ def evaluate_and_show_valid_ecg_regions():
 
     # choose region to plot
     total_length = len(ECG)
-    x_lim = [int(0*total_length), int(1*total_length)]
+    x_lim = [int(x_lim_ratio[0]*total_length), int(x_lim_ratio[1]*total_length)]
 
     plot_helper.plot_valid_regions(
         ECG = ECG, 
@@ -103,11 +105,12 @@ def evaluate_and_show_valid_ecg_regions():
         )
 
 
-def show_evaluated_valid_ecg_regions():
+def show_evaluated_valid_ecg_regions(
+        data_directory: str,
+        file_data_name: str,
+        x_lim_ratio: list,
+):
     # choose a random file
-    data_directory = "Data/GIF/SOMNOwatch/"
-    file_data_name = "SL214_SL214_(1).edf"
-
     file_data_path = data_directory + file_data_name
 
     # load the valid regions
@@ -132,7 +135,7 @@ def show_evaluated_valid_ecg_regions():
     print("(Valid / Total) Regions Ratio: %f %%" % (round(valid_regions_ratio, 4)*100))
 
     total_length = len(ECG)
-    x_lim = [int(0.2*total_length), int(0.3*total_length)]
+    x_lim = [int(x_lim_ratio[0]*total_length), int(x_lim_ratio[1]*total_length)]
 
     plot_helper.plot_valid_regions(
         ECG = ECG, 
@@ -148,9 +151,11 @@ ECG VALIDATION COMPARISON
 """
 
 
-def compare_ecg_validation_and_gif_classification():
+def compare_ecg_validation_and_gif_classification(
+        file_data_name: str,
+        x_lim_ratio: list,
+):
     # choose random file
-    file_data_name = "SL088_SL088_(1).edf"
     file_class_name = file_data_name[:-4] + "Somno.txt"
     file_data_path = ADDITIONS_RAW_DATA_DIRECTORY + file_data_name
     file_class_path = parameters["ecg_classification_values_directory"] + file_class_name
@@ -184,7 +189,7 @@ def compare_ecg_validation_and_gif_classification():
 
     # afterwards look at a specific region that does not match
     total_length = len(ECG)
-    x_lim = [int(0.1*total_length), int(0.5*total_length)]
+    x_lim = [int(x_lim_ratio[0]*total_length), int(x_lim_ratio[1]*total_length)]
 
     plot_helper.plot_valid_regions(
         ECG = ECG, 
@@ -199,15 +204,12 @@ CALCULATING R_PEAKS
 """
 
 
-def calculating_rpeaks_from_scratch():
-    # choose a random file
-    data_directory = "Calibration_Data/"
-    file_data_name = "Somnowatch_Messung.edf"
-
-    # choose interval
-    interval_size = 2560
-    lower_bound = 1781760
-    interval = [lower_bound, lower_bound + interval_size]
+def calculating_rpeaks_from_scratch(
+        data_directory: str,
+        file_data_name: str,
+        interval_size: int,
+        random_border
+    ):
 
     # load the ECG data
     ECG, frequency = read_edf.get_data_from_edf_channel(
@@ -215,6 +217,13 @@ def calculating_rpeaks_from_scratch():
         possible_channel_labels = parameters["ecg_keys"],
         physical_dimension_correction_dictionary = parameters["physical_dimension_correction_dictionary"]
         )
+    
+    # choose interval
+    if random_border is not None:
+        lower_bound = random_border
+    else:
+        lower_bound = random.randint(0, len(ECG) - interval_size)
+    interval = [lower_bound, lower_bound + interval_size]
 
     ecg_signal = ECG[interval[0]:interval[1]]
 
@@ -239,10 +248,12 @@ R-PEAK DETECTION COMPARISON
 """
 
 
-def visualize_rpeak_comparison():
+def visualize_rpeak_comparison(
+        first_function_name: str,
+        second_function_name: str,
+        low_ratio_threshold: float
+    ):
     # choose a random detection method pair
-    first_function_name = "wfdb"
-    second_function_name = "gif_classification"
 
     # find the position in the list
     position_in_list = 0
@@ -261,7 +272,6 @@ def visualize_rpeak_comparison():
         if found_pair:
             break
 
-    low_ratio_threshold = 0.75
     analogue_ratios_first_function = []
     analogue_ratios_second_function = []
     low_ratio_file_names = []
@@ -301,15 +311,17 @@ def visualize_rpeak_comparison():
     )
 
 
-def plot_non_intersecting_r_peaks():
+def plot_non_intersecting_r_peaks(
+        data_directory: str,
+        file_data_name: str,
+        interval_size: int,
+        random_peak,
+    ):
     # choose a random file
-    data_directory = "Data/GIF/SOMNOwatch/"
-    file_data_name = "SL088_SL088_(1).edf"
 
     file_data_path = data_directory + file_data_name
 
     # choose size of interval
-    interval_size = 1280
 
     # get r-peak function names ("wfdb", "ecgdetectors", "hamilton", "christov", "gif_classification")
     first_rpeak_function_name = "wfdb"
@@ -339,14 +351,13 @@ def plot_non_intersecting_r_peaks():
     )
 
     # choose random r-peak for plotting
-    random_first_rpeak = random.choice(rpeaks_only_primary)
-    random_second_rpeak = random.choice(rpeaks_only_secondary)
-    random_rpeak = random.choice([random_first_rpeak, random_second_rpeak])
-    print("Random r-peak location: %d" % random_rpeak)
-
-    # nice values for plotting
-    # random_rpeak = 10625000 # for Data/GIF/SOMNOwatch/SL001_SL001_(1).edf, wfdb, gif_classification
-    random_rpeak = 9040256
+    if random_peak is not None:
+        random_rpeak = random_peak
+    else:
+        random_first_rpeak = random.choice(rpeaks_only_primary)
+        random_second_rpeak = random.choice(rpeaks_only_secondary)
+        random_rpeak = random.choice([random_first_rpeak, random_second_rpeak])
+        print("Random r-peak location: %d" % random_rpeak)
 
     x_lim = [int(random_rpeak-interval_size/2), int(random_rpeak+interval_size/2)]
 
@@ -369,11 +380,17 @@ ECG VALIDATION
 --------------------------
 """
 
-# straighten_the_ecg_signal()
+data_directory = "Data/GIF/SOMNOwatch/"
+file_name = "SL088_SL088_(1).edf"
+lower_border = 1000000
+interval_size = 5000
+x_lim_ratio = [0.2, 0.6]
 
-evaluate_and_show_valid_ecg_regions()
+# straighten_the_ecg_signal(data_directory, file_name, lower_border, interval_size)
 
-# show_evaluated_valid_ecg_regions()
+# evaluate_and_show_valid_ecg_regions(data_directory, file_name, x_lim_ratio)
+
+# show_evaluated_valid_ecg_regions(data_directory, file_name, x_lim_ratio)
 
 """
 --------------------------
@@ -381,7 +398,7 @@ ECG VALIDATION COMPARISON
 --------------------------
 """
 
-# compare_ecg_validation_and_gif_classification()
+# compare_ecg_validation_and_gif_classification(file_name, x_lim_ratio)
 
 """
 --------------------------
@@ -389,14 +406,19 @@ CALCULATING R_PEAKS
 --------------------------
 """
 
-# calculating_rpeaks_from_scratch()
+# calculating_rpeaks_from_scratch(data_directory, file_name, interval_size, lower_border)
 
 """
 --------------------------
 R-PEAK DETECTION COMPARISON
 --------------------------
 """
+first_function_name = "wfdb"
+second_function_name = "gif_classification"
+low_ratio_threshold = 0.75
 
-# visualize_rpeak_comparison()
+# visualize_rpeak_comparison(first_function_name, second_function_name, low_ratio_threshold)
 
-# plot_non_intersecting_r_peaks()
+random_peak = None
+
+# plot_non_intersecting_r_peaks(data_directory, file_name, interval_size, random_peak)
