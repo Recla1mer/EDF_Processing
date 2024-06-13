@@ -675,3 +675,44 @@ def print_left_aligned(string: str, length: int):
     """
     len_string = len(string)
     return string + " " * (length - len_string)
+
+
+def manually_remove_file_from_results(file_name: str, results_path: str, file_name_dictionary_key: str):
+    """
+    Remove dictionary containing values for file_name from the results file.
+
+    ARGUMENTS:
+    --------------------------------
+    file_name: str
+        name of the file
+    results_path: str
+        path to the results file
+    file_name_dictionary_key: str
+        key of the dictionary containing the file name
+    
+    RETURNS:
+    --------------------------------
+    None, but the dictionary is removed from the results file
+    """
+
+    # path to pickle file which will store results
+    temporary_file_path = get_path_without_filename(results_path) + "computation_in_progress.pkl"
+    if os.path.isfile(temporary_file_path):
+        os.remove(temporary_file_path)
+    
+    # load existing results
+    results_generator = load_from_pickle(results_path)
+
+    for generator_entry in results_generator:
+            try:
+                if generator_entry[file_name_dictionary_key] == file_name:
+                    continue
+            except:
+                pass
+            
+            append_to_pickle(generator_entry, temporary_file_path)
+    
+    # rename the file that stores the calculated data
+    if os.path.isfile(temporary_file_path):
+        os.remove(results_path)
+        os.rename(temporary_file_path, results_path)

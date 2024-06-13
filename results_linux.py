@@ -406,7 +406,8 @@ CALCULATING R_PEAKS
 --------------------------
 """
 
-# calculating_rpeaks_from_scratch(data_directory, file_name, interval_size, lower_border)
+random_border = None
+# calculating_rpeaks_from_scratch(data_directory, file_name, interval_size, random_border)
 
 """
 --------------------------
