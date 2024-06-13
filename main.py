@@ -564,8 +564,4 @@ def main():
     del PREPARATION_DIRECTORY, PREPARATION_RESULTS_NAME
 
 if __name__ == "__main__":
-    # preparation_results_generator = load_from_pickle(ADDITIONS_RESULTS_PATH)
-    # for generator in preparation_results_generator:
-    #     print(generator.keys())
-    #     print("\n\n")
     main()

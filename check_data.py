@@ -787,13 +787,12 @@ def determine_valid_ecg_regions(
 
     # print the files that could not be processed
     if len(unprocessable_files) > 0:
-        print("\nThe following files could not be processed for ECG Validation:")
+        print("\nThe following " + str(len(unprocessable_files)) + " files could not be processed for ECG Validation (decreasing probability):")
         print(unprocessable_files)
         print("Possible reasons:")
-        print(" "*5 + "- ECG file contains format errors")
+        print(" "*5 + "- .edf file contains format errors")
         print(" "*5 + "- No matching label in ecg_keys and the files")
         print(" "*5 + "- Physical dimension of label is unknown")
-        print(" "*5 + "- Dictionary key that accesses the file name does not exist in the results. Check key in file or recalculate them.")
 
 
 def choose_valid_ecg_regions_for_further_computation(
@@ -1173,6 +1172,9 @@ def ecg_validation_comparison(
     """
     Compare the ECG validation with the ECG classification values.
 
+    Also calculate the valid intervals from the ECG classification values. 
+    (Needed for the r-peak detection comparison)
+
     ARGUMENTS:
     --------------------------------
     ecg_classification_values_directory: str
@@ -1304,11 +1306,12 @@ def ecg_validation_comparison(
 
     # print the files that could not be processed
     if len(unprocessable_files) > 0:
-        print("\nThe following files could not be processed for ECG Validation Comparison:")
+        print("\nThe following " + str(len(unprocessable_files)) + " files could not be processed for ECG Validation Comparison (decreasing probability):")
         print(unprocessable_files)
         print("Possible reasons:")
         print(" "*5 + "- No corresponding classification file was found")
         print(" "*5 + "- Error during calculating the comparison values")
+        print(" "*5 + "- Error during transforming the classification to intervals")
 
 
 def ecg_validation_comparison_report(

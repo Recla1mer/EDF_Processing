@@ -339,11 +339,10 @@ def calculate_MAD_in_acceleration_data(
 
     # print unprocessable files
     if len(unprocessable_files) > 0:
-        print("\nFor the following files the MAD values could not be calculated:")
+        print("\nFor the following " + str(len(unprocessable_files)) + " files the MAD values could not be calculated (decreasing probability):")
         print(unprocessable_files)
         print("Possible reasons:")
-        print(" "*5 + "- ECG file contains format errors")
+        print(" "*5 + "- .edf file contains format errors")
         print(" "*5 + "- No matching label in wrist_acceleration_keys and the files")
         print(" "*5 + "- Physical dimension of label is unknown")
         print(" "*5 + "- Error during calculating of MAD values")
-        print(" "*5 + "- Dictionary key that access the file name does not exist in the results. Check keys in file or recalculate them.")
