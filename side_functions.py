@@ -34,16 +34,6 @@ def validate_parameter_settings(parameters: dict):
         raise ValueError("'run_preparation_section' parameter must be a boolean.")
     if not isinstance(parameters["show_calibration_data"], bool):
         raise ValueError("'show_calibration_data' parameter must be a boolean.")
-    if not isinstance(parameters["perform_rpeak_comparison"], bool):
-        raise ValueError("'perform_rpeak_comparison' parameter must be a boolean.")
-    if not isinstance(parameters["perform_ecg_validation_comparison"], bool):
-        raise ValueError("'perform_ecg_validation_comparison' parameter must be a boolean.")
-    if not isinstance(parameters["determine_valid_ecg_regions"], bool):
-        raise ValueError("'determine_valid_ecg_regions' parameter must be a boolean.")
-    if not isinstance(parameters["detect_rpeaks"], bool):
-        raise ValueError("'detect_rpeaks' parameter must be a boolean.")
-    if not isinstance(parameters["calculate_MAD"], bool):
-        raise ValueError("'calculate_MAD' parameter must be a boolean.")
 
     # file parameters:
     if not isinstance(parameters["valid_file_types"], list):
@@ -168,8 +158,6 @@ def validate_parameter_settings(parameters: dict):
             raise ValueError("'include_rpeak_value_classifications' parameter must be a list.")
         if not isinstance(parameters["rpeak_comparison_functions"], list):
             raise ValueError("'rpeak_comparison_functions' parameter must be a list.")
-        if not callable(parameters["rpeak_classification_function"]):
-            raise ValueError("'rpeak_classification_function' parameter must be a function.")
         if not isinstance(parameters["add_offset_to_classification"], int):
             raise ValueError("'add_offset_to_classification' parameter must be an integer.")
         if not isinstance(parameters["rpeak_comparison_function_names"], list):

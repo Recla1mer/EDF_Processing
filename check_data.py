@@ -1017,6 +1017,60 @@ def get_ecg_classification_from_txt_file(file_path: str):
     return ecg_classification
 
 
+def transform_ecg_classification_to_intervals(file_path: str):
+    """
+    Transform the ECG classification to intervals. (Needed in the comparison of the r-peak detection)
+
+    ARGUMENTS:
+    --------------------------------
+    file_path: str
+        path to the .txt file containing the ECG classification
+    
+    RETURNS:
+    --------------------------------
+    valid_intervals: list
+        list of tuples containing the start and end indices of the intervals considered valid
+    """
+
+    # read the txt file
+    with open(file_path, 'r') as file:
+        txt_lines = file.readlines()
+    
+    # start of ecg validation is separated by a line of "-" from the file header in the .txt files
+    # retrieve the start of the R-peaks in the file
+    for i in range(len(txt_lines)):
+        count_dash = 0
+        for j in range(len(txt_lines[i])):
+            if txt_lines[i][j] == "-":
+                count_dash += 1
+        if count_dash/len(txt_lines[i]) > 0.9:
+            start = i + 1
+            break
+    
+    # create list to to save the valid intervals
+    valid_intervals = []
+
+    # determine valid datapoints from the txt file
+    was_valid = False
+    for i in range(start, len(txt_lines)):
+        datapoint, classification = ecg_validation_txt_string_evaluation(txt_lines[i])
+        
+        if isinstance(datapoint, int) and classification.isdigit():
+            if classification == "0":
+                if not was_valid:
+                    start_interval = datapoint
+                was_valid = True
+            else:
+                if was_valid:
+                    valid_intervals.append([start_interval, datapoint])
+                was_valid = False
+    
+    if was_valid:
+        valid_intervals.append([start_interval, datapoint])
+    
+    return valid_intervals
+
+
 def compare_ecg_validations(
         validated_intervals: list, 
         ecg_classification: dict,
@@ -1114,6 +1168,7 @@ def ecg_validation_comparison(
         file_name_dictionary_key: str,
         valid_ecg_regions_dictionary_key: str,
         ecg_validation_comparison_dictionary_key: str,
+        ecg_classification_valid_intervals_dictionary_key: str,
     ):
     """
     Compare the ECG validation with the ECG classification values.
@@ -1134,6 +1189,8 @@ def ecg_validation_comparison(
         dictionary key to access the valid ecg regions
     ecg_validation_comparison_dictionary_key: str
         dictionary key to access the ecg validation comparison
+    ecg_classification_valid_intervals_dictionary_key: str
+        dictionary key to access the valid intervals from the ECG classification
     
     RETURNS:
     --------------------------------
@@ -1150,7 +1207,8 @@ def ecg_validation_comparison(
     # check if the evaluation already exists and if yes: ask for permission to override
     user_answer = ask_for_permission_to_override_dictionary_entry(
         file_path = additions_results_path,
-        dictionary_entry = ecg_validation_comparison_dictionary_key
+        dictionary_entry = ecg_validation_comparison_dictionary_key,
+        additionally_remove_entries = [ecg_classification_valid_intervals_dictionary_key]
         )
     
     # cancel if needed data is missing
@@ -1210,6 +1268,10 @@ def ecg_validation_comparison(
                 raise FileNotFoundError
 
             ecg_classification_dictionary = get_ecg_classification_from_txt_file(ecg_classification_values_directory + this_classification_file)
+
+            # not necessarily needed here, or for the ecg validation comparison, as it is needed for the r-peak detection comparison
+            # it is still called here, because it reduces the amount of code needed to be written and computation time
+            valid_intervals_from_classification = transform_ecg_classification_to_intervals(ecg_classification_values_directory + this_classification_file)
         
             # compare the differnt ECG validations
             comparison_values_for_strictness = []
@@ -1226,6 +1288,7 @@ def ecg_validation_comparison(
         
             # add comparison values for this file
             generator_entry[ecg_validation_comparison_dictionary_key] = comparison_values_for_strictness
+            generator_entry[ecg_classification_valid_intervals_dictionary_key] = valid_intervals_from_classification
 
         except:
             unprocessable_files.append(this_file)
@@ -1246,7 +1309,6 @@ def ecg_validation_comparison(
         print("Possible reasons:")
         print(" "*5 + "- No corresponding classification file was found")
         print(" "*5 + "- Error during calculating the comparison values")
-        print(" "*5 + "- Dictionary key that accesses the file name does not exist in the results. Check keys in file or recalculate them.")
 
 
 def ecg_validation_comparison_report(

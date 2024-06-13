@@ -126,12 +126,6 @@ settings_params = {
     "run_preparation_section": True, # if True, the PREPARATION SECTION will be executed
     # set what parts of the ADDITIONALS SECTION should be executed
     "show_calibration_data": False, # if True, the calibration data in the manually chosen intervals will be plotted and saved to the SHOW_CALIBRATION_DATA_DIRECTORY
-    "perform_rpeak_comparison": True, # if True, the r-peak detection functions will be compared
-    "perform_ecg_validation_comparison": True, # if True, the ECG validations will be compared
-    # set what parts of the PREPARATION SECTION should be executed
-    "determine_valid_ecg_regions": True, # if True, you will have the option to recalculate the valid regions for the ECG data
-    "detect_rpeaks": True, # if True, the r-peaks will be detected in the ECG data
-    "calculate_MAD": True, # if True, the MAD will be calculated for the wrist acceleration data
 }
 
 # file parameters:
@@ -194,6 +188,7 @@ calculate_MAD_params = {
 additions_results_dictionary_key_params = {
     "additions_results_path": ADDITIONS_RESULTS_PATH, # path to pickle file that stores the results for every file as individual dictionary
     "ecg_validation_comparison_dictionary_key": "ecg_validation_comparison", # key that accesses the ECG validation comparison in the dictionaries
+    "ecg_classification_valid_intervals_dictionary_key": "valid_intervals_from_ecg_classification", # key that accesses the valid intervals from the ECG classification in the dictionaries, needed for r-peak detection comparison
     "rpeak_comparison_dictionary_key": "rpeak_comparison", # key that accesses the r-peak comparison values
 }
 
@@ -212,10 +207,10 @@ rpeak_comparison_params = {
     "include_rpeak_value_classifications": ["N"], # classifications that should be included in the evaluation
     #
     "rpeak_comparison_functions": [rpeak_detection.get_rpeaks_wfdb, rpeak_detection.get_rpeaks_ecgdetectors, rpeak_detection.get_rpeaks_hamilton, rpeak_detection.get_rpeaks_christov], # r-peak detection functions
-    "rpeak_classification_function": rpeak_detection.read_rpeaks_from_rri_files, # functions to read the r-peak classifications
-    "add_offset_to_classification": -1, #  offset that should be added to the r-peaks (classifications are slightly shifted for some reason)
+    "include_rpeak_values_from_classifications": True, # if True, r-peaks from classification will be included in the comparison
+    "add_offset_to_classification": -1, #  offset that should be added to the r-peaks from gif classification (classifications are slightly shifted for some reason)
     #
-    "rpeak_comparison_function_names": ["wfdb", "ecgdetectors", "hamilton", "christov", "gif_classification"], # names of all used r-peak functions
+    "rpeak_comparison_function_names": ["wfdb", "ecgdetectors", "hamilton", "christov", "gif_classification"], # names of all used r-peak functions (last one is for classification, if included)
     "rpeak_comparison_report_dezimal_places": 4, # number of dezimal places in the comparison report
     "rpeak_comparison_report_path": RPEAK_COMPARISON_REPORT_PATH, # path to the text file that stores the comparison report
 }
@@ -289,7 +284,8 @@ calculate_MAD_variables = ["data_directory", "valid_file_types", "wrist_accelera
 
 ecg_validation_comparison_variables = ["ecg_classification_values_directory", "ecg_classification_file_types", 
     "check_ecg_validation_strictness", "additions_results_path", "file_name_dictionary_key", 
-    "valid_ecg_regions_dictionary_key", "ecg_validation_comparison_dictionary_key"]
+    "valid_ecg_regions_dictionary_key", "ecg_validation_comparison_dictionary_key",
+    "ecg_classification_valid_intervals_dictionary_key"]
 
 ecg_validation_comparison_report_variables = ["ecg_validation_comparison_report_path", 
     "ecg_validation_comparison_report_dezimal_places", "check_ecg_validation_strictness",
@@ -301,7 +297,8 @@ read_rpeak_classification_variables = ["data_directory", "valid_file_types", "rp
 
 rpeak_detection_comparison_variables = ["data_directory", "ecg_keys", "rpeak_distance_threshold_seconds", 
     "additions_results_path", "file_name_dictionary_key", "valid_ecg_regions_dictionary_key",
-    "rpeak_comparison_function_names", "rpeak_comparison_dictionary_key"]
+    "rpeak_comparison_function_names", "rpeak_comparison_dictionary_key",
+    "ecg_classification_valid_intervals_dictionary_key"]
 
 rpeak_detection_comparison_report_variables = ["rpeak_comparison_report_dezimal_places", 
     "rpeak_comparison_report_path", "additions_results_path", "file_name_dictionary_key",
@@ -368,40 +365,38 @@ def additional_section(run_section: bool):
     # set path to pickle file that saves the results from the additions
     parameters["preparation_results_path"] = ADDITIONS_RESULTS_PATH
     
-    # perform ecg validation if needed
-    if parameters["perform_rpeak_comparison"] or parameters["perform_ecg_validation_comparison"]:
+    # perform ecg validation
 
-        # create arguments for the valid ecg regions evaluation and calculate them
-        determine_ecg_region_args = create_sub_dict(parameters, determine_ecg_region_variables)
+    # create arguments for the valid ecg regions evaluation and calculate them
+    determine_ecg_region_args = create_sub_dict(parameters, determine_ecg_region_variables)
 
-        check_data.determine_valid_ecg_regions(**determine_ecg_region_args)
-        del determine_ecg_region_args
+    check_data.determine_valid_ecg_regions(**determine_ecg_region_args)
+    del determine_ecg_region_args
 
-        # create arguments for choosing the valid ecg regions for further computation
-        choose_valid_ecg_regions_for_further_computation_args = create_sub_dict(parameters, choose_valid_ecg_regions_for_further_computation_variables)
-        check_data.choose_valid_ecg_regions_for_further_computation(**choose_valid_ecg_regions_for_further_computation_args)
+    # create arguments for choosing the valid ecg regions for further computation
+    choose_valid_ecg_regions_for_further_computation_args = create_sub_dict(parameters, choose_valid_ecg_regions_for_further_computation_variables)
+    check_data.choose_valid_ecg_regions_for_further_computation(**choose_valid_ecg_regions_for_further_computation_args)
 
-        del choose_valid_ecg_regions_for_further_computation_args
+    del choose_valid_ecg_regions_for_further_computation_args
     
     """
     --------------------------------
     COMPARE ECG VALIDATIONS
     --------------------------------
     """
-    # compare ECG validations if user requested it
-    if parameters["perform_ecg_validation_comparison"]:
-        # create directory to save comparison results if it does not exist
-        if not os.path.isdir(ECG_VALIDATION_COMPARISON_DIRECTORY):
-            os.mkdir(ECG_VALIDATION_COMPARISON_DIRECTORY)
 
-        # create arguments for the ECG validation comparison and perform it
-        ecg_validation_comparison_args = create_sub_dict(parameters, ecg_validation_comparison_variables)
-        check_data.ecg_validation_comparison(**ecg_validation_comparison_args)
-        del ecg_validation_comparison_args
+    # create directory to save comparison results if it does not exist
+    if not os.path.isdir(ECG_VALIDATION_COMPARISON_DIRECTORY):
+        os.mkdir(ECG_VALIDATION_COMPARISON_DIRECTORY)
 
-        # create arguments for printing the ECG validation comparison report
-        ecg_validation_report_args = create_sub_dict(parameters, ecg_validation_comparison_report_variables)
-        check_data.ecg_validation_comparison_report(**ecg_validation_report_args)
+    # create arguments for the ECG validation comparison and perform it
+    ecg_validation_comparison_args = create_sub_dict(parameters, ecg_validation_comparison_variables)
+    check_data.ecg_validation_comparison(**ecg_validation_comparison_args)
+    del ecg_validation_comparison_args
+
+    # create arguments for printing the ECG validation comparison report
+    ecg_validation_report_args = create_sub_dict(parameters, ecg_validation_comparison_report_variables)
+    check_data.ecg_validation_comparison_report(**ecg_validation_report_args)
     
     """
     --------------------------------
@@ -409,43 +404,48 @@ def additional_section(run_section: bool):
     --------------------------------
     """
 
-    # compare the r-peak detection functions if user requested it
-    if parameters["perform_rpeak_comparison"]:
-        # create directory to save comparison results if it does not exist
-        if not os.path.isdir(RPEAK_COMPARISON_DIRECTORY):
-            os.mkdir(RPEAK_COMPARISON_DIRECTORY)
+    # create directory to save comparison results if it does not exist
+    if not os.path.isdir(RPEAK_COMPARISON_DIRECTORY):
+        os.mkdir(RPEAK_COMPARISON_DIRECTORY)
 
-        # create arguments for the r-peak detection and correction
-        detect_rpeaks_args = create_sub_dict(parameters, detect_rpeaks_variables)
-        correct_rpeaks_args = create_sub_dict(parameters, correct_rpeaks_variables)
+    # create arguments for the r-peak detection and correction
+    detect_rpeaks_args = create_sub_dict(parameters, detect_rpeaks_variables)
+    correct_rpeaks_args = create_sub_dict(parameters, correct_rpeaks_variables)
 
-        # detect and correct r-peaks in the valid regions of the ECG data
-        classification_index_offset = 0
-        for i in range(len(parameters["rpeak_comparison_functions"])):
-            classification_index_offset += 1
-            detect_rpeaks_args["rpeak_function"] = parameters["rpeak_comparison_functions"][i]
-            detect_rpeaks_args["rpeak_function_name"] = parameters["rpeak_comparison_function_names"][i]
-            rpeak_detection.detect_rpeaks(**detect_rpeaks_args)
+    # detect and correct r-peaks in the valid regions of the ECG data
+    classification_index_offset = 0
+    for i in range(len(parameters["rpeak_comparison_functions"])):
+        classification_index_offset += 1
+        detect_rpeaks_args["rpeak_function"] = parameters["rpeak_comparison_functions"][i]
+        detect_rpeaks_args["rpeak_function_name"] = parameters["rpeak_comparison_function_names"][i]
+        rpeak_detection.detect_rpeaks(**detect_rpeaks_args)
 
-            correct_rpeaks_args["rpeak_function_name"] = parameters["rpeak_comparison_function_names"][i]
-            rpeak_detection.correct_rpeak_locations(**correct_rpeaks_args)
+        correct_rpeaks_args["rpeak_function_name"] = parameters["rpeak_comparison_function_names"][i]
+        rpeak_detection.correct_rpeak_locations(**correct_rpeaks_args)
 
-        del detect_rpeaks_args, correct_rpeaks_args
+    del detect_rpeaks_args, correct_rpeaks_args
 
-        # read r-peaks from the classification files if they are needed
+    # create arguments for the r-peak comparison
+    rpeak_detection_comparison_args = create_sub_dict(parameters, rpeak_detection_comparison_variables)
+
+    # read r-peaks from the classification files if they are needed
+    if parameters["include_rpeak_values_from_classifications"]:
         read_rpeak_classification_args = create_sub_dict(parameters, read_rpeak_classification_variables)
         read_rpeak_classification_args["rpeak_classification_dictionary_key"] = parameters["rpeak_comparison_function_names"][classification_index_offset]
         rpeak_detection.read_rpeaks_from_rri_files(**read_rpeak_classification_args)
         del read_rpeak_classification_args
 
-        # create arguments for the r-peak comparison evaluation and perform it
-        rpeak_detection_comparison_args = create_sub_dict(parameters, rpeak_detection_comparison_variables)
-        rpeak_detection.rpeak_detection_comparison(**rpeak_detection_comparison_args)
-        del rpeak_detection_comparison_args
+        rpeak_detection_comparison_args["remove_peaks_outside_ecg_classification"] = True
+    else:
+        rpeak_detection_comparison_args["remove_peaks_outside_ecg_classification"] = False
 
-        # create arguments for printing the r-peak comparison report and print it
-        rpeak_comparison_report_args = create_sub_dict(parameters, rpeak_detection_comparison_report_variables)
-        rpeak_detection.rpeak_detection_comparison_report(**rpeak_comparison_report_args)
+    # perform r-peak comparison evaluation
+    rpeak_detection.rpeak_detection_comparison(**rpeak_detection_comparison_args)
+    del rpeak_detection_comparison_args
+
+    # create arguments for printing the r-peak comparison report and print it
+    rpeak_comparison_report_args = create_sub_dict(parameters, rpeak_detection_comparison_report_variables)
+    rpeak_detection.rpeak_detection_comparison_report(**rpeak_comparison_report_args)
     
     # terminate the script after the ADDITIONALS SECTION
     raise SystemExit("\nIt is not intended to run the ADDTIONAL SECTION and afterwards the MAIN project. Therefore, the script will be TERMINATED. If you want to execute the MAIN project, please set the 'run_additionals_section' parameter to False in the settings section of the script\n")
@@ -495,15 +495,14 @@ def preparation_section(run_section: bool):
         """
 
         # evaluate valid regions for the ECG data
-        if parameters["determine_valid_ecg_regions"]:
-            determine_ecg_region_args = create_sub_dict(parameters, determine_ecg_region_variables)
-            check_data.determine_valid_ecg_regions(**determine_ecg_region_args)
-            del determine_ecg_region_args
+        determine_ecg_region_args = create_sub_dict(parameters, determine_ecg_region_variables)
+        check_data.determine_valid_ecg_regions(**determine_ecg_region_args)
+        del determine_ecg_region_args
 
-            # create arguments for choosing the valid ecg regions for further computation
-            choose_valid_ecg_regions_for_further_computation_args = create_sub_dict(parameters, choose_valid_ecg_regions_for_further_computation_variables)
-            check_data.choose_valid_ecg_regions_for_further_computation(**choose_valid_ecg_regions_for_further_computation_args)
-            del choose_valid_ecg_regions_for_further_computation_args
+        # create arguments for choosing the valid ecg regions for further computation
+        choose_valid_ecg_regions_for_further_computation_args = create_sub_dict(parameters, choose_valid_ecg_regions_for_further_computation_variables)
+        check_data.choose_valid_ecg_regions_for_further_computation(**choose_valid_ecg_regions_for_further_computation_args)
+        del choose_valid_ecg_regions_for_further_computation_args
     
         """
         --------------------------------
@@ -511,26 +510,24 @@ def preparation_section(run_section: bool):
         --------------------------------
         """
 
-        # detect r-peaks in the valid regions of the ECG data
-        if parameters["detect_rpeaks"]:
-            # create arguments for the r-peak detection and correction
-            detect_rpeaks_args = create_sub_dict(parameters, detect_rpeaks_variables)
-            correct_rpeaks_args = create_sub_dict(parameters, correct_rpeaks_variables)
+        # create arguments for the r-peak detection and correction
+        detect_rpeaks_args = create_sub_dict(parameters, detect_rpeaks_variables)
+        correct_rpeaks_args = create_sub_dict(parameters, correct_rpeaks_variables)
 
-            # detect and correct r-peaks in the valid regions of the ECG data
-            for i in range(len(parameters["rpeak_functions"])):
-                detect_rpeaks_args["rpeak_function"] = parameters["rpeak_functions"][i]
-                detect_rpeaks_args["rpeak_function_name"] = parameters["rpeak_function_names"][i]
-                rpeak_detection.detect_rpeaks(**detect_rpeaks_args)
+        # detect and correct r-peaks in the valid regions of the ECG data
+        for i in range(len(parameters["rpeak_functions"])):
+            detect_rpeaks_args["rpeak_function"] = parameters["rpeak_functions"][i]
+            detect_rpeaks_args["rpeak_function_name"] = parameters["rpeak_function_names"][i]
+            rpeak_detection.detect_rpeaks(**detect_rpeaks_args)
 
-                correct_rpeaks_args["rpeak_function_name"] = parameters["rpeak_function_names"][i]
-                rpeak_detection.correct_rpeak_locations(**correct_rpeaks_args)
+            correct_rpeaks_args["rpeak_function_name"] = parameters["rpeak_function_names"][i]
+            rpeak_detection.correct_rpeak_locations(**correct_rpeaks_args)
 
-            # combine the detected r-peaks into certain and uncertain r-peaks
-            # combine_detected_rpeaks_args = create_sub_dict(parameters, combine_detected_rpeaks_variables)
-            # rpeak_detection.combine_detected_rpeaks(**combine_detected_rpeaks_args)
+        # combine the detected r-peaks into certain and uncertain r-peaks
+        # combine_detected_rpeaks_args = create_sub_dict(parameters, combine_detected_rpeaks_variables)
+        # rpeak_detection.combine_detected_rpeaks(**combine_detected_rpeaks_args)
 
-            del detect_rpeaks_args, correct_rpeaks_args, # combine_detected_rpeaks_args
+        del detect_rpeaks_args, correct_rpeaks_args, # combine_detected_rpeaks_args
     
         """
         --------------------------------
@@ -539,10 +536,9 @@ def preparation_section(run_section: bool):
         """
 
         # calculate MAD in the wrist acceleration data
-        if parameters["calculate_MAD"]:
-            calculate_MAD_args = create_sub_dict(parameters, calculate_MAD_variables)
-            MAD.calculate_MAD_in_acceleration_data(**calculate_MAD_args)
-            del calculate_MAD_args
+        calculate_MAD_args = create_sub_dict(parameters, calculate_MAD_variables)
+        MAD.calculate_MAD_in_acceleration_data(**calculate_MAD_args)
+        del calculate_MAD_args
 
 
 """

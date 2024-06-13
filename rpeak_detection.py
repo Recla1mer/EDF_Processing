@@ -1291,7 +1291,9 @@ def rpeak_detection_comparison(
         file_name_dictionary_key: str,
         valid_ecg_regions_dictionary_key: str,
         rpeak_comparison_function_names: list,
-        rpeak_comparison_dictionary_key: str
+        ecg_classification_valid_intervals_dictionary_key: str,
+        rpeak_comparison_dictionary_key: str,
+        remove_peaks_outside_ecg_classification: bool,
     ):
     """
     Evaluate the comparison of the r-peak detection methods.
@@ -1312,8 +1314,13 @@ def rpeak_detection_comparison(
         dictionary key to access the valid ecg regions
     rpeak_comparison_function_names: list
         list of dictionary keys that access the differently detected r-peaks that should be compared
+    ecg_classification_valid_intervals_dictionary_key: str
+        dictionary key to access the valid intervals from the ECG classification
     rpeak_comparison_dictionary_key: str
         dictionary key to access the r-peak comparison values
+    remove_peaks_outside_ecg_classification: bool
+        if True, it means a comparison of pre determined peaks (from GIF) is performed
+        in this case, we also need to remove peaks that are outside of the valid intervals from the ECG classification
     
     RETURNS:
     --------------------------------
@@ -1372,10 +1379,11 @@ def rpeak_detection_comparison(
         progressed_files += 1
 
         try:
-
             # get file name
             file_name = generator_entry[file_name_dictionary_key]
             valid_ecg_regions = generator_entry[valid_ecg_regions_dictionary_key]
+            if remove_peaks_outside_ecg_classification:
+                valid_ecg_regions_from_classification = generator_entry[ecg_classification_valid_intervals_dictionary_key]
 
             # create list to store the r-peak comparison values for all detection methods as list
             this_file_rpeak_comparison = []
@@ -1402,27 +1410,46 @@ def rpeak_detection_comparison(
                     remove_rpeak_positions = []
                     number_first_rpeaks = 0
                     for rpeak_position in range(len(first_rpeaks_original)):
+                        if remove_peaks_outside_ecg_classification:
+                            no_match_class = True
+                            for valid_class_region in valid_ecg_regions_from_classification:
+                                if valid_class_region[0] <= first_rpeaks_original[rpeak_position] <= valid_class_region[1]:
+                                    no_match_class = False
+                                    break
+                        else:
+                            no_match_class = False
                         no_match = True
                         for valid_region in valid_ecg_regions:
                             if valid_region[0] <= first_rpeaks_original[rpeak_position] <= valid_region[1]:
-                                number_first_rpeaks += 1
                                 no_match = False
                                 break
-                        if no_match:
+                        if no_match or no_match_class:
                             remove_rpeak_positions.append(rpeak_position)
+                        else:
+                            number_first_rpeaks += 1
+
                     first_rpeaks = np.delete(first_rpeaks_original, remove_rpeak_positions)
 
                     remove_rpeak_positions = []
                     number_second_rpeaks = 0
                     for rpeak_position in range(len(second_rpeaks_original)):
+                        if remove_peaks_outside_ecg_classification:
+                            no_match_class = True
+                            for valid_class_region in valid_ecg_regions_from_classification:
+                                if valid_class_region[0] <= second_rpeaks_original[rpeak_position] <= valid_class_region[1]:
+                                    no_match_class = False
+                                    break
+                        else:
+                            no_match_class = False
                         no_match = True
                         for valid_region in valid_ecg_regions:
                             if valid_region[0] <= second_rpeaks_original[rpeak_position] <= valid_region[1]:
-                                number_second_rpeaks += 1
                                 no_match = False
                                 break
-                        if no_match:
+                        if no_match or no_match_class:
                             remove_rpeak_positions.append(rpeak_position)
+                        else:
+                            number_second_rpeaks += 1
                     second_rpeaks = np.delete(second_rpeaks_original, remove_rpeak_positions)
 
                     # calculate the r-peak comparison values
@@ -1457,6 +1484,7 @@ def rpeak_detection_comparison(
         print(unprocessable_files)
         print("Possible reasons:")
         print(" "*5 + "- R-peak values of one ore more methods are missing in the results")
+        print(" "*5 + "- No valid ECG regions obtained from the classification are available for the file")
         print(" "*5 + "- Error occured during comparing the r-peaks")
 
 
