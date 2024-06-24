@@ -605,6 +605,20 @@ def determine_valid_ecg_regions(
             ...
     See check_ecg() for the format of the valid_regions.
     """
+
+    # path to pickle file which will store results
+    temporary_file_path = get_path_without_filename(preparation_results_path) + "computation_in_progress.pkl"
+
+    # if the temporary file already exists, it means a previous computation was interrupted
+    # ask the user if the results should be overwritten or recovered
+    if os.path.isfile(temporary_file_path):
+        recover_results_after_error(
+            all_results_path = preparation_results_path, 
+            some_results_with_updated_keys_path = temporary_file_path, 
+            file_name_dictionary_key = file_name_dictionary_key,
+        )
+    
+    # check if the dictionary key for the valid ecg regions already exists
     remove_key = valid_ecg_regions_dictionary_key
     additionally_remove_keys = []
     if os.path.isfile(preparation_results_path):
@@ -635,11 +649,6 @@ def determine_valid_ecg_regions(
         additionally_remove_entries = additionally_remove_keys
         )
     
-    # path to pickle file which will store results
-    temporary_file_path = get_path_without_filename(preparation_results_path) + "computation_in_progress.pkl"
-    if os.path.isfile(temporary_file_path):
-        os.remove(temporary_file_path)
-
     # create list to store files that could not be processed
     unprocessable_files = []
 
@@ -829,8 +838,15 @@ def choose_valid_ecg_regions_for_further_computation(
 
     # path to pickle file which will store results
     temporary_file_path = get_path_without_filename(preparation_results_path) + "computation_in_progress.pkl"
+    
+    # if the temporary file already exists, it means a previous computation was interrupted
+    # ask the user if the results should be overwritten or recovered
     if os.path.isfile(temporary_file_path):
-        os.remove(temporary_file_path)
+        recover_results_after_error(
+            all_results_path = preparation_results_path, 
+            some_results_with_updated_keys_path = temporary_file_path, 
+            file_name_dictionary_key = file_name_dictionary_key,
+        )
     
     # load existing results
     preparation_results_generator = load_from_pickle(preparation_results_path)
@@ -1206,6 +1222,18 @@ def ecg_validation_comparison(
             ...
     """
     
+    # path to pickle file which will store results
+    temporary_file_path = get_path_without_filename(additions_results_path) + "computation_in_progress.pkl"
+    
+    # if the temporary file already exists, it means a previous computation was interrupted
+    # ask the user if the results should be overwritten or recovered
+    if os.path.isfile(temporary_file_path):
+        recover_results_after_error(
+            all_results_path = additions_results_path, 
+            some_results_with_updated_keys_path = temporary_file_path, 
+            file_name_dictionary_key = file_name_dictionary_key,
+        )
+    
     # check if the evaluation already exists and if yes: ask for permission to override
     user_answer = ask_for_permission_to_override_dictionary_entry(
         file_path = additions_results_path,
@@ -1224,11 +1252,6 @@ def ecg_validation_comparison(
     # get all ECG classification files
     all_classification_files = os.listdir(ecg_classification_values_directory)
     valid_classification_files = [file for file in all_classification_files if get_file_type(file) in ecg_classification_file_types]
-
-    # path to pickle file which will store results
-    temporary_file_path = get_path_without_filename(additions_results_path) + "computation_in_progress.pkl"
-    if os.path.isfile(temporary_file_path):
-        os.remove(temporary_file_path)
 
     # create variables to track progress
     start_time = time.time()

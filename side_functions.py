@@ -716,3 +716,76 @@ def manually_remove_file_from_results(file_name: str, results_path: str, file_na
     if os.path.isfile(temporary_file_path):
         os.remove(results_path)
         os.rename(temporary_file_path, results_path)
+
+
+def recover_results_after_error(
+        all_results_path: str, 
+        some_results_with_updated_keys_path: str, 
+        file_name_dictionary_key: str
+    ):
+    """
+    If the program crashes during the calculation (or which is more likely: the computer gets
+    disconnected from power), the results are stored in a temporary file, but will be lost if
+    the program is restarted. This function recovers the results from the temporary file and 
+    stores them in the results file, if the user wants to do so.
+
+    ARGUMENTS:
+    --------------------------------
+    all_results_path: str
+        path to the results file that stores all results
+    some_results_with_updated_keys_path: str
+        path to the temporary file that stores some of the results with additional keys
+    file_name_dictionary_key: str
+        key of the dictionary containing the file name
+    
+    RETURNS:
+    --------------------------------
+    None, but the results file is recovered
+    """
+    while True:
+        user_answer = input("\nIt seems like there are results left from a previous computation which was interrupted. Do you want to recover the results? Otherwise they will be discarded. (y/n)")
+        if user_answer == "y":
+            break
+        elif user_answer == "n":
+            return
+        else:
+            print("\nAnswer not recognized. Please answer with 'y' or 'n'.")
+    
+    if user_answer == "n":
+        os.remove(some_results_with_updated_keys_path)
+        return
+
+    if user_answer == "y":
+
+        # path to temporary pickle file which will store results
+        temporary_file_path = get_path_without_filename(all_results_path) + "recover_in_progress.pkl"
+        if os.path.isfile(temporary_file_path):
+            os.remove(temporary_file_path)
+
+        # list to store file names that are included in the file that stores some of the results
+        file_names_in_some_results = []
+        
+        # load pickle file which stores some of the results with additional keys
+        some_results_generator = load_from_pickle(some_results_with_updated_keys_path)
+        for generator_entry in some_results_generator:
+            try:
+                file_names_in_some_results.append(generator_entry[file_name_dictionary_key])
+                append_to_pickle(generator_entry, temporary_file_path)
+            except:
+                continue
+        
+        # load all existing results
+        all_results_generator = load_from_pickle(all_results_path)
+        for generator_entry in all_results_generator:
+            try:
+                if generator_entry[file_name_dictionary_key] in file_names_in_some_results:
+                    continue
+            except:
+                continue
+            append_to_pickle(generator_entry, temporary_file_path)
+        
+        # rename the file that stores the calculated data
+        if os.path.isfile(temporary_file_path):
+            os.remove(some_results_with_updated_keys_path)
+            os.remove(all_results_path)
+            os.rename(temporary_file_path, all_results_path)

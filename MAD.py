@@ -180,17 +180,24 @@ def calculate_MAD_in_acceleration_data(
         }
         ...
     """
+    
+    # path to pickle file which will store results
+    temporary_file_path = get_path_without_filename(preparation_results_path) + "computation_in_progress.pkl"
+
+    # if the temporary file already exists, it means a previous computation was interrupted
+    # ask the user if the results should be overwritten or recovered
+    if os.path.isfile(temporary_file_path):
+        recover_results_after_error(
+            all_results_path = preparation_results_path, 
+            some_results_with_updated_keys_path = temporary_file_path, 
+            file_name_dictionary_key = file_name_dictionary_key,
+        )
 
     # check if MAD values already exist and if yes ask for permission to override
     user_answer = ask_for_permission_to_override_dictionary_entry(
         file_path = preparation_results_path,
         dictionary_entry = MAD_dictionary_key
     )
-    
-    # path to pickle file which will store results
-    temporary_file_path = get_path_without_filename(preparation_results_path) + "computation_in_progress.pkl"
-    if os.path.isfile(temporary_file_path):
-        os.remove(temporary_file_path)
     
     # create list to store unprocessable files
     unprocessable_files = []
