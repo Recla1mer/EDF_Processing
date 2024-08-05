@@ -430,9 +430,9 @@ def detect_rpeaks(
 
     # print unprocessable files
     if len(unprocessable_files) > 0:
-        print("\nFor the following " + str(len(unprocessable_files)) + " files the r-peaks could not be detected (decreasing probability):")
+        print("\nFor the following " + str(len(unprocessable_files)) + " files the r-peaks could not be detected:")
         print(unprocessable_files)
-        print("Possible reasons:")
+        print("Possible reasons (decreasing probability):")
         print(" "*5 + "- Dictionary keys that access the file name and/or valid ecg regions do not exist in the results. Check keys in file or recalculate them.")
         print(" "*5 + "- Error occured during r-peak detection")
         print(" "*5 + "- .edf file contains format errors")
@@ -582,9 +582,9 @@ def correct_rpeak_locations(
 
     # print unprocessable files
     if len(unprocessable_files) > 0:
-        print("\nFor the following " + str(len(unprocessable_files)) + " files the r-peaks could not be corrected (decreasing probability):")
+        print("\nFor the following " + str(len(unprocessable_files)) + " files the r-peaks could not be corrected:")
         print(unprocessable_files)
-        print("Possible reasons:")
+        print("Possible reasons (decreasing probability):")
         print(" "*5 + "- Dictionary keys that access the file name and/or r-peaks do not exist in the results. Check keys in file or recalculate them.")
         print(" "*5 + "- Error occured during r-peak correction, most likely due to empty ecg signal")
         print(" "*5 + "- .edf file contains format errors")
@@ -1304,9 +1304,9 @@ def read_rpeaks_from_rri_files(
 
     # print unprocessable files 
     if len(unprocessable_files) > 0:
-        print("\nFor the following " + str(len(unprocessable_files)) + " files the r-peaks could not be read (decreasing probability):")
+        print("\nFor the following " + str(len(unprocessable_files)) + " files the r-peaks could not be read:")
         print(unprocessable_files)
-        print("Possible reasons:")
+        print("Possible reasons (decreasing probability):")
         print(" "*5 + "- Corresponding classification file to these files not found")
         print(" "*5 + "- Error occured during reading r-peaks from classification file")
 
@@ -1515,9 +1515,9 @@ def rpeak_detection_comparison(
 
     # print unprocessable files 
     if len(unprocessable_files) > 0:
-        print("\nFor the following " + str(len(unprocessable_files)) + " files the r-peaks could not be compared (decreasing probability):")
+        print("\nFor the following " + str(len(unprocessable_files)) + " files the r-peaks could not be compared:")
         print(unprocessable_files)
-        print("Possible reasons:")
+        print("Possible reasons (decreasing probability):")
         print(" "*5 + "- R-peak values of one ore more methods are missing in the results")
         print(" "*5 + "- No valid ECG regions obtained from the classification are available for the file")
         print(" "*5 + "- Error occured during comparing the r-peaks")

@@ -1,0 +1,32 @@
+name: master
+channels:
+  - pytorch
+  - conda-forge
+dependencies:
+  - h5py=3.11.0=nompi_py312h903599c_101
+  - ipykernel=6.29.4=pyh57ce528_0
+  - ipython=8.25.0=pyh707e725_0
+  - jupyter_client=8.6.2=pyhd8ed1ab_0
+  - jupyter_core=5.7.2=py312h81bd7bf_0
+  - matplotlib-base=3.8.4=py312h4479663_2
+  - matplotlib-inline=0.1.7=pyhd8ed1ab_0
+  - neurokit2=0.2.9=pyhecae5ae_0
+  - numba=0.59.1=py312hbaff935_0
+  - numpy=1.26.4=py312h8442bc7_0
+  - pandas=2.2.2=py312h8ae5369_1
+  - pickleshare=0.7.5=py_1003
+  - pip=24.0=pyhd8ed1ab_0
+  - pyedflib=0.1.37=py312hbebd99a_2
+  - python=3.12.3=h4a7b5fc_0_cpython
+  - pytorch=2.3.1=cpu_generic_py312h2aa0b4f_0
+  - scikit-learn=1.5.0=py312h1b546db_1
+  - scipy=1.13.1=py312h14ffa8f_0
+  - seaborn=0.13.2=hd8ed1ab_2
+  - torchvision=0.18.1=py312_cpu
+  - wfdb=4.1.2=pyhd8ed1ab_0
+  - pip:
+      - biosppy==2.2.2
+      - bitsandbobs==0.0.1
+      - py-ecg-detectors==1.3.5
+      - pywavelets==1.6.0
+prefix: /Users/propeter/mambaforge/envs/master

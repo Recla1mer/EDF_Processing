@@ -751,17 +751,16 @@ def recover_results_after_error(
         else:
             print("\nAnswer not recognized. Please answer with 'y' or 'n'.")
     
+    # path to temporary pickle file which will store results
+    temporary_file_path = get_path_without_filename(all_results_path) + "recover_in_progress.pkl"
+    if os.path.isfile(temporary_file_path):
+        os.remove(temporary_file_path)
+    
     if user_answer == "n":
         os.remove(some_results_with_updated_keys_path)
         return
 
     if user_answer == "y":
-
-        # path to temporary pickle file which will store results
-        temporary_file_path = get_path_without_filename(all_results_path) + "recover_in_progress.pkl"
-        if os.path.isfile(temporary_file_path):
-            os.remove(temporary_file_path)
-
         # list to store file names that are included in the file that stores some of the results
         file_names_in_some_results = []
         
@@ -775,17 +774,19 @@ def recover_results_after_error(
                 continue
         
         # load all existing results
-        all_results_generator = load_from_pickle(all_results_path)
-        for generator_entry in all_results_generator:
-            try:
-                if generator_entry[file_name_dictionary_key] in file_names_in_some_results:
+        if os.path.isfile(all_results_path):
+            all_results_generator = load_from_pickle(all_results_path)
+            for generator_entry in all_results_generator:
+                try:
+                    if generator_entry[file_name_dictionary_key] in file_names_in_some_results:
+                        continue
+                except:
                     continue
-            except:
-                continue
-            append_to_pickle(generator_entry, temporary_file_path)
+                append_to_pickle(generator_entry, temporary_file_path)
         
         # rename the file that stores the calculated data
         if os.path.isfile(temporary_file_path):
             os.remove(some_results_with_updated_keys_path)
-            os.remove(all_results_path)
+            if os.path.isfile(all_results_path):
+                os.remove(all_results_path)
             os.rename(temporary_file_path, all_results_path)

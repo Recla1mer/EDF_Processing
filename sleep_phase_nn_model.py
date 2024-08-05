@@ -23,13 +23,13 @@ class EDF_Dataset(Dataset):
 
 # CREATE NETWORK
 class NeuralNetwork(nn.Module):
-    def __init__(self, input_size, num_classes):
+    def __init__(self, input_dim, output_dim):
         super(NeuralNetwork, self).__init__()
         self.flatten = nn.Flatten()
         self.linear_relu_stack = nn.Sequential(
-            nn.Linear(input_size, 64),
+            nn.Linear(input_dim, 64),
             nn.ReLU(),
-            nn.Linear(64, num_classes)
+            nn.Linear(64, output_dim)
         )
 
     def forward(self, x):
@@ -111,3 +111,48 @@ def test_loop(dataloader, model, loss_fn):
     test_loss /= num_batches
     correct /= size
     print(f"Test Error: \n Accuracy: {(100*correct):>0.1f}%, Avg loss: {test_loss:>8f} \n")
+
+
+"""
+CoPilot:
+"""
+
+# import torch
+# import torch.nn as nn
+# import torch.optim as optim
+# from torch.utils.data import DataLoader, TensorDataset
+
+# class SleepStageNet(nn.Module):
+#     def __init__(self):
+#         super(SleepStageNet, self).__init__()
+#         self.fc1 = nn.Linear(2, 64)  # Assuming 2 features: heart rate and wrist acceleration
+#         self.fc2 = nn.Linear(64, 128)
+#         self.fc3 = nn.Linear(128, 5)  # Assuming 5 sleep stages as output
+
+#     def forward(self, x):
+#         x = torch.relu(self.fc1(x))
+#         x = torch.relu(self.fc2(x))
+#         x = self.fc3(x)  # No activation here, assuming use of CrossEntropyLoss which includes Softmax
+#         return x
+
+# # Assuming `features` and `labels` are your data tensors
+# # features.shape = [n_samples, 2], labels.shape = [n_samples]
+# dataset = TensorDataset(features, labels)
+# dataloader = DataLoader(dataset, batch_size=32, shuffle=True)
+
+# model = SleepStageNet()
+# criterion = nn.CrossEntropyLoss()
+# optimizer = optim.Adam(model.parameters(), lr=0.001)
+
+# # Training loop
+# for epoch in range(num_epochs):
+#     for inputs, targets in dataloader:
+#         optimizer.zero_grad()
+#         outputs = model(inputs)
+#         loss = criterion(outputs, targets)
+#         loss.backward()
+#         optimizer.step()
+
+#     print(f'Epoch {epoch+1}, Loss: {loss.item()}')
+
+# # Prediction and 10-hour recheck logic to be implemented as needed

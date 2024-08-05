@@ -796,9 +796,9 @@ def determine_valid_ecg_regions(
 
     # print the files that could not be processed
     if len(unprocessable_files) > 0:
-        print("\nThe following " + str(len(unprocessable_files)) + " files could not be processed for ECG Validation (decreasing probability):")
+        print("\nThe following " + str(len(unprocessable_files)) + " files could not be processed for ECG Validation:")
         print(unprocessable_files)
-        print("Possible reasons:")
+        print("Possible reasons (decreasing probability):")
         print(" "*5 + "- .edf file contains format errors")
         print(" "*5 + "- No matching label in ecg_keys and the files")
         print(" "*5 + "- Physical dimension of label is unknown")
@@ -1329,9 +1329,9 @@ def ecg_validation_comparison(
 
     # print the files that could not be processed
     if len(unprocessable_files) > 0:
-        print("\nThe following " + str(len(unprocessable_files)) + " files could not be processed for ECG Validation Comparison (decreasing probability):")
+        print("\nThe following " + str(len(unprocessable_files)) + " files could not be processed for ECG Validation Comparison:")
         print(unprocessable_files)
-        print("Possible reasons:")
+        print("Possible reasons (decreasing probability):")
         print(" "*5 + "- No corresponding classification file was found")
         print(" "*5 + "- Error during calculating the comparison values")
         print(" "*5 + "- Error during transforming the classification to intervals")
