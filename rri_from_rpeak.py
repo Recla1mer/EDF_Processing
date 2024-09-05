@@ -30,17 +30,21 @@ def calculate_rri_from_peaks(
     """
 
     number_rri_entries = int(signal_length / ecg_sampling_frequency * target_sampling_frequency)
+    print(number_rri_entries)
 
     rpeaks = np.array(rpeaks) # type: ignore
     rpeak_position_seconds = rpeaks / ecg_sampling_frequency # type: ignore
 
     rri = []
+    start_looking_at = 1
 
     for i in range(number_rri_entries):
         rri_datapoint_second = i / target_sampling_frequency
 
         this_rri = 0
-        for j in range(1, len(rpeak_position_seconds)):
+        for j in range(start_looking_at, len(rpeak_position_seconds)):
+            print(i, j)
+            start_looking_at = j
             if rpeak_position_seconds[j-1] <= rri_datapoint_second and rri_datapoint_second <= rpeak_position_seconds[j]:
                 this_rri = rpeak_position_seconds[j] - rpeak_position_seconds[j-1]
                 break
@@ -52,26 +56,18 @@ def calculate_rri_from_peaks(
     return rri
 
 
-def get_rri_from_peaks(
+def determine_rri_from_rpeaks(
         data_directory: str,
         ecg_keys: list,
         physical_dimension_correction_dictionary: dict,
         rpeak_function_name: str,
         rri_sampling_frequency: int,
-        preparation_results_path: str,
+        results_path: str,
         file_name_dictionary_key: str,
         rri_dictionary_key: str,
     ):
     """
-    Detected r-peaks can be corrected using the wfdb library. This is useful if the
-    detected r-peaks are shifted by a few samples. It also makes the comparison of
-    different r-peak detection methods easier.
-
-    (The peak direction depends on how the heart beats in direction to the electrodes.
-    Therefore it can be different for different data sets, but is always the same within
-    on set of data.) 
-
-    Therefore we let the library decide on the direction of the peaks.
+    Calculate the RR-intervals from the detected r-peaks and save them to a pickle file.
 
     ARGUMENTS:
     --------------------------------
@@ -85,7 +81,7 @@ def get_rri_from_peaks(
         name of the r-peak detection function
     rri_sampling_frequency: int
         target sampling frequency of the RR-intervals
-    preparation_results_path: str
+    results_path: str
         path to the pickle file where the valid regions are saved
     file_name_dictionary_key
         dictionary key to access the file name
@@ -104,20 +100,20 @@ def get_rri_from_peaks(
     """
     
     # path to pickle file which will store results
-    temporary_file_path = get_path_without_filename(preparation_results_path) + "computation_in_progress.pkl"
+    temporary_file_path = get_path_without_filename(results_path) + "computation_in_progress.pkl"
 
     # if the temporary file already exists, it means a previous computation was interrupted
     # ask the user if the results should be overwritten or recovered
     if os.path.isfile(temporary_file_path):
         recover_results_after_error(
-            all_results_path = preparation_results_path, 
+            all_results_path = results_path, 
             some_results_with_updated_keys_path = temporary_file_path, 
             file_name_dictionary_key = file_name_dictionary_key,
         )
     
     # check if correction of r-peaks already exist and if yes: ask for permission to override
     user_answer = ask_for_permission_to_override_dictionary_entry(
-        file_path = preparation_results_path,
+        file_path = results_path,
         dictionary_entry = rri_dictionary_key
     )
 
@@ -130,11 +126,11 @@ def get_rri_from_peaks(
     unprocessable_files = []
 
     # load preparation results
-    preparation_results_generator = load_from_pickle(preparation_results_path)
+    preparation_results_generator = load_from_pickle(results_path)
     
     # create variables to track progress
     start_time = time.time()
-    total_files = get_pickle_length(preparation_results_path, rri_dictionary_key)
+    total_files = get_pickle_length(results_path, rri_dictionary_key)
     progressed_files = 0
 
     if total_files > 0:
@@ -164,15 +160,18 @@ def get_rri_from_peaks(
 
             # get the r-peaks
             rpeaks = generator_entry[rpeak_function_name]
+            print("hey")
             rri = calculate_rri_from_peaks(
                 rpeaks = rpeaks,
                 ecg_sampling_frequency = ecg_sampling_frequency,
                 target_sampling_frequency = rri_sampling_frequency,
                 signal_length = len(ecg_signal)
             )
+            print("ho")
         
             # add the rri to the dictionary
             generator_entry[rri_dictionary_key] = rri
+            generator_entry[rri_dictionary_key + "_frequency"] = rri_sampling_frequency
 
         except:
             unprocessable_files.append(file_name)
@@ -183,8 +182,8 @@ def get_rri_from_peaks(
 
     # rename the file that stores the calculated data
     if os.path.isfile(temporary_file_path):
-        os.remove(preparation_results_path)
-        os.rename(temporary_file_path, preparation_results_path)
+        os.remove(results_path)
+        os.rename(temporary_file_path, results_path)
 
     # print unprocessable files
     if len(unprocessable_files) > 0:

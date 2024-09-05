@@ -383,7 +383,7 @@ def read_out_channel(
             
             append_to_pickle(generator_entry, temporary_file_path)
     
-    # calculate the valid regions for the remaining files
+    # read out channel for the remaining files
     for file_name in valid_files:
         # show progress
         progress_bar(progressed_files, total_files, start_time)

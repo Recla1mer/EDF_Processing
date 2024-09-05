@@ -16,6 +16,7 @@ import read_edf
 import MAD
 import rpeak_detection
 import check_data
+import rri_from_rpeak
 import plot_helper
 from side_functions import *
 
@@ -84,7 +85,7 @@ file_params = {
 # parameters for the PREPARATION SECTION
 # --------------------------------------
 
-preparation_results_dictionary_key_params = {
+results_dictionary_key_params = {
     "file_name_dictionary_key": "file_name", # key that accesses the file name in the dictionaries
     "valid_ecg_regions_dictionary_key": "valid_ecg_regions", # key that accesses the valid ecg regions in the dictionaries
     # dictionary key that accesses r-peaks of certain method: r-peak function name
@@ -92,6 +93,7 @@ preparation_results_dictionary_key_params = {
     "uncertain_primary_rpeaks_dictionary_key": "uncertain_primary_rpeaks", # key that accesses the uncertain primary r-peaks
     "uncertain_secondary_rpeaks_dictionary_key": "uncertain_secondary_rpeaks", # key that accesses the uncertain secondary r-peaks
     "MAD_dictionary_key": "MAD", # key that accesses the MAD values
+    "rri_dictionary_key": "rri", # key that accesses the RR-intervals
 }
 
 # parameters for the ECG Validation
@@ -124,7 +126,12 @@ correct_rpeaks_params = {
 
 # parameters for the MAD calculation
 calculate_MAD_params = {
-    "mad_time_period_seconds": 10, # time period in seconds over which the MAD will be calculated
+    "mad_time_period_seconds": 1, # time period in seconds over which the MAD will be calculated
+}
+
+# parameters for calculating the RRI from the r-peaks
+calculate_rri_from_peaks_params = {
+    "rri_sampling_frequency": 4, # target sampling frequency of the RR-intervals
 }
 
 only_gif_results_dictionary_key_params = {
@@ -157,11 +164,12 @@ del physical_dimension_correction_dictionary
 
 # add all parameters to the parameters dictionary, so we can access them later more easily
 parameters.update(file_params)
-parameters.update(preparation_results_dictionary_key_params)
+parameters.update(results_dictionary_key_params)
 parameters.update(valid_ecg_regions_params)
 parameters.update(detect_rpeaks_params)
 parameters.update(correct_rpeaks_params)
 parameters.update(calculate_MAD_params)
+parameters.update(calculate_rri_from_peaks_params)
 
 
 parameters.update(only_gif_results_dictionary_key_params)
@@ -169,7 +177,7 @@ parameters.update(ecg_validation_comparison_params)
 parameters.update(rpeak_comparison_params)
 
 # delete the dictionaries as they are saved in the parameters dictionary now
-del file_params, preparation_results_dictionary_key_params, valid_ecg_regions_params, detect_rpeaks_params, correct_rpeaks_params, calculate_MAD_params, only_gif_results_dictionary_key_params, ecg_validation_comparison_params, rpeak_comparison_params
+del file_params, results_dictionary_key_params, valid_ecg_regions_params, detect_rpeaks_params, correct_rpeaks_params, calculate_MAD_params, calculate_rri_from_peaks_params, only_gif_results_dictionary_key_params, ecg_validation_comparison_params, rpeak_comparison_params
 
 # check the parameters:
 # =====================
@@ -228,6 +236,9 @@ rpeak_detection_comparison_report_variables = ["rpeak_comparison_report_dezimal_
 
 read_out_channel_variables = ["data_directory", "valid_file_types", "channel_key_to_read_out",
     "physical_dimension_correction_dictionary", "results_path", "file_name_dictionary_key", "new_dictionary_key"]
+
+calculate_rri_from_peaks_variables = ["data_directory", "ecg_keys", "physical_dimension_correction_dictionary",
+    "rpeak_function_name", "rri_sampling_frequency", "results_path", "file_name_dictionary_key", "rri_dictionary_key"]
 
 
 """
@@ -357,6 +368,9 @@ def Processing_GIF(
     CALCULATE RRI FROM R-PEAKS
     --------------------------------
     """
+    parameters["rpeak_function_name"] = parameters["rpeak_comparison_function_names"][-1]
+    calculate_rri_from_peaks_args = create_sub_dict(parameters, calculate_rri_from_peaks_variables)
+    rri_from_rpeak.determine_rri_from_rpeaks(**calculate_rri_from_peaks_args)
 
     """
     --------------------------------
@@ -456,6 +470,15 @@ def Processing_NAKO(
         # rpeak_detection.combine_detected_rpeaks(**combine_detected_rpeaks_args)
 
         del detect_rpeaks_args, correct_rpeaks_args, # combine_detected_rpeaks_args
+
+        """
+        --------------------------------
+        CALCULATE RRI FROM R-PEAKS
+        --------------------------------
+        """
+        parameters["rpeak_function_name"] = parameters["rpeak_function_names"][0]
+        calculate_rri_from_peaks_args = create_sub_dict(parameters, calculate_rri_from_peaks_variables)
+        rri_from_rpeak.determine_rri_from_rpeaks(**calculate_rri_from_peaks_args)
     
         """
         --------------------------------
@@ -499,8 +522,10 @@ if __name__ == "__main__":
     """
 
     # process NAKO data
+    """
     Processing_NAKO(
         NAKO_DATA_DIRECTORIES = ["Data/", "Data/GIF/SOMNOwatch/"],
         NAKO_RESULTS_DIRECTORY = "Processed_NAKO/",
         NAKO_RESULTS_FILE_NAME = "NAKO_Results.pkl"
     )
+    """
