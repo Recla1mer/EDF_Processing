@@ -248,6 +248,182 @@ def get_dimensions_and_signal_labels(directory, valid_file_types = [".edf"]):
     return all_signal_labels, all_physical_dimensions
 
 
+def read_out_channel(
+        data_directory: str,
+        valid_file_types: list,
+        channel_key_to_read_out: list,
+        physical_dimension_correction_dictionary: dict,
+        results_path: str,
+        file_name_dictionary_key: str,
+        new_dictionary_key = None
+    ):
+    """
+    Read out and save the channels to the results path.
+
+    ARGUMENTS:
+    --------------------------------
+    data_directory: str
+        directory where the data is stored
+    valid_file_types: list
+        valid file types in the data directory
+    keys_to_read_out: list
+        list containing possible keys that refer to the same signal
+    physical_dimension_correction_dictionary: dict
+        dictionary needed to check and correct the physical dimension of all signals
+    results_path: str
+        path to the pickle file where the valid regions are saved
+    file_name_dictionary_key
+        dictionary key to access the file name
+    new_dictionary_keys: list
+        new dictionary key to store the read out signal
+        if None, the key is the same as the channel key to read out
+
+    RETURNS:
+    --------------------------------
+    None, but the channels are saved to the results path:
+        {
+            file_name_dictionary_key: file_name_1,
+            channel_key_1: channel_signal_1_1,
+            channel_key_2: channel_signal_1_2,
+        }
+            ...
+    """
+
+    # path to pickle file which will store results
+    temporary_file_path = get_path_without_filename(results_path) + "computation_in_progress.pkl"
+
+    # if the temporary file already exists, it means a previous computation was interrupted
+    # ask the user if the results should be overwritten or recovered
+    if os.path.isfile(temporary_file_path):
+        recover_results_after_error(
+            all_results_path = results_path, 
+            some_results_with_updated_keys_path = temporary_file_path, 
+            file_name_dictionary_key = file_name_dictionary_key,
+        )
+    
+    if new_dictionary_key is None:
+        new_dictionary_key = channel_key_to_read_out[0]
+    
+    # check if channel key already exist and if yes: ask for permission to override
+    user_answer = ask_for_permission_to_override_dictionary_entry(
+        file_path = results_path,
+        dictionary_entry = new_dictionary_key
+    )
+    
+    # create list to store files that could not be processed
+    unprocessable_files = []
+
+    # get all valid files
+    all_files = os.listdir(data_directory)
+    valid_files = [file for file in all_files if get_file_type(file) in valid_file_types]
+
+    # create dictionary to store dictionaries that do not contain the needed key
+    # (needed to avoid overwriting these entries in the pickle file if user answer is "n")
+    store_previous_dictionary_entries = dict()
+   
+    # skip calculation if user does not want to override
+    if user_answer == "n":
+        # load existing results
+        preparation_results_generator = load_from_pickle(results_path)
+
+        for generator_entry in preparation_results_generator:
+                # check if needed dictionary keys exist
+                if file_name_dictionary_key not in generator_entry.keys():
+                    continue
+
+                if new_dictionary_key not in generator_entry.keys():
+                    store_previous_dictionary_entries[generator_entry[file_name_dictionary_key]] = generator_entry
+                    continue
+
+                # get current file name
+                file_name = generator_entry[file_name_dictionary_key]
+
+                if file_name in valid_files:
+                    valid_files.remove(file_name)
+                
+                append_to_pickle(generator_entry, temporary_file_path)
+    
+    # create variables to track progress
+    start_time = time.time()
+    total_files = len(valid_files)
+    progressed_files = 0
+
+    if total_files > 0:
+        print("\nReading out and saving entries with key: \"%s\" in %i files from \"%s\":" % (channel_key_to_read_out[0], total_files, data_directory))
+
+    if user_answer == "y":
+        # load existing results
+        preparation_results_generator = load_from_pickle(results_path)
+
+        for generator_entry in preparation_results_generator:
+            # show progress
+            progress_bar(progressed_files, total_files, start_time)
+            progressed_files += 1
+
+            try:
+                # get current file name
+                file_name = generator_entry[file_name_dictionary_key]
+
+                if file_name in valid_files:
+                    valid_files.remove(file_name)
+
+                # try to load the data and correct the physical dimension if needed
+                channel_signal, channel_sampling_frequency = get_data_from_edf_channel(
+                    file_path = data_directory + file_name,
+                    possible_channel_labels = channel_key_to_read_out,
+                    physical_dimension_correction_dictionary = physical_dimension_correction_dictionary
+                )
+                
+                # save the channel for this file
+                generator_entry[new_dictionary_key] = channel_signal
+                generator_entry[new_dictionary_key + "_frequency"] = channel_sampling_frequency
+
+            except:
+                unprocessable_files.append(file_name)
+            
+            append_to_pickle(generator_entry, temporary_file_path)
+    
+    # calculate the valid regions for the remaining files
+    for file_name in valid_files:
+        # show progress
+        progress_bar(progressed_files, total_files, start_time)
+        progressed_files += 1
+
+        if file_name in store_previous_dictionary_entries.keys():
+            generator_entry = store_previous_dictionary_entries[file_name]
+        else:
+            generator_entry = {file_name_dictionary_key: file_name}
+
+        try:
+            # try to load the data and correct the physical dimension if needed
+            channel_signal, channel_sampling_frequency = get_data_from_edf_channel(
+                file_path = data_directory + file_name,
+                possible_channel_labels = channel_key_to_read_out,
+                physical_dimension_correction_dictionary = physical_dimension_correction_dictionary
+            )
+
+            # save the channel for this file
+            generator_entry[new_dictionary_key] = channel_signal
+            generator_entry[new_dictionary_key + "_frequency"] = channel_sampling_frequency    
+
+        except:
+            unprocessable_files.append(file_name)
+        
+        # if more than the file name is in the dictionary, save the dictionary to the pickle file
+        if len(generator_entry) > 1:
+            append_to_pickle(generator_entry, temporary_file_path)
+    
+    progress_bar(progressed_files, total_files, start_time)
+
+    # rename the file that stores the calculated data
+    if os.path.isfile(temporary_file_path):
+        try:
+            os.remove(results_path)
+        except:
+            pass
+        os.rename(temporary_file_path, results_path)
+
+
 def library_overview(file_name):
     """
     This function won't be used in the project. It is just a demonstration of available
@@ -289,6 +465,13 @@ def library_overview(file_name):
     print("number of datarecords in the file: %i" % f.datarecords_in_file)
     print("number of annotations in the file: %i" % f.annotations_in_file)
 
+    all_channels = []
+    for i in np.arange(f.signals_in_file):
+        all_channels.append(f.getLabel(i))
+    
+    print("\nall channels in the file:")
+    print(all_channels)
+
     channel = 0
     print("\nsignal parameters for the %d.channel:\n\n" % channel)
 
@@ -317,3 +500,6 @@ def library_overview(file_name):
     print(result)
     f._close()
     del f
+
+
+#library_overview("Data/GIF/SOMNOwatch/SL001_SL001_(1).edf")

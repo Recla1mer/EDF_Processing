@@ -27,13 +27,6 @@ def validate_parameter_settings(parameters: dict):
     --------------------------------
     None, but raises an error if a parameter is invalid
     """
-    # settings parameters
-    if not isinstance(parameters["run_additionals_section"], bool):
-        raise ValueError("'run_additionals_section' parameter must be a boolean.")
-    if not isinstance(parameters["run_preparation_section"], bool):
-        raise ValueError("'run_preparation_section' parameter must be a boolean.")
-    if not isinstance(parameters["show_calibration_data"], bool):
-        raise ValueError("'show_calibration_data' parameter must be a boolean.")
 
     # file parameters:
     if not isinstance(parameters["valid_file_types"], list):

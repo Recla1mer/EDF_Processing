@@ -142,7 +142,7 @@ def calculate_MAD_in_acceleration_data(
         wrist_acceleration_keys: list,
         physical_dimension_correction_dictionary: dict,
         mad_time_period_seconds: int,
-        preparation_results_path: str,
+        results_path: str,
         file_name_dictionary_key: str,
         MAD_dictionary_key: str,
     ):
@@ -162,7 +162,7 @@ def calculate_MAD_in_acceleration_data(
         dictionary needed to check and correct the physical dimension of all signals
     mad_time_period_seconds: int
         time period in seconds over which the MAD will be calculated
-    preparation_results_path: str
+    results_path: str
         path to the pickle file where the MAD values are saved
     file_name_dictionary_key: str
         dictionary key to access the file name
@@ -182,20 +182,20 @@ def calculate_MAD_in_acceleration_data(
     """
     
     # path to pickle file which will store results
-    temporary_file_path = get_path_without_filename(preparation_results_path) + "computation_in_progress.pkl"
+    temporary_file_path = get_path_without_filename(results_path) + "computation_in_progress.pkl"
 
     # if the temporary file already exists, it means a previous computation was interrupted
     # ask the user if the results should be overwritten or recovered
     if os.path.isfile(temporary_file_path):
         recover_results_after_error(
-            all_results_path = preparation_results_path, 
+            all_results_path = results_path, 
             some_results_with_updated_keys_path = temporary_file_path, 
             file_name_dictionary_key = file_name_dictionary_key,
         )
 
     # check if MAD values already exist and if yes ask for permission to override
     user_answer = ask_for_permission_to_override_dictionary_entry(
-        file_path = preparation_results_path,
+        file_path = results_path,
         dictionary_entry = MAD_dictionary_key
     )
     
@@ -213,7 +213,7 @@ def calculate_MAD_in_acceleration_data(
     # skip calculation if user does not want to override
     if user_answer == "n":
         # load existing results
-        preparation_results_generator = load_from_pickle(preparation_results_path)
+        preparation_results_generator = load_from_pickle(results_path)
 
         for generator_entry in preparation_results_generator:
                 # check if needed dictionary keys exist
@@ -242,7 +242,7 @@ def calculate_MAD_in_acceleration_data(
 
     if user_answer == "y":
         # load existing results
-        preparation_results_generator = load_from_pickle(preparation_results_path)
+        preparation_results_generator = load_from_pickle(results_path)
 
         # calculate MAD in the wrist acceleration data
         for generator_entry in preparation_results_generator:
@@ -283,6 +283,7 @@ def calculate_MAD_in_acceleration_data(
                 
                 # save MAD values
                 generator_entry[MAD_dictionary_key] = this_MAD_values
+                generator_entry[MAD_dictionary_key + "_frequency"] = 1 / mad_time_period_seconds
 
             except:
                 unprocessable_files.append(file_name)
@@ -326,6 +327,7 @@ def calculate_MAD_in_acceleration_data(
             
             # save MAD values for this file to the dictionary
             generator_entry[MAD_dictionary_key] = this_MAD_values # type: ignore    
+            generator_entry[MAD_dictionary_key + "_frequency"] = 1 / mad_time_period_seconds # type: ignore
 
         except:
             unprocessable_files.append(file_name)
@@ -339,10 +341,10 @@ def calculate_MAD_in_acceleration_data(
     # rename the file that stores the calculated data
     if os.path.isfile(temporary_file_path):
         try:
-            os.remove(preparation_results_path)
+            os.remove(results_path)
         except:
             pass
-        os.rename(temporary_file_path, preparation_results_path)
+        os.rename(temporary_file_path, results_path)
 
     # print unprocessable files
     if len(unprocessable_files) > 0:

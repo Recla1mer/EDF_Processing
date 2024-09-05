@@ -1,7 +1,7 @@
 """
 Author: Johannes Peter Knoll
 
-Main python file for the neural network project.
+Main python file for Processing EDF Data.
 """
 
 # import libraries
@@ -22,49 +22,7 @@ from side_functions import *
 
 """
 --------------------------------
-FILE SECTION
---------------------------------
-
-In this section we define the file/directory names.
-"""
-
-# define directory and file names (will always be written in capital letters)
-# ----------------------------------------------------------------------------
-
-HEAD_DATA_DIRECTORY = "Data/" # head directory which should be searched for every subdirectory containing valid data files, only needed if automatic search for DATA_DIRECTORIES is used
-DATA_DIRECTORIES = ["Data/", "Data/GIF/SOMNOwatch/"] # manually chosen directories that contain the data files
-
-# TEMPORARY_PICKLE_DIRECTORY = "Temporary_Pickles/"
-# TEMPORARY_FIGURE_DIRECTORY = "Temporary_Figures/"
-
-# paths for PREPARATION SECTION
-# ------------------------------
-PREPARATION_DIRECTORY = "Preparation/"
-PREPARATION_RESULTS_NAME = "Preparation_Results.pkl"
-
-# paths for ADDITIONALS SECTION
-# ------------------------------
-ADDITIONALS_DIRECTORY = "Additions/"
-ADDITIONS_RESULTS_PATH = ADDITIONALS_DIRECTORY + "Additions_Results.pkl"
-
-ADDITIONS_RAW_DATA_DIRECTORY = "Data/GIF/SOMNOwatch/"
-
-# Show Calibration Data
-SHOW_CALIBRATION_DATA_DIRECTORY = ADDITIONALS_DIRECTORY + "Show_Calibration_Data/"
-
-# R-peak detection comparison
-RPEAK_COMPARISON_DIRECTORY = ADDITIONALS_DIRECTORY + "RPeak_Comparison/"
-RPEAK_COMPARISON_REPORT_PATH = RPEAK_COMPARISON_DIRECTORY + "RPeak_Comparison_Report.txt"
-RPEAK_CLASSIFICATION_DIRECTORY = "Data/GIF/Analyse_Somno_TUM/RRI/"
-
-# ECG Validation comparison
-ECG_VALIDATION_COMPARISON_DIRECTORY = ADDITIONALS_DIRECTORY + "ECG_Validation_Comparison/"
-ECG_VALIDATION_COMPARISON_REPORT_PATH = ECG_VALIDATION_COMPARISON_DIRECTORY + "ECG_Validation_Comparison_Report.txt"
-ECG_CLASSIFICATION_DIRECTORY = "Data/GIF/Analyse_Somno_TUM/Noise/"
-
-"""
---------------------------------
-PHYSICAL DIMENSION SECTION
+PHYSICAL DIMENSION CORRECTION
 --------------------------------
 
 Of course computers only operate with numbers, so we need to make sure that the physical
@@ -99,40 +57,27 @@ del voltage_dimensions, voltage_correction, force_dimensions, force_correction
 
 """
 --------------------------------
-PARAMETERS SECTION
+SETTING UNIFORM PARAMETERS
 --------------------------------
 
-In this section we set the parameters for the project.
+In this section we set the parameters for the project. This seems clumsy, but we want to keep the parameters
+uniform throughout the computation. And because multiple functions share the same parameters, we will store
+them in a dictionary that is passed to the functions.
 
-ATTENTION: 
-If you choose to run the ADDITIONALS SECTION, nothing else will be executed.
-This is because it should usually be run only once, while you might want to run other 
-sections multiple times.
+Also, because we will call some functions multiple times below, this makes the code a little more readable.
+
+I suggest not paying too much attention to these parameters anyway. They are good as they are.
 """
-
-# data source settings
-data_source_settings = {
-    # set if DATA_DIRECTORIES should be searched automatically or if the manually chosen ones are used
-    "use_manually_chosen_data_directories": True, # if True, the manually chosen directories will be used, if False, the DATA_DIRECTORIES will be evaluated automatically from the HEAD_DATA_DIRECTORY
-}
 
 # dictionary that will store all parameters that are used within the project
 parameters = dict()
-
-# main parameters: control which sections of the project will be executed
-settings_params = {
-    # set what sections should be executed
-    "run_additionals_section": True, # if True, the ADDITIONALS SECTION will be executed
-    "run_preparation_section": True, # if True, the PREPARATION SECTION will be executed
-    # set what parts of the ADDITIONALS SECTION should be executed
-    "show_calibration_data": False, # if True, the calibration data in the manually chosen intervals will be plotted and saved to the SHOW_CALIBRATION_DATA_DIRECTORY
-}
 
 # file parameters:
 file_params = {
     "valid_file_types": [".edf"], # valid file types in the data directory
     "ecg_keys": ["ECG"], # possible labels for the ECG data in the data files
     "wrist_acceleration_keys": [["X"], ["Y"], ["Z"]], # possible labels for the wrist acceleration data in the data files
+    "sleep_stage_keys": ["SleepStage"], # possible labels for the sleep stages in the data files
     "physical_dimension_correction_dictionary": physical_dimension_correction_dictionary, # dictionary to correct the physical dimensions of the data
 }
 
@@ -182,11 +127,7 @@ calculate_MAD_params = {
     "mad_time_period_seconds": 10, # time period in seconds over which the MAD will be calculated
 }
 
-# parameters for the ADDITIONALS SECTION
-# --------------------------------------
-
-additions_results_dictionary_key_params = {
-    "additions_results_path": ADDITIONS_RESULTS_PATH, # path to pickle file that stores the results for every file as individual dictionary
+only_gif_results_dictionary_key_params = {
     "ecg_validation_comparison_dictionary_key": "ecg_validation_comparison", # key that accesses the ECG validation comparison in the dictionaries
     "ecg_classification_valid_intervals_dictionary_key": "valid_intervals_from_ecg_classification", # key that accesses the valid intervals from the ECG classification in the dictionaries, needed for r-peak detection comparison
     "rpeak_comparison_dictionary_key": "rpeak_comparison", # key that accesses the r-peak comparison values
@@ -194,39 +135,27 @@ additions_results_dictionary_key_params = {
 
 # parameters for the ECG Validation comparison
 ecg_validation_comparison_params = {
-    "ecg_classification_values_directory": ECG_CLASSIFICATION_DIRECTORY, # directory that stores the ECG classification values
     "ecg_classification_file_types": [".txt"], # file types that store the ECG clasification data
-    "ecg_validation_comparison_report_path": ECG_VALIDATION_COMPARISON_REPORT_PATH, # path to the text file that stores the comparison report
     "ecg_validation_comparison_report_dezimal_places": 4, # number of dezimal places in the comparison report
 }
 
 # parameters for the r-peak detection comparison
 rpeak_comparison_params = {
-    "rpeaks_values_directory": RPEAK_CLASSIFICATION_DIRECTORY, # directory where the given r-peak location and classification is stored
     "valid_rpeak_values_file_types": [".rri"], # file types that store the r-peak classification data
     "include_rpeak_value_classifications": ["N"], # classifications that should be included in the evaluation
     #
     "rpeak_comparison_functions": [rpeak_detection.get_rpeaks_wfdb, rpeak_detection.get_rpeaks_ecgdetectors, rpeak_detection.get_rpeaks_hamilton, rpeak_detection.get_rpeaks_christov], # r-peak detection functions
-    "include_rpeak_values_from_classifications": True, # if True, r-peaks from classification will be included in the comparison
     "add_offset_to_classification": -1, #  offset that should be added to the r-peaks from gif classification (classifications are slightly shifted for some reason)
     #
     "rpeak_comparison_function_names": ["wfdb", "ecgdetectors", "hamilton", "christov", "gif_classification"], # names of all used r-peak functions (last one is for classification, if included)
     "rpeak_comparison_report_dezimal_places": 4, # number of dezimal places in the comparison report
-    "rpeak_comparison_report_path": RPEAK_COMPARISON_REPORT_PATH, # path to the text file that stores the comparison report
+    "remove_peaks_outside_ecg_classification": True, # if True, r-peaks that are not in the valid ECG regions will be removed from the comparison
 }
 
-# automatically find data directories if user requested it
-if not data_source_settings["use_manually_chosen_data_directories"]:
-    DATA_DIRECTORIES = retrieve_all_subdirectories_containing_valid_files(
-        directory = HEAD_DATA_DIRECTORY, 
-        valid_file_types = file_params["valid_file_types"]
-    )
-
 # delete variables not needed anymore
-del data_source_settings, HEAD_DATA_DIRECTORY, RPEAK_COMPARISON_REPORT_PATH, RPEAK_CLASSIFICATION_DIRECTORY, ECG_VALIDATION_COMPARISON_REPORT_PATH, ECG_CLASSIFICATION_DIRECTORY, physical_dimension_correction_dictionary
+del physical_dimension_correction_dictionary
 
 # add all parameters to the parameters dictionary, so we can access them later more easily
-parameters.update(settings_params)
 parameters.update(file_params)
 parameters.update(preparation_results_dictionary_key_params)
 parameters.update(valid_ecg_regions_params)
@@ -234,13 +163,13 @@ parameters.update(detect_rpeaks_params)
 parameters.update(correct_rpeaks_params)
 parameters.update(calculate_MAD_params)
 
-if not __name__ == "__main__" or settings_params["run_additionals_section"]:
-    parameters.update(additions_results_dictionary_key_params)
-    parameters.update(ecg_validation_comparison_params)
-    parameters.update(rpeak_comparison_params)
+
+parameters.update(only_gif_results_dictionary_key_params)
+parameters.update(ecg_validation_comparison_params)
+parameters.update(rpeak_comparison_params)
 
 # delete the dictionaries as they are saved in the parameters dictionary now
-del settings_params, file_params, preparation_results_dictionary_key_params, valid_ecg_regions_params, detect_rpeaks_params, correct_rpeaks_params, calculate_MAD_params, additions_results_dictionary_key_params, ecg_validation_comparison_params, rpeak_comparison_params
+del file_params, preparation_results_dictionary_key_params, valid_ecg_regions_params, detect_rpeaks_params, correct_rpeaks_params, calculate_MAD_params, only_gif_results_dictionary_key_params, ecg_validation_comparison_params, rpeak_comparison_params
 
 # check the parameters:
 # =====================
@@ -249,127 +178,114 @@ validate_parameter_settings(parameters)
 
 # create lists of parameters relevant for the following functions (to make the code more readable)
 
-# list for the PREPARATION SECTION
-# --------------------------------
-
 determine_ecg_region_variables = ["data_directory", "valid_file_types", "ecg_keys", 
     "physical_dimension_correction_dictionary",
-    "preparation_results_path", "file_name_dictionary_key", "valid_ecg_regions_dictionary_key", 
+    "results_path", "file_name_dictionary_key", "valid_ecg_regions_dictionary_key", 
     "straighten_ecg_signal", "check_ecg_time_interval_seconds", "check_ecg_overlapping_interval_steps",
     "check_ecg_validation_strictness", "check_ecg_removed_peak_difference_threshold",
     "check_ecg_std_min_threshold", "check_ecg_std_max_threshold", "check_ecg_distance_std_ratio_threshold",
     "check_ecg_min_valid_length_minutes", "check_ecg_allowed_invalid_region_length_seconds"]
 
 choose_valid_ecg_regions_for_further_computation_variables = ["data_directory", "ecg_keys", 
-    "preparation_results_path", "file_name_dictionary_key", "valid_ecg_regions_dictionary_key"]
+    "results_path", "file_name_dictionary_key", "valid_ecg_regions_dictionary_key"]
 
 detect_rpeaks_variables = ["data_directory", "ecg_keys", "physical_dimension_correction_dictionary",
-    "preparation_results_path", "file_name_dictionary_key", "valid_ecg_regions_dictionary_key"]
+    "results_path", "file_name_dictionary_key", "valid_ecg_regions_dictionary_key"]
 
 correct_rpeaks_variables = ["data_directory", "ecg_keys", "physical_dimension_correction_dictionary",
-    "before_correction_rpeak_function_name_addition", "preparation_results_path", "file_name_dictionary_key"]
+    "before_correction_rpeak_function_name_addition", "results_path", "file_name_dictionary_key"]
 
 combine_detected_rpeaks_variables = ["data_directory", "ecg_keys", "rpeak_distance_threshold_seconds",
     "rpeak_primary_function_name", "rpeak_secondary_function_name",
-    "preparation_results_path", "file_name_dictionary_key", "certain_rpeaks_dictionary_key",
+    "results_path", "file_name_dictionary_key", "certain_rpeaks_dictionary_key",
     "uncertain_primary_rpeaks_dictionary_key", "uncertain_secondary_rpeaks_dictionary_key"]
 
 calculate_MAD_variables = ["data_directory", "valid_file_types", "wrist_acceleration_keys", 
     "physical_dimension_correction_dictionary", "mad_time_period_seconds",
-    "preparation_results_path", "file_name_dictionary_key", "MAD_dictionary_key"]
-
-
-# lists for the ADDITIONALS SECTION
-# ---------------------------------
+    "results_path", "file_name_dictionary_key", "MAD_dictionary_key"]
 
 ecg_validation_comparison_variables = ["ecg_classification_values_directory", "ecg_classification_file_types", 
-    "check_ecg_validation_strictness", "additions_results_path", "file_name_dictionary_key", 
+    "check_ecg_validation_strictness", "results_path", "file_name_dictionary_key", 
     "valid_ecg_regions_dictionary_key", "ecg_validation_comparison_dictionary_key",
     "ecg_classification_valid_intervals_dictionary_key"]
 
 ecg_validation_comparison_report_variables = ["ecg_validation_comparison_report_path", 
     "ecg_validation_comparison_report_dezimal_places", "check_ecg_validation_strictness",
-    "additions_results_path", "file_name_dictionary_key", "ecg_validation_comparison_dictionary_key"]
+    "results_path", "file_name_dictionary_key", "ecg_validation_comparison_dictionary_key"]
 
 read_rpeak_classification_variables = ["data_directory", "valid_file_types", "rpeaks_values_directory", 
     "valid_rpeak_values_file_types", "include_rpeak_value_classifications", "add_offset_to_classification",
-    "additions_results_path", "file_name_dictionary_key"]
+    "results_path", "file_name_dictionary_key"]
 
 rpeak_detection_comparison_variables = ["data_directory", "ecg_keys", "rpeak_distance_threshold_seconds", 
-    "additions_results_path", "file_name_dictionary_key", "valid_ecg_regions_dictionary_key",
+    "results_path", "file_name_dictionary_key", "valid_ecg_regions_dictionary_key",
     "rpeak_comparison_function_names", "rpeak_comparison_dictionary_key",
-    "ecg_classification_valid_intervals_dictionary_key"]
+    "ecg_classification_valid_intervals_dictionary_key", "remove_peaks_outside_ecg_classification"]
 
 rpeak_detection_comparison_report_variables = ["rpeak_comparison_report_dezimal_places", 
-    "rpeak_comparison_report_path", "additions_results_path", "file_name_dictionary_key",
+    "rpeak_comparison_report_path", "results_path", "file_name_dictionary_key",
     "rpeak_comparison_function_names", "rpeak_comparison_dictionary_key"]
 
-"""
---------------------------------
-CALIBRATION DATA SECTION
---------------------------------
-
-In this section we will provide manually chosen calibration intervals for the ECG Validation.
-
-ATTENTION:
-Check that the test data and the intervals in which it is used align with the purpose.
-Also examine whether the test data used is suitable for the actual data, e.g. the physical
-units match, etc.
-"""
-
-def ecg_threshold_calibration_intervals():
-    """
-    Manually chosen calibration intervals for the ECG Validation.
-    """
-    manual_interval_size = 2560 # 10 seconds for 256 Hz
-    manual_lower_borders = [
-        2091000, # 2h 17min 10sec for 256 Hz
-        6292992, # 6h 49min 41sec for 256 Hz
-        2156544, # 2h 20min 24sec for 256 Hz
-        1781760 # 1h 56min 0sec for 256 Hz
-        ]
-    return [(border, border + manual_interval_size) for border in manual_lower_borders], manual_interval_size
+read_out_channel_variables = ["data_directory", "valid_file_types", "channel_key_to_read_out",
+    "physical_dimension_correction_dictionary", "results_path", "file_name_dictionary_key", "new_dictionary_key"]
 
 
 """
 --------------------------------
-ADDITIONALS SECTION
+PROCESSING DATA FUNCTIONS
 --------------------------------
 
-In this section we will provide additional calculations that are not relevant for the
-main part of the project.
+The following functions will call all functions within this project in the right order.
 """
 
-def additional_section(run_section: bool):
+
+def Processing_GIF(
+        GIF_DATA_DIRECTORY: str,
+        GIF_RPEAK_DIRECTORY: str,
+        GIF_ECG_CLASSIFICATION_DIRECTORY: str,
+        GIF_RESULTS_DIRECTORY: str,
+        GIF_RESULTS_FILE_NAME: str,
+        ECG_COMPARISON_FILE_NAME: str,
+        RPEAK_COMPARISON_FILE_NAME: str,
+):
     """
-    Section that is not relevant for the main part of the project. It shows calibration data
-    and compares different r-peak detections and ECG Validations.
+    This function is supposed to run all processing functions in the right order on the GIF data.
+
+    It will:
+        - evaluate the valid regions for the ECG data
+        - perform r-peak detection
+        - calculate the MAD in the wrist acceleration data.
+        - read out sleep stages and its sampling frequency
+        - read out already provided r-peak locations
+        - compare already provided ECG classification with the calculated ECG validation
+        - compare all differently obtained r-peak locations
+        - calculate RRI from already provided r-peak locations
+
+    Here we compare different r-peak detections and ECG Validations, as for the GIF data we already
+    have the "ground truth" data available.
+
+    We will also use GIF data to train our neural network, so we will additionally append the sleep stages.
     """
 
-    # check if the section should be run
-    if not run_section:
-        return
-    
     """
     --------------------------------
     SET DATA AND STORAGE PATHS
     --------------------------------
     """
     # create needed directory if it does not exist
-    if not os.path.isdir(ADDITIONALS_DIRECTORY):
-        os.mkdir(ADDITIONALS_DIRECTORY)
+    if not os.path.isdir(GIF_RESULTS_DIRECTORY):
+        os.mkdir(GIF_RESULTS_DIRECTORY)
 
     # set path to where ECG is stored
-    parameters["data_directory"] = ADDITIONS_RAW_DATA_DIRECTORY
+    parameters["data_directory"] = GIF_DATA_DIRECTORY
 
     # set path to pickle file that saves the results from the additions
-    parameters["preparation_results_path"] = ADDITIONS_RESULTS_PATH
+    parameters["results_path"] = GIF_RESULTS_DIRECTORY + GIF_RESULTS_FILE_NAME
     
-    # perform ecg validation
-
     # create arguments for the valid ecg regions evaluation and calculate them
     determine_ecg_region_args = create_sub_dict(parameters, determine_ecg_region_variables)
 
+    # perform ecg validation
     check_data.determine_valid_ecg_regions(**determine_ecg_region_args)
     del determine_ecg_region_args
 
@@ -384,10 +300,8 @@ def additional_section(run_section: bool):
     COMPARE ECG VALIDATIONS
     --------------------------------
     """
-
-    # create directory to save comparison results if it does not exist
-    if not os.path.isdir(ECG_VALIDATION_COMPARISON_DIRECTORY):
-        os.mkdir(ECG_VALIDATION_COMPARISON_DIRECTORY)
+    parameters["ecg_classification_values_directory"] = GIF_ECG_CLASSIFICATION_DIRECTORY
+    parameters["ecg_validation_comparison_report_path"] = GIF_RESULTS_DIRECTORY + ECG_COMPARISON_FILE_NAME
 
     # create arguments for the ECG validation comparison and perform it
     ecg_validation_comparison_args = create_sub_dict(parameters, ecg_validation_comparison_variables)
@@ -404,18 +318,12 @@ def additional_section(run_section: bool):
     --------------------------------
     """
 
-    # create directory to save comparison results if it does not exist
-    if not os.path.isdir(RPEAK_COMPARISON_DIRECTORY):
-        os.mkdir(RPEAK_COMPARISON_DIRECTORY)
-
     # create arguments for the r-peak detection and correction
     detect_rpeaks_args = create_sub_dict(parameters, detect_rpeaks_variables)
     correct_rpeaks_args = create_sub_dict(parameters, correct_rpeaks_variables)
 
     # detect and correct r-peaks in the valid regions of the ECG data
-    classification_index_offset = 0
     for i in range(len(parameters["rpeak_comparison_functions"])):
-        classification_index_offset += 1
         detect_rpeaks_args["rpeak_function"] = parameters["rpeak_comparison_functions"][i]
         detect_rpeaks_args["rpeak_function_name"] = parameters["rpeak_comparison_function_names"][i]
         rpeak_detection.detect_rpeaks(**detect_rpeaks_args)
@@ -428,51 +336,71 @@ def additional_section(run_section: bool):
     # create arguments for the r-peak comparison
     rpeak_detection_comparison_args = create_sub_dict(parameters, rpeak_detection_comparison_variables)
 
-    # read r-peaks from the classification files if they are needed
-    if parameters["include_rpeak_values_from_classifications"]:
-        read_rpeak_classification_args = create_sub_dict(parameters, read_rpeak_classification_variables)
-        read_rpeak_classification_args["rpeak_classification_dictionary_key"] = parameters["rpeak_comparison_function_names"][classification_index_offset]
-        rpeak_detection.read_rpeaks_from_rri_files(**read_rpeak_classification_args)
-        del read_rpeak_classification_args
-
-        rpeak_detection_comparison_args["remove_peaks_outside_ecg_classification"] = True
-    else:
-        rpeak_detection_comparison_args["remove_peaks_outside_ecg_classification"] = False
+    # read r-peaks from the classification files
+    parameters["rpeaks_values_directory"] = GIF_RPEAK_DIRECTORY
+    read_rpeak_classification_args = create_sub_dict(parameters, read_rpeak_classification_variables)
+    read_rpeak_classification_args["rpeak_classification_dictionary_key"] = parameters["rpeak_comparison_function_names"][-1]
+    rpeak_detection.read_rpeaks_from_rri_files(**read_rpeak_classification_args)
+    del read_rpeak_classification_args
 
     # perform r-peak comparison evaluation
     rpeak_detection.rpeak_detection_comparison(**rpeak_detection_comparison_args)
     del rpeak_detection_comparison_args
 
     # create arguments for printing the r-peak comparison report and print it
+    parameters["rpeak_comparison_report_path"] = GIF_RESULTS_DIRECTORY + RPEAK_COMPARISON_FILE_NAME
     rpeak_comparison_report_args = create_sub_dict(parameters, rpeak_detection_comparison_report_variables)
     rpeak_detection.rpeak_detection_comparison_report(**rpeak_comparison_report_args)
-    
-    # terminate the script after the ADDITIONALS SECTION
-    raise SystemExit("\nIt is not intended to run the ADDTIONAL SECTION and afterwards the MAIN project. Therefore, the script will be TERMINATED. If you want to execute the MAIN project, please set the 'run_additionals_section' parameter to False in the settings section of the script\n")
+
+    """
+    --------------------------------
+    CALCULATE RRI FROM R-PEAKS
+    --------------------------------
+    """
+
+    """
+    --------------------------------
+    MAD CALCULATION
+    --------------------------------
+    """
+
+    # calculate MAD in the wrist acceleration data
+    calculate_MAD_args = create_sub_dict(parameters, calculate_MAD_variables)
+    MAD.calculate_MAD_in_acceleration_data(**calculate_MAD_args)
+    del calculate_MAD_args
+
+    """
+    --------------------------------
+    Obtain Sleep Stages
+    --------------------------------
+    """
+    parameters["new_dictionary_key"] = None
+    parameters["channel_key_to_read_out"] = parameters["sleep_stage_keys"]
+    read_out_channel_args = create_sub_dict(parameters, read_out_channel_variables)
+    read_edf.read_out_channel(**read_out_channel_args)
         
 
-"""
---------------------------------
-PREPARATION SECTION
---------------------------------
+def Processing_NAKO(
+        NAKO_DATA_DIRECTORIES: list,
+        NAKO_RESULTS_DIRECTORY: str,
+        NAKO_RESULTS_FILE_NAME: str,
+):
+    """
+    This function is supposed to run the processing functions in the right order on the NAKO data.
+    We can not apply the same functions as for the GIF data, because the GIF data additionally 
+    provides r-peak locations, ECG classifications and sleep stages.
 
-In this section we will make preparations for the main part of the project. Depending on
-the parameters set in the parameters dictionary, we will calculate the thresholds needed for
-various functions, evaluate the valid regions for the ECG data, perform r-peak detection
-and calculate the MAD in the wrist acceleration data.
-"""
-
-def preparation_section(run_section: bool):
-
-    # check if the section should be run
-    if not run_section:
-        return
+    This function will:
+        - evaluate the valid regions for the ECG data
+        - perform r-peak detection
+        - calculate the MAD in the wrist acceleration data.
+    """
     
     # create directory if it does not exist
-    if not os.path.isdir(PREPARATION_DIRECTORY):
-        os.mkdir(PREPARATION_DIRECTORY)
+    if not os.path.isdir(NAKO_RESULTS_DIRECTORY):
+        os.mkdir(NAKO_RESULTS_DIRECTORY)
 
-    for DATA_DIRECTORY in DATA_DIRECTORIES:
+    for DATA_DIRECTORY in NAKO_DATA_DIRECTORIES:
         """
         --------------------------------
         SET DATA AND STORAGE PATHS
@@ -482,11 +410,11 @@ def preparation_section(run_section: bool):
         # set path to where ECG is stored
         parameters["data_directory"] = DATA_DIRECTORY
 
-        # set path to pickle file that saves the results from the preparations
-        SAVE_DIRECTORY = PREPARATION_DIRECTORY + create_save_path_from_directory_name(DATA_DIRECTORY)
+        # set path to pickle file that saves the processing results
+        SAVE_DIRECTORY = NAKO_RESULTS_DIRECTORY + create_save_path_from_directory_name(DATA_DIRECTORY)
         if not os.path.isdir(SAVE_DIRECTORY):
             os.mkdir(SAVE_DIRECTORY)
-        parameters["preparation_results_path"] = SAVE_DIRECTORY + PREPARATION_RESULTS_NAME
+        parameters["results_path"] = SAVE_DIRECTORY + NAKO_RESULTS_FILE_NAME
 
         """
         --------------------------------
@@ -549,19 +477,30 @@ MAIN SECTION
 In this section we will run the functions we have created until now.
 """
 
-def main():
-
-    # run additional section
-    additional_section(parameters["run_additionals_section"])
-    # delete variables not needed anymore
-    global ADDITIONALS_DIRECTORY, ADDITIONS_RESULTS_PATH, ADDITIONS_RAW_DATA_DIRECTORY, SHOW_CALIBRATION_DATA_DIRECTORY, RPEAK_COMPARISON_DIRECTORY, ECG_VALIDATION_COMPARISON_DIRECTORY 
-    del ADDITIONALS_DIRECTORY, ADDITIONS_RESULTS_PATH, ADDITIONS_RAW_DATA_DIRECTORY, SHOW_CALIBRATION_DATA_DIRECTORY, RPEAK_COMPARISON_DIRECTORY, ECG_VALIDATION_COMPARISON_DIRECTORY
-    
-    # run preparation section
-    preparation_section(parameters["run_preparation_section"])
-    # delete variables not needed anymore
-    global PREPARATION_DIRECTORY, PREPARATION_RESULTS_NAME, ECG_VALIDATION_THRESHOLDS_PATH
-    del PREPARATION_DIRECTORY, PREPARATION_RESULTS_NAME
-
 if __name__ == "__main__":
-    main()
+    
+    # process GIF data
+    Processing_GIF(
+        GIF_DATA_DIRECTORY = "Data/GIF/SOMNOwatch/",
+        GIF_RPEAK_DIRECTORY = "Data/GIF/Analyse_Somno_TUM/RRI/",
+        GIF_ECG_CLASSIFICATION_DIRECTORY = "Data/GIF/Analyse_Somno_TUM/Noise/",
+        GIF_RESULTS_DIRECTORY = "Processed_GIF/",
+        GIF_RESULTS_FILE_NAME = "GIF_Results.pkl",
+        RPEAK_COMPARISON_FILE_NAME = "RPeak_Comparison_Report.txt",
+        ECG_COMPARISON_FILE_NAME = "ECG_Validation_Comparison_Report.txt"
+    )
+
+    # if you want to retrieve all subdirectories containing valid files, you can use the following function
+    """
+    DATA_DIRECTORIES = retrieve_all_subdirectories_containing_valid_files(
+        directory = "Data/", 
+        valid_file_types = [".edf"]
+    )
+    """
+
+    # process NAKO data
+    Processing_NAKO(
+        NAKO_DATA_DIRECTORIES = ["Data/", "Data/GIF/SOMNOwatch/"],
+        NAKO_RESULTS_DIRECTORY = "Processed_NAKO/",
+        NAKO_RESULTS_FILE_NAME = "NAKO_Results.pkl"
+    )

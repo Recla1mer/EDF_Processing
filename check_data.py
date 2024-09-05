@@ -558,7 +558,7 @@ def determine_valid_ecg_regions(
         valid_file_types: list,
         ecg_keys: list,
         physical_dimension_correction_dictionary: dict,
-        preparation_results_path: str,
+        results_path: str,
         file_name_dictionary_key: str,
         valid_ecg_regions_dictionary_key: str,
         # check_ecg arguments:
@@ -586,7 +586,7 @@ def determine_valid_ecg_regions(
         list of possible labels for the ECG data
     physical_dimension_correction_dictionary: dict
         dictionary needed to check and correct the physical dimension of all signals
-    preparation_results_path: str
+    results_path: str
         path to the pickle file where the valid regions are saved
     file_name_dictionary_key
         dictionary key to access the file name
@@ -607,13 +607,13 @@ def determine_valid_ecg_regions(
     """
 
     # path to pickle file which will store results
-    temporary_file_path = get_path_without_filename(preparation_results_path) + "computation_in_progress.pkl"
+    temporary_file_path = get_path_without_filename(results_path) + "computation_in_progress.pkl"
 
     # if the temporary file already exists, it means a previous computation was interrupted
     # ask the user if the results should be overwritten or recovered
     if os.path.isfile(temporary_file_path):
         recover_results_after_error(
-            all_results_path = preparation_results_path, 
+            all_results_path = results_path, 
             some_results_with_updated_keys_path = temporary_file_path, 
             file_name_dictionary_key = file_name_dictionary_key,
         )
@@ -621,9 +621,9 @@ def determine_valid_ecg_regions(
     # check if the dictionary key for the valid ecg regions already exists
     remove_key = valid_ecg_regions_dictionary_key
     additionally_remove_keys = []
-    if os.path.isfile(preparation_results_path):
+    if os.path.isfile(results_path):
         # load existing results to collect keys for valid ecg regions with different strictness values
-        prep_results_generator = load_from_pickle(preparation_results_path)
+        prep_results_generator = load_from_pickle(results_path)
 
         # additionally remove keys
         additionally_remove_keys = []
@@ -644,7 +644,7 @@ def determine_valid_ecg_regions(
 
     # check if valid regions already exist and if yes: ask for permission to override
     user_answer = ask_for_permission_to_override_dictionary_entry(
-        file_path = preparation_results_path,
+        file_path = results_path,
         dictionary_entry = remove_key,
         additionally_remove_entries = additionally_remove_keys
         )
@@ -663,7 +663,7 @@ def determine_valid_ecg_regions(
     # skip calculation if user does not want to override
     if user_answer == "n":
         # load existing results
-        preparation_results_generator = load_from_pickle(preparation_results_path)
+        preparation_results_generator = load_from_pickle(results_path)
 
         for generator_entry in preparation_results_generator:
                 # check if needed dictionary keys exist
@@ -692,7 +692,7 @@ def determine_valid_ecg_regions(
 
     if user_answer == "y":
         # load existing results
-        preparation_results_generator = load_from_pickle(preparation_results_path)
+        preparation_results_generator = load_from_pickle(results_path)
 
         for generator_entry in preparation_results_generator:
             # show progress
@@ -789,10 +789,10 @@ def determine_valid_ecg_regions(
     # rename the file that stores the calculated data
     if os.path.isfile(temporary_file_path):
         try:
-            os.remove(preparation_results_path)
+            os.remove(results_path)
         except:
             pass
-        os.rename(temporary_file_path, preparation_results_path)
+        os.rename(temporary_file_path, results_path)
 
     # print the files that could not be processed
     if len(unprocessable_files) > 0:
@@ -807,7 +807,7 @@ def determine_valid_ecg_regions(
 def choose_valid_ecg_regions_for_further_computation(
         data_directory: str,
         ecg_keys: list,
-        preparation_results_path: str,
+        results_path: str,
         file_name_dictionary_key: str,
         valid_ecg_regions_dictionary_key: str,
     ):
@@ -824,7 +824,7 @@ def choose_valid_ecg_regions_for_further_computation(
         list of possible labels for the ECG data
     physical_dimension_correction_dictionary: dict
         dictionary needed to check and correct the physical dimension of all signals
-    preparation_results_path: str
+    results_path: str
         path to the pickle file where the valid regions are saved
     file_name_dictionary_key
         dictionary key to access the file name
@@ -837,19 +837,19 @@ def choose_valid_ecg_regions_for_further_computation(
     """
 
     # path to pickle file which will store results
-    temporary_file_path = get_path_without_filename(preparation_results_path) + "computation_in_progress.pkl"
+    temporary_file_path = get_path_without_filename(results_path) + "computation_in_progress.pkl"
     
     # if the temporary file already exists, it means a previous computation was interrupted
     # ask the user if the results should be overwritten or recovered
     if os.path.isfile(temporary_file_path):
         recover_results_after_error(
-            all_results_path = preparation_results_path, 
+            all_results_path = results_path, 
             some_results_with_updated_keys_path = temporary_file_path, 
             file_name_dictionary_key = file_name_dictionary_key,
         )
     
     # load existing results
-    preparation_results_generator = load_from_pickle(preparation_results_path)
+    preparation_results_generator = load_from_pickle(results_path)
 
     store_strictness_values = []
     store_valid_total_ratios = []
@@ -908,7 +908,7 @@ def choose_valid_ecg_regions_for_further_computation(
                 print("Invalid input. Please choose a valid strictness value.")
     
     # load existing results
-    preparation_results_generator = load_from_pickle(preparation_results_path)
+    preparation_results_generator = load_from_pickle(results_path)
     
     # assign the valid regions to the dictionary key
     for generator_entry in preparation_results_generator:
@@ -920,10 +920,10 @@ def choose_valid_ecg_regions_for_further_computation(
     # rename the file that stores the calculated data
     if os.path.isfile(temporary_file_path):
         try:
-            os.remove(preparation_results_path)
+            os.remove(results_path)
         except:
             pass
-        os.rename(temporary_file_path, preparation_results_path)
+        os.rename(temporary_file_path, results_path)
 
 
 """
@@ -1179,7 +1179,7 @@ def ecg_validation_comparison(
         ecg_classification_values_directory: str,
         ecg_classification_file_types: list,
         check_ecg_validation_strictness: list,
-        additions_results_path: str,
+        results_path: str,
         file_name_dictionary_key: str,
         valid_ecg_regions_dictionary_key: str,
         ecg_validation_comparison_dictionary_key: str,
@@ -1199,7 +1199,7 @@ def ecg_validation_comparison(
         valid file types for the ECG classification values
     ecg_validation_comparison_evaluation_path: str
         path to the pickle file where the evaluation is saved
-    additions_results_path: str,
+    results_path: str,
         path to the pickle file where the ecg validation comparison should be saved
     file_name_dictionary_key
         dictionary key to access the file name
@@ -1223,20 +1223,20 @@ def ecg_validation_comparison(
     """
     
     # path to pickle file which will store results
-    temporary_file_path = get_path_without_filename(additions_results_path) + "computation_in_progress.pkl"
+    temporary_file_path = get_path_without_filename(results_path) + "computation_in_progress.pkl"
     
     # if the temporary file already exists, it means a previous computation was interrupted
     # ask the user if the results should be overwritten or recovered
     if os.path.isfile(temporary_file_path):
         recover_results_after_error(
-            all_results_path = additions_results_path, 
+            all_results_path = results_path, 
             some_results_with_updated_keys_path = temporary_file_path, 
             file_name_dictionary_key = file_name_dictionary_key,
         )
     
     # check if the evaluation already exists and if yes: ask for permission to override
     user_answer = ask_for_permission_to_override_dictionary_entry(
-        file_path = additions_results_path,
+        file_path = results_path,
         dictionary_entry = ecg_validation_comparison_dictionary_key,
         additionally_remove_entries = [ecg_classification_valid_intervals_dictionary_key]
         )
@@ -1247,7 +1247,7 @@ def ecg_validation_comparison(
         return
 
     # get all determined ECG Validation files
-    addition_results_generator = load_from_pickle(additions_results_path)
+    addition_results_generator = load_from_pickle(results_path)
 
     # get all ECG classification files
     all_classification_files = os.listdir(ecg_classification_values_directory)
@@ -1255,7 +1255,7 @@ def ecg_validation_comparison(
 
     # create variables to track progress
     start_time = time.time()
-    total_data_files = get_pickle_length(additions_results_path, ecg_validation_comparison_dictionary_key)
+    total_data_files = get_pickle_length(results_path, ecg_validation_comparison_dictionary_key)
     progressed_data_files = 0
 
     # create lists to store unprocessable files
@@ -1324,8 +1324,8 @@ def ecg_validation_comparison(
 
     # rename the file that stores the calculated data
     if os.path.isfile(temporary_file_path):
-        os.remove(additions_results_path)
-        os.rename(temporary_file_path, additions_results_path)
+        os.remove(results_path)
+        os.rename(temporary_file_path, results_path)
 
     # print the files that could not be processed
     if len(unprocessable_files) > 0:
@@ -1339,7 +1339,7 @@ def ecg_validation_comparison(
 
 def ecg_validation_comparison_report(
         ecg_validation_comparison_report_path: str,
-        additions_results_path: str,
+        results_path: str,
         check_ecg_validation_strictness: list,
         file_name_dictionary_key: str,
         ecg_validation_comparison_dictionary_key: str,
@@ -1352,7 +1352,7 @@ def ecg_validation_comparison_report(
     --------------------------------
     ecg_validation_comparison_report_path: str
         path to the file where the report is saved
-    additions_results_path: str,
+    results_path: str,
         path to the pickle file where the ecg validation comparison should be saved
     file_name_dictionary_key
         dictionary key to access the file name
@@ -1382,7 +1382,7 @@ def ecg_validation_comparison_report(
     file_names = []
     ecg_validation_comparison_values = []
 
-    all_files_ecg_validation_generator = load_from_pickle(additions_results_path)
+    all_files_ecg_validation_generator = load_from_pickle(results_path)
     for generator_entry in all_files_ecg_validation_generator:
         if ecg_validation_comparison_dictionary_key in generator_entry and file_name_dictionary_key in generator_entry:
             file_names.append(generator_entry[file_name_dictionary_key])

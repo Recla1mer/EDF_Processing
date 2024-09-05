@@ -305,7 +305,7 @@ def detect_rpeaks(
         physical_dimension_correction_dictionary: dict,
         rpeak_function,
         rpeak_function_name: str,
-        preparation_results_path: str,
+        results_path: str,
         file_name_dictionary_key: str,
         valid_ecg_regions_dictionary_key: str,
     ):
@@ -325,7 +325,7 @@ def detect_rpeaks(
         function to detect the r-peaks
     rpeak_function_name: str
         name of the r-peak detection function
-    preparation_results_path: str
+    results_path: str
         path to the pickle file where the valid regions are saved
     file_name_dictionary_key
         dictionary key to access the file name
@@ -344,20 +344,20 @@ def detect_rpeaks(
     """
 
     # path to pickle file which will store results
-    temporary_file_path = get_path_without_filename(preparation_results_path) + "computation_in_progress.pkl"
+    temporary_file_path = get_path_without_filename(results_path) + "computation_in_progress.pkl"
 
     # if the temporary file already exists, it means a previous computation was interrupted
     # ask the user if the results should be overwritten or recovered
     if os.path.isfile(temporary_file_path):
         recover_results_after_error(
-            all_results_path = preparation_results_path, 
+            all_results_path = results_path, 
             some_results_with_updated_keys_path = temporary_file_path, 
             file_name_dictionary_key = file_name_dictionary_key,
         )
 
     # check if r-peaks already exist and if yes: ask for permission to override
     user_answer = ask_for_permission_to_override_dictionary_entry(
-        file_path = preparation_results_path,
+        file_path = results_path,
         dictionary_entry = rpeak_function_name
     )
 
@@ -370,11 +370,11 @@ def detect_rpeaks(
     unprocessable_files = []
 
     # load preparation results
-    preparation_results_generator = load_from_pickle(preparation_results_path)
+    preparation_results_generator = load_from_pickle(results_path)
    
     # create variables to track progress
     start_time = time.time()
-    total_files = get_pickle_length(preparation_results_path, rpeak_function_name)
+    total_files = get_pickle_length(results_path, rpeak_function_name)
     progressed_files = 0
 
     if total_files > 0:
@@ -425,8 +425,8 @@ def detect_rpeaks(
 
     # rename the file that stores the calculated data
     if os.path.isfile(temporary_file_path):
-        os.remove(preparation_results_path)
-        os.rename(temporary_file_path, preparation_results_path)
+        os.remove(results_path)
+        os.rename(temporary_file_path, results_path)
 
     # print unprocessable files
     if len(unprocessable_files) > 0:
@@ -445,7 +445,7 @@ def correct_rpeak_locations(
         physical_dimension_correction_dictionary: dict,
         rpeak_function_name: str,
         before_correction_rpeak_function_name_addition: str,
-        preparation_results_path: str,
+        results_path: str,
         file_name_dictionary_key: str,
     ):
     """
@@ -471,7 +471,7 @@ def correct_rpeak_locations(
         name of the r-peak detection function
     before_correction_rpeak_function_name_addition: str
         addition to the r-peak detection function name to access the r-peaks before correction
-    preparation_results_path: str
+    results_path: str
         path to the pickle file where the valid regions are saved
     file_name_dictionary_key
         dictionary key to access the file name
@@ -489,13 +489,13 @@ def correct_rpeak_locations(
     """
     
     # path to pickle file which will store results
-    temporary_file_path = get_path_without_filename(preparation_results_path) + "computation_in_progress.pkl"
+    temporary_file_path = get_path_without_filename(results_path) + "computation_in_progress.pkl"
 
     # if the temporary file already exists, it means a previous computation was interrupted
     # ask the user if the results should be overwritten or recovered
     if os.path.isfile(temporary_file_path):
         recover_results_after_error(
-            all_results_path = preparation_results_path, 
+            all_results_path = results_path, 
             some_results_with_updated_keys_path = temporary_file_path, 
             file_name_dictionary_key = file_name_dictionary_key,
         )
@@ -504,7 +504,7 @@ def correct_rpeak_locations(
     
     # check if correction of r-peaks already exist and if yes: ask for permission to override
     user_answer = ask_for_permission_to_override_dictionary_entry(
-        file_path = preparation_results_path,
+        file_path = results_path,
         dictionary_entry = before_correction_rpeak_function_name
     )
 
@@ -517,11 +517,11 @@ def correct_rpeak_locations(
     unprocessable_files = []
 
     # load preparation results
-    preparation_results_generator = load_from_pickle(preparation_results_path)
+    preparation_results_generator = load_from_pickle(results_path)
     
     # create variables to track progress
     start_time = time.time()
-    total_files = get_pickle_length(preparation_results_path, before_correction_rpeak_function_name)
+    total_files = get_pickle_length(results_path, before_correction_rpeak_function_name)
     progressed_files = 0
 
     if total_files > 0:
@@ -577,8 +577,8 @@ def correct_rpeak_locations(
 
     # rename the file that stores the calculated data
     if os.path.isfile(temporary_file_path):
-        os.remove(preparation_results_path)
-        os.rename(temporary_file_path, preparation_results_path)
+        os.remove(results_path)
+        os.rename(temporary_file_path, results_path)
 
     # print unprocessable files
     if len(unprocessable_files) > 0:
@@ -707,7 +707,7 @@ def combine_detected_rpeaks(
         rpeak_distance_threshold_seconds: float,
         rpeak_primary_function_name: str,
         rpeak_secondary_function_name: str,
-        preparation_results_path: str,
+        results_path: str,
         file_name_dictionary_key: str,
         certain_rpeaks_dictionary_key: str,
         uncertain_primary_rpeaks_dictionary_key: str,
@@ -730,7 +730,7 @@ def combine_detected_rpeaks(
         name of the primary r-peaks detection method in the dictionaries of the preparation_results
     rpeak_secondary_function_name: str
         name of the secondary r-peaks detection method in the dictionaries of the preparation_results
-    preparation_results_path: str
+    results_path: str
         path to the pickle file where the valid regions are saved
     file_name_dictionary_key
         dictionary key to access the file name
@@ -755,20 +755,20 @@ def combine_detected_rpeaks(
     """
 
     # path to pickle file which will store results
-    temporary_file_path = get_path_without_filename(preparation_results_path) + "computation_in_progress.pkl"
+    temporary_file_path = get_path_without_filename(results_path) + "computation_in_progress.pkl"
     
     # if the temporary file already exists, it means a previous computation was interrupted
     # ask the user if the results should be overwritten or recovered
     if os.path.isfile(temporary_file_path):
         recover_results_after_error(
-            all_results_path = preparation_results_path, 
+            all_results_path = results_path, 
             some_results_with_updated_keys_path = temporary_file_path, 
             file_name_dictionary_key = file_name_dictionary_key,
         )
 
     # check if the r-peaks were already combined and if yes: ask for permission to override
     user_answer = ask_for_permission_to_override_dictionary_entry(
-        file_path = preparation_results_path,
+        file_path = results_path,
         dictionary_entry = certain_rpeaks_dictionary_key,
         additionally_remove_entries = [uncertain_primary_rpeaks_dictionary_key, uncertain_secondary_rpeaks_dictionary_key]
     )
@@ -782,11 +782,11 @@ def combine_detected_rpeaks(
     unprocessable_files = []
 
     # load preparation results
-    preparation_results_generator = load_from_pickle(preparation_results_path)
+    preparation_results_generator = load_from_pickle(results_path)
     
     # create variables to track progress
     start_time = time.time()
-    total_files = get_pickle_length(preparation_results_path, certain_rpeaks_dictionary_key)
+    total_files = get_pickle_length(results_path, certain_rpeaks_dictionary_key)
     progressed_files = 0
 
     if total_files > 0:
@@ -838,8 +838,8 @@ def combine_detected_rpeaks(
 
     # rename the file that stores the calculated data
     if os.path.isfile(temporary_file_path):
-        os.remove(preparation_results_path)
-        os.rename(temporary_file_path, preparation_results_path)
+        os.remove(results_path)
+        os.rename(temporary_file_path, results_path)
 
     # print unprocessable files
     if len(unprocessable_files) > 0:
@@ -1096,7 +1096,7 @@ def read_rpeaks_from_rri_files(
         valid_rpeak_values_file_types: list,
         include_rpeak_value_classifications: list,
         add_offset_to_classification: int,
-        additions_results_path: str,
+        results_path: str,
         file_name_dictionary_key: str,
         rpeak_classification_dictionary_key: str
     ) -> None:
@@ -1117,7 +1117,7 @@ def read_rpeaks_from_rri_files(
         list of the r-peak classifications that should be included in the "r-peak detection"
     add_offset_to_classification: int
         offset that should be added to the R-peaks (classifications are slightly shifted for some reason)
-    additions_results_path: str
+    results_path: str
         path to the pickle file where the r-peaks are saved
     file_name_dictionary_key
         dictionary key to access the file name
@@ -1136,20 +1136,20 @@ def read_rpeaks_from_rri_files(
     """
     
     # path to pickle file which will store results
-    temporary_file_path = get_path_without_filename(additions_results_path) + "computation_in_progress.pkl"
+    temporary_file_path = get_path_without_filename(results_path) + "computation_in_progress.pkl"
     
     # if the temporary file already exists, it means a previous computation was interrupted
     # ask the user if the results should be overwritten or recovered
     if os.path.isfile(temporary_file_path):
         recover_results_after_error(
-            all_results_path = additions_results_path, 
+            all_results_path = results_path, 
             some_results_with_updated_keys_path = temporary_file_path, 
             file_name_dictionary_key = file_name_dictionary_key,
         )
 
     # check if the r-peaks were already read and if yes: ask for permission to override
     user_answer = ask_for_permission_to_override_dictionary_entry(
-        file_path = additions_results_path,
+        file_path = results_path,
         dictionary_entry = rpeak_classification_dictionary_key
     )
 
@@ -1168,7 +1168,7 @@ def read_rpeaks_from_rri_files(
     # skip reading if user does not want to override
     if user_answer == "n":
         # load existing results
-        additions_results_generator = load_from_pickle(additions_results_path)
+        additions_results_generator = load_from_pickle(results_path)
 
         for generator_entry in additions_results_generator:
                 # check if needed dictionary keys exist
@@ -1200,7 +1200,7 @@ def read_rpeaks_from_rri_files(
     
     if user_answer == "y":
         # load existing results
-        additions_results_generator = load_from_pickle(additions_results_path)
+        additions_results_generator = load_from_pickle(results_path)
 
         # read the r-peaks from the files
         for generator_entry in additions_results_generator:
@@ -1297,10 +1297,10 @@ def read_rpeaks_from_rri_files(
     # rename the file that stores the calculated data
     if os.path.isfile(temporary_file_path):
         try:
-            os.remove(additions_results_path)
+            os.remove(results_path)
         except:
             pass
-        os.rename(temporary_file_path, additions_results_path)
+        os.rename(temporary_file_path, results_path)
 
     # print unprocessable files 
     if len(unprocessable_files) > 0:
@@ -1315,7 +1315,7 @@ def rpeak_detection_comparison(
         data_directory: str,
         ecg_keys: list,
         rpeak_distance_threshold_seconds: float,
-        additions_results_path: str,
+        results_path: str,
         file_name_dictionary_key: str,
         valid_ecg_regions_dictionary_key: str,
         rpeak_comparison_function_names: list,
@@ -1334,7 +1334,7 @@ def rpeak_detection_comparison(
         list of possible labels for the ECG data
     rpeak_distance_threshold_seconds: float
         time period in seconds over which two different r-peaks are still considered the same
-    additions_results_path: str
+    results_path: str
         path to the pickle file where the r-peaks are saved
     file_name_dictionary_key
         dictionary key to access the file name
@@ -1366,20 +1366,20 @@ def rpeak_detection_comparison(
     """
 
     # path to pickle file which will store results
-    temporary_file_path = get_path_without_filename(additions_results_path) + "computation_in_progress.pkl"
+    temporary_file_path = get_path_without_filename(results_path) + "computation_in_progress.pkl"
     
     # if the temporary file already exists, it means a previous computation was interrupted
     # ask the user if the results should be overwritten or recovered
     if os.path.isfile(temporary_file_path):
         recover_results_after_error(
-            all_results_path = additions_results_path, 
+            all_results_path = results_path, 
             some_results_with_updated_keys_path = temporary_file_path, 
             file_name_dictionary_key = file_name_dictionary_key,
         )
 
     # check if the evaluation already exists and if yes: ask for permission to override
     user_answer = ask_for_permission_to_override_dictionary_entry(
-        file_path = additions_results_path,
+        file_path = results_path,
         dictionary_entry = rpeak_comparison_dictionary_key
     )
     
@@ -1389,11 +1389,11 @@ def rpeak_detection_comparison(
         return
 
     # load additions results
-    additions_results_generator = load_from_pickle(additions_results_path)
+    additions_results_generator = load_from_pickle(results_path)
 
     # create variables to track progress
     start_time = time.time()
-    total_files = get_pickle_length(additions_results_path, rpeak_comparison_dictionary_key)
+    total_files = get_pickle_length(results_path, rpeak_comparison_dictionary_key)
     progressed_files = 0
 
     # create lists to store unprocessable files
@@ -1510,8 +1510,8 @@ def rpeak_detection_comparison(
 
     # rename the file that stores the calculated data
     if os.path.isfile(temporary_file_path):
-        os.remove(additions_results_path)
-        os.rename(temporary_file_path, additions_results_path)
+        os.remove(results_path)
+        os.rename(temporary_file_path, results_path)
 
     # print unprocessable files 
     if len(unprocessable_files) > 0:
@@ -1526,7 +1526,7 @@ def rpeak_detection_comparison(
 def rpeak_detection_comparison_report(
         rpeak_comparison_report_dezimal_places: int,
         rpeak_comparison_report_path: str,
-        additions_results_path: str,
+        results_path: str,
         file_name_dictionary_key: str,
         rpeak_comparison_function_names: list,  
         rpeak_comparison_dictionary_key: str
@@ -1542,7 +1542,7 @@ def rpeak_detection_comparison_report(
         path where the r-peak comparison report should be saved
     rpeak_comparison_evaluation_path: str
         path to the r-peak comparison evaluation values (created by rpeak_detection_comparison())
-    additions_results_path: str
+    results_path: str
         path to the pickle file where the r-peaks are saved
     file_name_dictionary_key
         dictionary key to access the file name
@@ -1578,7 +1578,7 @@ def rpeak_detection_comparison_report(
     comparison_file.write("=" * len(message) + "\n\n\n")
 
     # load the needed data in format: {name of file: comparison values for file}
-    all_files_rpeak_comparison_generator = load_from_pickle(additions_results_path)
+    all_files_rpeak_comparison_generator = load_from_pickle(results_path)
     all_files_rpeak_comparison = dict()
     for generator_entry in all_files_rpeak_comparison_generator:
         try:
