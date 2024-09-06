@@ -93,7 +93,8 @@ results_dictionary_key_params = {
     "uncertain_primary_rpeaks_dictionary_key": "uncertain_primary_rpeaks", # key that accesses the uncertain primary r-peaks
     "uncertain_secondary_rpeaks_dictionary_key": "uncertain_secondary_rpeaks", # key that accesses the uncertain secondary r-peaks
     "MAD_dictionary_key": "MAD", # key that accesses the MAD values
-    "rri_dictionary_key": "rri", # key that accesses the RR-intervals
+    "RRI_dictionary_key": "RRI", # key that accesses the RR-intervals
+    "SLP_dictionary_key": "SLP", # key that accesses the sleep stages
 }
 
 # parameters for the ECG Validation
@@ -131,7 +132,7 @@ calculate_MAD_params = {
 
 # parameters for calculating the RRI from the r-peaks
 calculate_rri_from_peaks_params = {
-    "rri_sampling_frequency": 4, # target sampling frequency of the RR-intervals
+    "RRI_sampling_frequency": 4, # target sampling frequency of the RR-intervals
 }
 
 only_gif_results_dictionary_key_params = {
@@ -238,7 +239,7 @@ read_out_channel_variables = ["data_directory", "valid_file_types", "channel_key
     "physical_dimension_correction_dictionary", "results_path", "file_name_dictionary_key", "new_dictionary_key"]
 
 calculate_rri_from_peaks_variables = ["data_directory", "ecg_keys", "physical_dimension_correction_dictionary",
-    "rpeak_function_name", "rri_sampling_frequency", "results_path", "file_name_dictionary_key", "rri_dictionary_key"]
+    "rpeak_function_name", "RRI_sampling_frequency", "results_path", "file_name_dictionary_key", "RRI_dictionary_key"]
 
 
 """
@@ -388,7 +389,7 @@ def Processing_GIF(
     Obtain Sleep Stages
     --------------------------------
     """
-    parameters["new_dictionary_key"] = None
+    parameters["new_dictionary_key"] = parameters["SLP_dictionary_key"]
     parameters["channel_key_to_read_out"] = parameters["sleep_stage_keys"]
     read_out_channel_args = create_sub_dict(parameters, read_out_channel_variables)
     read_edf.read_out_channel(**read_out_channel_args)
@@ -499,6 +500,16 @@ MAIN SECTION
 
 In this section we will run the functions we have created until now.
 """
+relevant_keys = ["file_name", "RRI", "RRI_frequency", "MAD", "MAD_frequency", "SLP"]
+relevant_keys = ["gif_classification", "RRI"]
+
+results_generator = load_from_pickle("Processed_GIF/GIF_Results.pkl")
+for generator_entry in results_generator:
+    print(generator_entry["gif_classification"][:20])
+    print(generator_entry["RRI"][11248:11248+20])
+    break
+
+raise SystemExit
 
 if __name__ == "__main__":
     
