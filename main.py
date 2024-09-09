@@ -500,16 +500,6 @@ MAIN SECTION
 
 In this section we will run the functions we have created until now.
 """
-relevant_keys = ["file_name", "RRI", "RRI_frequency", "MAD", "MAD_frequency", "SLP"]
-relevant_keys = ["gif_classification", "RRI"]
-
-results_generator = load_from_pickle("Processed_GIF/GIF_Results.pkl")
-for generator_entry in results_generator:
-    print(generator_entry["gif_classification"][:20])
-    print(generator_entry["RRI"][11248:11248+20])
-    break
-
-raise SystemExit
 
 if __name__ == "__main__":
     

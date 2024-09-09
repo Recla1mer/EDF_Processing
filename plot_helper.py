@@ -363,7 +363,7 @@ def plot_rpeak_detection(
     kwargs.setdefault("scatter_alpha", 1)
     kwargs.setdefault("scatter_zorder", 2)
     kwargs.setdefault("scatter_markers", ["s", "D", "^", "v", "o", "x", "<", ">", "p", "P", "*", "h", "H", "+", "X", "|", "_"])
-    kwargs.setdefault("scatter_marker_resize", 0.5)
+    kwargs.setdefault("scatter_marker_resize", 0.6)
 
     # xlim and ylim
     kwargs.setdefault("xlim", [0, len(ECG)])
@@ -596,9 +596,7 @@ def plot_simple_histogram(
         x_min = min(x_min, min(data[i]))
         x_max = max(x_max, max(data[i]))
     
-    kwargs.setdefault("xlim", [x_min-0.01*abs(x_max), x_max+0.01*abs(x_max)])
-
-    print(kwargs["xlim"])
+    kwargs.setdefault("xlim", (x_min-0.01*abs(x_max), x_max+0.01*abs(x_max)))
 
     sns_args = dict(
         kde=kwargs["kde"],

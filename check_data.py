@@ -304,10 +304,8 @@ def expand_valid_regions(
                     last_two_intervals_connected = False
                     break
 
-    #print(valid_regions)
     for i in range(last_connected_region_index+1, len(valid_regions)):
         connected_intervals.append(valid_regions[i])
-    #print(connected_intervals)
     
     return connected_intervals
 
@@ -532,14 +530,9 @@ def check_ecg(
                                     upper_border = len(ECG)
                                 # append to valid intervals
                                 valid_intervals.append([lower_border, upper_border])
-
-        # if recalculate_with_manual_thresholds and ecg_comparison_mode:
-        #     store_connected_intervals.append([])
-        #     continue
         
         # concatenate neighbouring intervals
         concatenated_intervals = concatenate_neighbouring_intervals(valid_intervals)
-        #print(valid_total_ratio(ECG, concatenated_intervals))
         
         # include invalid intervals that are too short to be considered as invalid
         connected_intervals = expand_valid_regions(
@@ -547,6 +540,9 @@ def check_ecg(
             min_valid_length_iterations = int(check_ecg_min_valid_length_minutes*60*frequency), 
             allowed_invalid_region_length_iterations = int(check_ecg_allowed_invalid_region_length_seconds*frequency)
             )
+
+        # remove intervals that are too short to be considered as valid
+        connected_intervals = [interval for interval in connected_intervals if interval[1] - interval[0] >= int(check_ecg_min_valid_length_minutes*60*frequency)]
         
         store_connected_intervals.append(connected_intervals)
 
