@@ -213,9 +213,9 @@ def calculate_MAD_in_acceleration_data(
     # skip calculation if user does not want to override
     if user_answer == "n":
         # load existing results
-        preparation_results_generator = load_from_pickle(results_path)
+        results_generator = load_from_pickle(results_path)
 
-        for generator_entry in preparation_results_generator:
+        for generator_entry in results_generator:
                 # check if needed dictionary keys exist
                 if file_name_dictionary_key not in generator_entry.keys():
                     continue
@@ -242,10 +242,10 @@ def calculate_MAD_in_acceleration_data(
 
     if user_answer == "y":
         # load existing results
-        preparation_results_generator = load_from_pickle(results_path)
+        results_generator = load_from_pickle(results_path)
 
         # calculate MAD in the wrist acceleration data
-        for generator_entry in preparation_results_generator:
+        for generator_entry in results_generator:
             # show progress
             progress_bar(progressed_files, total_files, start_time)
             progressed_files += 1

@@ -619,11 +619,11 @@ def determine_valid_ecg_regions(
     additionally_remove_keys = []
     if os.path.isfile(results_path):
         # load existing results to collect keys for valid ecg regions with different strictness values
-        prep_results_generator = load_from_pickle(results_path)
+        results_generator = load_from_pickle(results_path)
 
         # additionally remove keys
         additionally_remove_keys = []
-        for generator_entry in prep_results_generator:
+        for generator_entry in results_generator:
             for dict_key in generator_entry.keys():
                 if valid_ecg_regions_dictionary_key in dict_key and dict_key not in additionally_remove_keys:
                     additionally_remove_keys.append(dict_key)
@@ -659,9 +659,9 @@ def determine_valid_ecg_regions(
     # skip calculation if user does not want to override
     if user_answer == "n":
         # load existing results
-        preparation_results_generator = load_from_pickle(results_path)
+        results_generator = load_from_pickle(results_path)
 
-        for generator_entry in preparation_results_generator:
+        for generator_entry in results_generator:
                 # check if needed dictionary keys exist
                 if file_name_dictionary_key not in generator_entry.keys():
                     continue
@@ -688,9 +688,9 @@ def determine_valid_ecg_regions(
 
     if user_answer == "y":
         # load existing results
-        preparation_results_generator = load_from_pickle(results_path)
+        results_generator = load_from_pickle(results_path)
 
-        for generator_entry in preparation_results_generator:
+        for generator_entry in results_generator:
             # show progress
             progress_bar(progressed_files, total_files, start_time)
             progressed_files += 1
@@ -845,12 +845,12 @@ def choose_valid_ecg_regions_for_further_computation(
         )
     
     # load existing results
-    preparation_results_generator = load_from_pickle(results_path)
+    results_generator = load_from_pickle(results_path)
 
     store_strictness_values = []
     store_valid_total_ratios = []
 
-    for generator_entry in preparation_results_generator:
+    for generator_entry in results_generator:
         # check if needed dictionary keys exist
         if file_name_dictionary_key not in generator_entry.keys():
             continue
@@ -904,10 +904,10 @@ def choose_valid_ecg_regions_for_further_computation(
                 print("Invalid input. Please choose a valid strictness value.")
     
     # load existing results
-    preparation_results_generator = load_from_pickle(results_path)
+    results_generator = load_from_pickle(results_path)
     
     # assign the valid regions to the dictionary key
-    for generator_entry in preparation_results_generator:
+    for generator_entry in results_generator:
         strictness_key = valid_ecg_regions_dictionary_key + "_" + strictness_value
         if strictness_key in generator_entry.keys():
             generator_entry[valid_ecg_regions_dictionary_key] = generator_entry[strictness_key]
@@ -1243,7 +1243,7 @@ def ecg_validation_comparison(
         return
 
     # get all determined ECG Validation files
-    addition_results_generator = load_from_pickle(results_path)
+    results_generator = load_from_pickle(results_path)
 
     # get all ECG classification files
     all_classification_files = os.listdir(ecg_classification_values_directory)
@@ -1261,7 +1261,7 @@ def ecg_validation_comparison(
         print("\nCalculating ECG validation comparison values for %i files:" % total_data_files)
     
     # calculate the ECG Validation comparison values for all files
-    for generator_entry in addition_results_generator:
+    for generator_entry in results_generator:
         # skip if the comparison values already exist and the user does not want to override
         if user_answer == "n" and ecg_validation_comparison_dictionary_key in generator_entry.keys():
             append_to_pickle(generator_entry, temporary_file_path)

@@ -369,8 +369,8 @@ def detect_rpeaks(
     # create lists to store unprocessable files
     unprocessable_files = []
 
-    # load preparation results
-    preparation_results_generator = load_from_pickle(results_path)
+    # load results
+    results_generator = load_from_pickle(results_path)
    
     # create variables to track progress
     start_time = time.time()
@@ -381,7 +381,7 @@ def detect_rpeaks(
         print("\nDetecting r-peaks of the ECG data in %i files from \"%s\" using %s:" % (total_files, data_directory, rpeak_function_name))
     
     # detect rpeaks in the valid regions of the ECG data
-    for generator_entry in preparation_results_generator:
+    for generator_entry in results_generator:
         # skip if the r-peak detection already exists and the user does not want to override
         if user_answer == "n" and rpeak_function_name in generator_entry.keys():
             append_to_pickle(generator_entry, temporary_file_path)
@@ -516,8 +516,8 @@ def correct_rpeak_locations(
     # create lists to store unprocessable files
     unprocessable_files = []
 
-    # load preparation results
-    preparation_results_generator = load_from_pickle(results_path)
+    # load results
+    results_generator = load_from_pickle(results_path)
     
     # create variables to track progress
     start_time = time.time()
@@ -528,7 +528,7 @@ def correct_rpeak_locations(
         print("\nCorrecting r-peaks detected by %s in %i files:" % (rpeak_function_name, total_files))
     
     # correct rpeaks
-    for generator_entry in preparation_results_generator:
+    for generator_entry in results_generator:
         # skip if corrected r-peaks already exist and the user does not want to override
         if user_answer == "n" and before_correction_rpeak_function_name in generator_entry.keys():
             append_to_pickle(generator_entry, temporary_file_path)
@@ -727,9 +727,9 @@ def combine_detected_rpeaks(
     rpeak_distance_threshold_seconds: float
         threshold for the distance between two R-peaks to be considered as the same
     rpeak_primary_function_name: str
-        name of the primary r-peaks detection method in the dictionaries of the preparation_results
+        name of the primary r-peaks detection method in the dictionaries of the results
     rpeak_secondary_function_name: str
-        name of the secondary r-peaks detection method in the dictionaries of the preparation_results
+        name of the secondary r-peaks detection method in the dictionaries of the results
     results_path: str
         path to the pickle file where the valid regions are saved
     file_name_dictionary_key
@@ -781,8 +781,8 @@ def combine_detected_rpeaks(
     # create lists to store unprocessable files
     unprocessable_files = []
 
-    # load preparation results
-    preparation_results_generator = load_from_pickle(results_path)
+    # load results
+    results_generator = load_from_pickle(results_path)
     
     # create variables to track progress
     start_time = time.time()
@@ -793,7 +793,7 @@ def combine_detected_rpeaks(
         print("\nCombining detected r-peaks for %i files from \"%s\":" % (total_files, data_directory))
     
     # combine detected r-peaks
-    for generator_entry in preparation_results_generator:
+    for generator_entry in results_generator:
         # skip if combined r-peaks already exist and the user does not want to override
         if user_answer == "n" and certain_rpeaks_dictionary_key in generator_entry.keys():
             append_to_pickle(generator_entry, temporary_file_path)
@@ -1168,9 +1168,9 @@ def read_rpeaks_from_rri_files(
     # skip reading if user does not want to override
     if user_answer == "n":
         # load existing results
-        additions_results_generator = load_from_pickle(results_path)
+        results_generator = load_from_pickle(results_path)
 
-        for generator_entry in additions_results_generator:
+        for generator_entry in results_generator:
                 # check if needed dictionary keys exist
                 if file_name_dictionary_key not in generator_entry.keys():
                     continue
@@ -1200,10 +1200,10 @@ def read_rpeaks_from_rri_files(
     
     if user_answer == "y":
         # load existing results
-        additions_results_generator = load_from_pickle(results_path)
+        results_generator = load_from_pickle(results_path)
 
         # read the r-peaks from the files
-        for generator_entry in additions_results_generator:
+        for generator_entry in results_generator:
             # show progress
             progress_bar(progressed_files, total_files, start_time)
             progressed_files += 1
@@ -1388,8 +1388,8 @@ def rpeak_detection_comparison(
         print("\nFile containing r-peak detections not found. Therefore they can not be compared and the comparison is skipped.")
         return
 
-    # load additions results
-    additions_results_generator = load_from_pickle(results_path)
+    # load results
+    results_generator = load_from_pickle(results_path)
 
     # create variables to track progress
     start_time = time.time()
@@ -1403,7 +1403,7 @@ def rpeak_detection_comparison(
         print("\nCalculating r-peak comparison values for %i files from \"%s\":" % (total_files, data_directory))
     
     # calculate the r-peak comparison values
-    for generator_entry in additions_results_generator:
+    for generator_entry in results_generator:
         # skip if the comparison values already exist and the user does not want to override
         if user_answer == "n" and rpeak_comparison_dictionary_key in generator_entry.keys():
             append_to_pickle(generator_entry, temporary_file_path)

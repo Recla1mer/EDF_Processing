@@ -82,9 +82,7 @@ file_params = {
     "physical_dimension_correction_dictionary": physical_dimension_correction_dictionary, # dictionary to correct the physical dimensions of the data
 }
 
-# parameters for the PREPARATION SECTION
-# --------------------------------------
-
+# parameters for the keys in the results dictionary
 results_dictionary_key_params = {
     "file_name_dictionary_key": "file_name", # key that accesses the file name in the dictionaries
     "valid_ecg_regions_dictionary_key": "valid_ecg_regions", # key that accesses the valid ecg regions in the dictionaries
@@ -291,7 +289,7 @@ def Processing_GIF(
     # set path to where ECG is stored
     parameters["data_directory"] = GIF_DATA_DIRECTORY
 
-    # set path to pickle file that saves the results from the additions
+    # set path to pickle file that saves the results
     parameters["results_path"] = GIF_RESULTS_DIRECTORY + GIF_RESULTS_FILE_NAME
     
     # create arguments for the valid ecg regions evaluation and calculate them

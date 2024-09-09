@@ -274,8 +274,8 @@ def determine_rri_from_rpeaks(
     # create lists to store unprocessable files
     unprocessable_files = []
 
-    # load preparation results
-    preparation_results_generator = load_from_pickle(results_path)
+    # load results
+    results_generator = load_from_pickle(results_path)
     
     # create variables to track progress
     start_time = time.time()
@@ -286,7 +286,7 @@ def determine_rri_from_rpeaks(
         print("\nCalculating RR-Intervals from r-peaks detected by %s in %i files:" % (rpeak_function_name, total_files))
     
     # correct rpeaks
-    for generator_entry in preparation_results_generator:
+    for generator_entry in results_generator:
         # skip if corrected r-peaks already exist and the user does not want to override
         if user_answer == "n" and RRI_dictionary_key in generator_entry.keys():
             append_to_pickle(generator_entry, temporary_file_path)
