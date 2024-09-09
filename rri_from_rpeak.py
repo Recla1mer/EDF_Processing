@@ -1,3 +1,9 @@
+"""
+Author: Johannes Peter Knoll
+
+Python file to calculate the RR-intervals from the detected r-peaks.
+"""
+
 # LOCAL IMPORTS
 import read_edf
 from side_functions import *

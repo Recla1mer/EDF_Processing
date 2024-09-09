@@ -9,15 +9,13 @@ Useful Link: https://www.samproell.io/posts/signal/ecg-library-comparison/
 import numpy as np
 import time
 
-# import libraries for rpeak detection
 import neurokit2
 import wfdb.processing
 from biosppy.signals.ecg import christov_segmenter, hamilton_segmenter
 
-# import old code used for rpeak detection
+# LOCAL IMPORTS
 import old_code.rpeak_detection as old_rpeak
 
-# LOCAL IMPORTS
 import read_edf
 from side_functions import *
 

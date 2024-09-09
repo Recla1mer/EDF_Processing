@@ -4,20 +4,16 @@ Author: Johannes Peter Knoll
 Main python file for Processing EDF Data.
 """
 
-# import libraries
-import copy
+# IMPORTS
 import numpy as np
 import os
-import pickle
-import time
 
-# import secondary python files
+# LOCAL IMPORTS
 import read_edf
 import MAD
 import rpeak_detection
 import check_data
 import rri_from_rpeak
-import plot_helper
 from side_functions import *
 
 

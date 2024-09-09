@@ -1,7 +1,12 @@
+"""
+Author: Johannes Peter Knoll
+
+Python file containing functions that plot data for this project.
+"""
+
+# IMPORTS
 import copy
-import os
 import numpy as np
-import pandas as pd
 
 import matplotlib
 import matplotlib.pyplot as plt
@@ -9,7 +14,6 @@ from matplotlib import cm
 
 import seaborn as sns
 import bitsandbobs as bnb
-import pickle
 
 matplotlib.rcParams["axes.prop_cycle"] = matplotlib.cycler( # type: ignore
     "color", bnb.plt.get_default_colors()

@@ -1,6 +1,13 @@
+"""
+Author: Johannes Peter Knoll
+
+Python file to run code in jupyter cells in a python file (needed for work computer)
+"""
+
+# IMPORTS
 import random
 
-# import secondary python files
+# LOCAL IMPORTS
 import main
 import read_edf
 import MAD
