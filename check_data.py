@@ -6,6 +6,7 @@ Python implementation of ECG data validation
 
 # IMPORTS
 import numpy as np
+import copy
 
 # LOCAL IMPORTS
 import read_edf

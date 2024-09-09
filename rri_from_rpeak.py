@@ -3,6 +3,8 @@ Author: Johannes Peter Knoll
 
 Python file to calculate the RR-intervals from the detected r-peaks.
 """
+# IMPORTS
+import numpy as np
 
 # LOCAL IMPORTS
 import read_edf
@@ -315,6 +317,8 @@ def determine_rri_from_rpeaks(
 
             # get the r-peaks
             rpeaks = generator_entry[rpeak_function_name]
+
+            # calculate the rri
             rri = calculate_rri_from_peaks(
                 rpeaks = rpeaks,
                 ecg_sampling_frequency = ecg_sampling_frequency,
