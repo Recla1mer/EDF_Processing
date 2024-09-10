@@ -3,6 +3,7 @@ Author: Johannes Peter Knoll
 
 Python file to calculate the RR-intervals from the detected r-peaks.
 """
+
 # IMPORTS
 import numpy as np
 
