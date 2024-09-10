@@ -88,6 +88,7 @@ def get_data_from_edf_channel(
     for i in np.arange(n):
         if signal_labels[i] in possible_channel_labels:
             channel = signal_labels[i]
+            break
 
     for i in np.arange(n):
         if signal_labels[i] == channel:
@@ -103,6 +104,7 @@ def get_data_from_edf_channel(
         signal_dimension = physical_dimension,
         dimension_correction_dict = physical_dimension_correction_dictionary
     )
+
     signal = signal * dimension_correction_value
 
     return signal, sample_frequency
@@ -349,7 +351,7 @@ def read_out_channel(
     progressed_files = 0
 
     if total_files > 0:
-        print("\nReading out and saving entries with key: \"%s\" in %i files from \"%s\":" % (channel_key_to_read_out[0], total_files, data_directory))
+        print(f"\nReading out and saving entries with matching key from: {channel_key_to_read_out} in {total_files} files from \"{data_directory}\":")
 
     if user_answer == "y":
         # load existing results
@@ -422,6 +424,14 @@ def read_out_channel(
         except:
             pass
         os.rename(temporary_file_path, results_path)
+    
+    # print unprocessable files 
+    if len(unprocessable_files) > 0:
+        print("\nFor the following " + str(len(unprocessable_files)) + " files the channel could not be saved:")
+        print(unprocessable_files)
+        print("\nPossible reasons (decreasing probability):")
+        print(" "*5 + "- No channel found that matches one of the provided keys.")
+        print(" "*5 + "- ECG file contains format errors.")
 
 
 def library_overview(file_name):
