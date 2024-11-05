@@ -11,32 +11,6 @@ import pickle
 import time
 
 
-def validate_parameter_settings(parameters: dict):
-    """
-    In the main file, we have a dictionary with all the parameters. 
-    This function checks if the parameters are valid.
-
-    ARGUMENTS:
-    --------------------------------
-    parameters: dict
-        dictionary containing all parameters
-    
-    RETURNS:
-    --------------------------------
-    None, but raises an error if a parameter is invalid
-    """
-
-    # file parameters:
-    if not isinstance(parameters["valid_file_types"], list):
-        raise ValueError("'valid_file_types' parameter must be a list.")
-    if not isinstance(parameters["ecg_keys"], list):
-        raise ValueError("'ecg_key' parameter must be a list.")
-    if not isinstance(parameters["wrist_acceleration_keys"], list):
-        raise ValueError("'wrist_acceleration_keys' parameter must be a list.")
-    if not isinstance(parameters["physical_dimension_correction_dictionary"], dict):
-        raise ValueError("'physical_dimension_correction_dictionary' parameter must be a dictionary.")
-
-
 def print_smart_time(time_seconds: float):
     """
     Convert seconds to a time format that is easier to read.

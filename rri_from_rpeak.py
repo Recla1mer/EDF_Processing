@@ -26,9 +26,8 @@ def calculate_average_rri_from_peaks(
     should be around 0.6 - 1 seconds.
 
     So if target sampling frequency is below 0.25 Hz (4 seconds), the function will calculate the average
-    RRI for each datapoint, as in this case you will most likely have more than 3 R-peaks in one datapoint.
-
-    Therefore if 
+    RRI for each datapoint, as in this case you will most likely have more than 3 R-peaks in the datapoint
+    covering the time sequence.
 
     ARGUMENTS:
     --------------------------------
@@ -46,12 +45,13 @@ def calculate_average_rri_from_peaks(
     rri: list
         list of RR-intervals
     """
+
     # check parameters
     if target_sampling_frequency > 0.25:
         raise ValueError("This function is designed to be run for low values (<= 0.25 Hz) of target_sampling_frequency. Please use calculate_momentarily_rri_from_peaks for higher values.")
 
     # calculate the number of entries in the rri list
-    number_rri_entries = int(signal_length / ecg_sampling_frequency * target_sampling_frequency)
+    number_rri_entries = int(np.ceil(signal_length / ecg_sampling_frequency * target_sampling_frequency))
 
     # rewrite rpeaks from (number of sample) to (second)
     rpeaks = np.array(rpeaks) # type: ignore
@@ -61,7 +61,7 @@ def calculate_average_rri_from_peaks(
     start_looking_at = 0
 
     # collect all rpeaks within the same rri datapoint
-    for i in range(1, number_rri_entries+1):
+    for i in range(1, number_rri_entries):
         lower_rri_second = (i-1) / target_sampling_frequency
         upper_rri_second = i / target_sampling_frequency
         these_rpeaks = []
@@ -69,7 +69,6 @@ def calculate_average_rri_from_peaks(
         for j in range(start_looking_at, len(rpeak_position_seconds)):
             if rpeak_position_seconds[j] <= upper_rri_second and lower_rri_second <= rpeak_position_seconds[j]:
                 these_rpeaks.append(rpeak_position_seconds[j])
-                start_looking_at -= 1
             if rpeak_position_seconds[j] > upper_rri_second:
                 start_looking_at = j
                 break
@@ -80,29 +79,42 @@ def calculate_average_rri_from_peaks(
     # if that is not possible, add 0 and 1000 to the list (to create really high rri, that can be filtered out later)
     for i in range(len(collect_rpeaks)):
         if len(collect_rpeaks[i]) == 1:
-            try:
+            if len(collect_rpeaks[i-1]) > 0:
+                # add previous rpeak
                 collect_rpeaks[i].append(collect_rpeaks[i-1][-1])
-            except:
+            else:
+                # add next available rpeak
                 index = i+1
+                max_index = len(collect_rpeaks) - 1
                 while True:
-                    try:
+                    if index > max_index:
+                        # if no rpeak is found, add value of current rpeak + 1000
+                        collect_rpeaks[i].append(collect_rpeaks[i][0]+1000)
+                        break
+                    if len(collect_rpeaks[index]) > 0:
                         collect_rpeaks[i].append(collect_rpeaks[index][0])
                         break
-                    except:
+                    else:
                         index += 1
 
         elif len(collect_rpeaks[i]) == 0:
-            try:
-                collect_rpeaks[i].append(collect_rpeaks[i-1][-1])
+            if len(collect_rpeaks[i-1]) > 0:
+                # add previous and next available rpeak
+                collect_rpeaks[i].append(collect_rpeaks[i-1][-1]) # previous
 
+                # next available
                 index = i+1
                 while True:
-                    try:
+                    if index > max_index:
+                        # if no rpeak is found, add value of current rpeak + 1000
+                        collect_rpeaks[i].append(collect_rpeaks[i][0]+1000)
+                        break
+                    if len(collect_rpeaks[index]) > 0:
                         collect_rpeaks[i].append(collect_rpeaks[index][0])
                         break
-                    except:
+                    else:
                         index += 1
-            except:
+            else:
                 collect_rpeaks[i].append(0)
                 collect_rpeaks[i].append(1000)
     
@@ -143,12 +155,13 @@ def calculate_momentarily_rri_from_peaks(
     rri: list
         list of RR-intervals
     """
+
     # check parameters
     if target_sampling_frequency <= 0.25:
         raise ValueError("This function is designed to be run for high values (> 0.25 Hz) of target_sampling_frequency. Please use calculate_average_rri_from_peaks for lower values.")
 
     # calculate the number of entries in the rri list
-    number_rri_entries = int(signal_length / ecg_sampling_frequency * target_sampling_frequency)
+    number_rri_entries = int(np.ceil(signal_length / ecg_sampling_frequency * target_sampling_frequency))
 
     # rewrite rpeaks from (number of sample) to (second)
     rpeaks = np.array(rpeaks) # type: ignore
@@ -166,6 +179,8 @@ def calculate_momentarily_rri_from_peaks(
             start_looking_at = j
             if rpeak_position_seconds[j-1] <= rri_datapoint_second and rri_datapoint_second <= rpeak_position_seconds[j]:
                 this_rri = rpeak_position_seconds[j] - rpeak_position_seconds[j-1]
+                break
+            if rpeak_position_seconds[j-1] > rri_datapoint_second:
                 break
         
         rri.append(this_rri)
@@ -198,6 +213,7 @@ def calculate_rri_from_peaks(
     rri: list
         list of RR-intervals
     """
+
     if target_sampling_frequency <= 0.25:
         return calculate_average_rri_from_peaks(
             rpeaks = rpeaks,

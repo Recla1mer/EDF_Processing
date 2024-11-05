@@ -43,10 +43,56 @@ matplotlib.rcParams["figure.dpi"] = 200
 matplotlib.rcParams["axes.facecolor"] = (1.0, 0.0, 0.0, 0.0)
 
 
-def simple_plot(data_y):
-    fig, ax = plt.subplots()
-    ax.plot(data_y)
-    plt.show()
+def simple_plot(data_x, data_y, **kwargs):
+    """
+    Create a simple plot.
+    """
+
+    # Default values
+    kwargs.setdefault("figsize", [3.4, 2.7])
+    kwargs.setdefault("title", "")
+    kwargs.setdefault("xlabel", "")
+    kwargs.setdefault("ylabel", "")
+    kwargs.setdefault("label", [])
+    kwargs.setdefault("loc", "best")
+    kwargs.setdefault("grid", False)
+
+    kwargs.setdefault("linewidth", 2)
+    kwargs.setdefault("alpha", 1)
+    kwargs.setdefault("linestyle", "-") # or "--", "-.", ":"
+    kwargs.setdefault("marker", None) # or "o", "x", "s", "d", "D", "v", "^", "<", ">", "p", "P", "h", "H", "8", "*", "+"
+    kwargs.setdefault("markersize", 4)
+    kwargs.setdefault("markeredgewidth", 1)
+    kwargs.setdefault("markeredgecolor", "black")
+
+    plot_args = dict(
+        linewidth = kwargs["linewidth"],
+        alpha = kwargs["alpha"],
+        linestyle = kwargs["linestyle"],
+        marker = kwargs["marker"],
+        markersize = kwargs["markersize"],
+        # markeredgewidth = kwargs["markeredgewidth"],
+        # markeredgecolor = kwargs["markeredgecolor"],
+    )
+    
+    fig, ax = plt.subplots(figsize=kwargs["figsize"])
+    ax.set(title=kwargs["title"], xlabel=kwargs["xlabel"], ylabel=kwargs["ylabel"])
+    ax.grid(kwargs["grid"])
+    if len(kwargs["label"]) > 0:
+        ax.legend(kwargs["label"], loc=kwargs["loc"])
+
+    if isinstance(data_x[0], list):
+        for i in range(len(data_x)):
+            ax.plot(data_x[i], data_y[i], **plot_args)
+    else:
+        ax.plot(data_x, data_y, **plot_args)
+
+    kwargs.setdefault("ylim", plt.ylim())
+    kwargs.setdefault("xlim", plt.xlim())
+    plt.ylim(kwargs["ylim"])
+    plt.xlim(kwargs["xlim"])
+    
+    return plt
 
 
 def plot_calibration_data(data_y, data_x, save_path, **kwargs):

@@ -331,7 +331,7 @@ def check_ecg(
     in intervals of check_ecg_time_interval_seconds. It then removes the highest peak in this interval
     and recalculates the standard deviation and the max-min distance. 
     
-    It collects all of these values and calculates the mean values. From those the thresholds are
+    It collects all of these values and calculates the mean. From those the thresholds are
     retrieved using the check_ecg_validation_strictness. 
     
     If the ratio of the max-min distance to the standard deviation is lower than the threshold,
