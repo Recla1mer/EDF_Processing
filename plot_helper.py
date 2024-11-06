@@ -395,7 +395,7 @@ def plot_rpeak_detection(
 
     # figure
     kwargs.setdefault("figsize", [3.4, 2.7])
-    kwargs.setdefault("title", "ECG Data")
+    kwargs.setdefault("title", None)
     kwargs.setdefault("x_label", "time (in iterations)")
     kwargs.setdefault("y_label", "uV")
     kwargs.setdefault("legend", ["ECG"])
