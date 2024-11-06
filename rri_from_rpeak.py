@@ -16,7 +16,8 @@ def calculate_average_rri_from_peaks(
         rpeaks: list,
         ecg_sampling_frequency: int,
         target_sampling_frequency: float,
-        signal_length: int
+        signal_length: int,
+        pad_with: float
     ):
     """
     Calculate the RR-intervals from the detected r-peaks. Return with the target sampling frequency.
@@ -39,6 +40,8 @@ def calculate_average_rri_from_peaks(
         sampling frequency of the RR-intervals
     signal_length: int
         length of the ECG signal
+    pad_with: float
+        value to pad the rri list with if no rri value can be calculated
     
     RETURNS:
     --------------------------------
@@ -61,7 +64,7 @@ def calculate_average_rri_from_peaks(
     start_looking_at = 0
 
     # collect all rpeaks within the same rri datapoint
-    for i in range(1, number_rri_entries):
+    for i in range(1, number_rri_entries+1):
         lower_rri_second = (i-1) / target_sampling_frequency
         upper_rri_second = i / target_sampling_frequency
         these_rpeaks = []
@@ -75,57 +78,52 @@ def calculate_average_rri_from_peaks(
 
         collect_rpeaks.append(these_rpeaks)
     
-    # if only one rpeak is found in the rri datapoint, try to add the previous or next rpeak
-    # if that is not possible, add 0 and 1000 to the list (to create really high rri, that can be filtered out later)
+    max_index = len(collect_rpeaks) - 1
+    # if less than two rpeaks are found in the time sequence, try to add the previous and/or the next rpeak
     for i in range(len(collect_rpeaks)):
-        if len(collect_rpeaks[i]) == 1:
+        if len(collect_rpeaks[i]) == 1 and i > 0:
             if len(collect_rpeaks[i-1]) > 0:
                 # add previous rpeak
-                collect_rpeaks[i].append(collect_rpeaks[i-1][-1])
+                collect_rpeaks[i].insert(0, collect_rpeaks[i-1][-1])
             else:
-                # add next available rpeak
+                # try to add next available rpeak if previous is not available 
                 index = i+1
-                max_index = len(collect_rpeaks) - 1
                 while True:
                     if index > max_index:
-                        # if no rpeak is found, add value of current rpeak + 1000
-                        collect_rpeaks[i].append(collect_rpeaks[i][0]+1000)
+                        # if no rpeak is found, stop looking
                         break
                     if len(collect_rpeaks[index]) > 0:
+                        # add next available rpeak
                         collect_rpeaks[i].append(collect_rpeaks[index][0])
                         break
-                    else:
-                        index += 1
+                    index += 1
 
-        elif len(collect_rpeaks[i]) == 0:
+        elif len(collect_rpeaks[i]) == 0 and i > 0:
             if len(collect_rpeaks[i-1]) > 0:
-                # add previous and next available rpeak
-                collect_rpeaks[i].append(collect_rpeaks[i-1][-1]) # previous
+                # add previous rpeak
+                collect_rpeaks[i].insert(0, collect_rpeaks[i-1][-1]) # previous
 
-                # next available
+                # try to add next available rpeak
                 index = i+1
                 while True:
                     if index > max_index:
-                        # if no rpeak is found, add value of current rpeak + 1000
-                        collect_rpeaks[i].append(collect_rpeaks[i][0]+1000)
+                        # if no rpeak is found, stop looking
                         break
                     if len(collect_rpeaks[index]) > 0:
                         collect_rpeaks[i].append(collect_rpeaks[index][0])
+                        print(collect_rpeaks[index][0])
                         break
-                    else:
-                        index += 1
-            else:
-                collect_rpeaks[i].append(0)
-                collect_rpeaks[i].append(1000)
+                    index += 1
     
     rri = []
     
-    # calculate average rri for each rri datapoint
+    # calculate average rri, if time sequence contains less than 2 rpeaks, meaning
+    # there is no other rpeak in wide approximity
     for i in range(len(collect_rpeaks)):
         if len(collect_rpeaks[i]) >= 2:
             rri.append((collect_rpeaks[i][-1] - collect_rpeaks[i][0]) / (len(collect_rpeaks[i])-1))
         else:
-            rri.append(1000)
+            rri.append(pad_with)
     
     return rri
 
@@ -134,10 +132,14 @@ def calculate_momentarily_rri_from_peaks(
         rpeaks: list,
         ecg_sampling_frequency: int,
         target_sampling_frequency: float,
-        signal_length: int
+        signal_length: int,
+        pad_with: float
     ):
     """
     Calculate the RR-intervals from the detected r-peaks. Return with the target sampling frequency.
+
+    As we expect the sampling frequency to be higher than the heart rate, we look between which two rpeaks
+    the datapoint of the RR-interval is located and return the difference of the two rpeaks.
 
     ARGUMENTS:
     --------------------------------
@@ -149,6 +151,8 @@ def calculate_momentarily_rri_from_peaks(
         sampling frequency of the RR-intervals
     signal_length: int
         length of the ECG signal
+    pad_with: float
+        value to pad the rri list with if no rri value can be calculated
     
     RETURNS:
     --------------------------------
@@ -174,10 +178,14 @@ def calculate_momentarily_rri_from_peaks(
     for i in range(number_rri_entries):
         rri_datapoint_second = i / target_sampling_frequency
 
-        this_rri = 0
+        this_rri = pad_with
         for j in range(start_looking_at, len(rpeak_position_seconds)):
             start_looking_at = j
-            if rpeak_position_seconds[j-1] <= rri_datapoint_second and rri_datapoint_second <= rpeak_position_seconds[j]:
+
+            if rpeak_position_seconds[j] == rri_datapoint_second:
+                this_rri = (rpeak_position_seconds[j+1] - rpeak_position_seconds[j-1]) / 2
+                break
+            if rpeak_position_seconds[j-1] <= rri_datapoint_second and rri_datapoint_second < rpeak_position_seconds[j]:
                 this_rri = rpeak_position_seconds[j] - rpeak_position_seconds[j-1]
                 break
             if rpeak_position_seconds[j-1] > rri_datapoint_second:
@@ -192,7 +200,8 @@ def calculate_rri_from_peaks(
         rpeaks: list,
         ecg_sampling_frequency: int,
         target_sampling_frequency: float,
-        signal_length: int
+        signal_length: int,
+        pad_with: float
     ):
     """
     Calculate the RR-intervals from the detected r-peaks. Return with the target sampling frequency.
@@ -207,6 +216,8 @@ def calculate_rri_from_peaks(
         sampling frequency of the RR-intervals
     signal_length: int
         length of the ECG signal
+    pad_with: float
+        value to pad the rri list with if no rri value can be calculated
     
     RETURNS:
     --------------------------------
@@ -219,14 +230,16 @@ def calculate_rri_from_peaks(
             rpeaks = rpeaks,
             ecg_sampling_frequency = ecg_sampling_frequency,
             target_sampling_frequency = target_sampling_frequency,
-            signal_length = signal_length
+            signal_length = signal_length,
+            pad_with = pad_with
         )
     else:
         return calculate_momentarily_rri_from_peaks(
             rpeaks = rpeaks,
             ecg_sampling_frequency = ecg_sampling_frequency,
             target_sampling_frequency = target_sampling_frequency,
-            signal_length = signal_length
+            signal_length = signal_length,
+            pad_with = pad_with
         )
 
 
@@ -236,6 +249,7 @@ def determine_rri_from_rpeaks(
         physical_dimension_correction_dictionary: dict,
         rpeak_function_name: str,
         RRI_sampling_frequency: int,
+        pad_with: float,
         results_path: str,
         file_name_dictionary_key: str,
         RRI_dictionary_key: str,
@@ -255,6 +269,8 @@ def determine_rri_from_rpeaks(
         name of the r-peak detection function
     RRI_sampling_frequency: int
         target sampling frequency of the RR-intervals
+    pad_with: float
+        value to pad the rri list with if no rri value can be calculated
     results_path: str
         path to the pickle file where the valid regions are saved
     file_name_dictionary_key
@@ -340,7 +356,8 @@ def determine_rri_from_rpeaks(
                 rpeaks = rpeaks,
                 ecg_sampling_frequency = ecg_sampling_frequency,
                 target_sampling_frequency = RRI_sampling_frequency,
-                signal_length = len(ecg_signal)
+                signal_length = len(ecg_signal),
+                pad_with = pad_with
             )
         
             # add the rri to the dictionary
