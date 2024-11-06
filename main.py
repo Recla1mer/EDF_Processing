@@ -47,8 +47,6 @@ valid_ecg_regions_params = {
 detect_rpeaks_params = {
     "rpeak_functions": [rpeak_detection.get_rpeaks_wfdb, rpeak_detection.get_rpeaks_ecgdetectors, rpeak_detection.get_rpeaks_hamilton, rpeak_detection.get_rpeaks_christov], # r-peak detection functions
     "rpeak_function_names": ["wfdb", "ecgdetectors", "hamilton", "christov"], # names of all used r-peak functions
-    "rpeak_primary_function_name": "wfdb", # name of the primary r-peak detection function
-    "rpeak_secondary_function_name": "ecgdetectors", # name of the secondary r-peak detection function
     "rpeak_distance_threshold_seconds": 0.05, # If r-peaks in the two functions differ by this value, they are still considered the same (max 50ms)
 }
 
@@ -114,9 +112,9 @@ def Processing_GIF(
     SET DATA AND STORAGE PATHS
     --------------------------------
     """
+
     # create needed directory if it does not exist
-    if not os.path.isdir(GIF_RESULTS_DIRECTORY):
-        os.mkdir(GIF_RESULTS_DIRECTORY)
+    create_directories_along_path(GIF_RESULTS_DIRECTORY)
 
     # set path to where ECG is stored
     parameters["data_directory"] = GIF_DATA_DIRECTORY
@@ -199,6 +197,7 @@ def Processing_GIF(
     CALCULATE RRI FROM R-PEAKS
     --------------------------------
     """
+
     parameters["rpeak_function_name"] = parameters["rpeak_comparison_function_names"][-1]
     calculate_rri_from_peaks_args = create_sub_dict(parameters, calculate_rri_from_peaks_variables)
     rri_from_rpeak.determine_rri_from_rpeaks(**calculate_rri_from_peaks_args)
@@ -213,16 +212,6 @@ def Processing_GIF(
     calculate_MAD_args = create_sub_dict(parameters, calculate_MAD_variables)
     MAD.calculate_MAD_in_acceleration_data(**calculate_MAD_args)
     del calculate_MAD_args
-
-    """
-    --------------------------------
-    Obtain Sleep Stages
-    --------------------------------
-    """
-    parameters["new_dictionary_key"] = parameters["SLP_dictionary_key"]
-    parameters["channel_key_to_read_out"] = parameters["sleep_stage_keys"]
-    read_out_channel_args = create_sub_dict(parameters, read_out_channel_variables)
-    read_edf.read_out_channel(**read_out_channel_args)
         
 
 def Processing_NAKO(
@@ -237,13 +226,12 @@ def Processing_NAKO(
 
     This function will:
         - evaluate the valid regions for the ECG data
-        - perform r-peak detection
+        - perform r-peak detection and calculate the RRI from the r-peaks
         - calculate the MAD in the wrist acceleration data.
     """
     
     # create directory if it does not exist
-    if not os.path.isdir(NAKO_RESULTS_DIRECTORY):
-        os.mkdir(NAKO_RESULTS_DIRECTORY)
+    create_directories_along_path(NAKO_RESULTS_DIRECTORY)
 
     for DATA_DIRECTORY in NAKO_DATA_DIRECTORIES:
         """
@@ -257,8 +245,7 @@ def Processing_NAKO(
 
         # set path to pickle file that saves the processing results
         SAVE_DIRECTORY = NAKO_RESULTS_DIRECTORY + create_save_path_from_directory_name(DATA_DIRECTORY)
-        if not os.path.isdir(SAVE_DIRECTORY):
-            os.mkdir(SAVE_DIRECTORY)
+        create_directories_along_path(SAVE_DIRECTORY)
         parameters["results_path"] = SAVE_DIRECTORY + NAKO_RESULTS_FILE_NAME
 
         """
@@ -307,7 +294,8 @@ def Processing_NAKO(
         CALCULATE RRI FROM R-PEAKS
         --------------------------------
         """
-        parameters["rpeak_function_name"] = parameters["rpeak_function_names"][0]
+        
+        parameters["rpeak_function_name"] = "hamilton"
         calculate_rri_from_peaks_args = create_sub_dict(parameters, calculate_rri_from_peaks_variables)
         rri_from_rpeak.determine_rri_from_rpeaks(**calculate_rri_from_peaks_args)
     

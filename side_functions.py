@@ -169,6 +169,28 @@ def create_save_path_from_directory_name(directory: str):
     return new_directory_name
 
 
+def create_directories_along_path(file_path: str):
+    """
+    Create all directories along a given path that do not exist yet.
+
+    RETURNS:
+    ------------------------------
+    None
+
+    ARGUMENTS:
+    ------------------------------
+    file_path: str
+        path to a file
+    """
+
+    if "/" in file_path:
+        path_parts = file_path.split("/")
+        for i in range(1, len(path_parts)):
+            path = "/".join(path_parts[:i])
+            if not os.path.exists(path):
+                os.mkdir(path)
+
+
 def clear_directory(directory: str):
     """
     Clear the given directory of all files and subdirectories.

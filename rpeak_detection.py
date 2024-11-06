@@ -14,10 +14,67 @@ import wfdb.processing
 from biosppy.signals.ecg import christov_segmenter, hamilton_segmenter
 
 # LOCAL IMPORTS
-import old_code.rpeak_detection as old_rpeak
-
 import read_edf
 from side_functions import *
+
+# OLD CODE (other author)
+# ------------------------------------------------------------------------------------------------
+from ecgdetectors import Detectors
+from biosppy.signals.ecg import correct_rpeaks
+
+
+def old_code_get_rpeaks(ecg_signal, samplingrate):
+    """
+    author: Yaopeng Ma sdumyp@126.com or mayaope@biu.ac.il
+    date: 04/2023
+
+    detect Rpeaks by SWT method then correct by the function from biosppy/
+    
+    Parameters
+    --------------
+    ecg_signal: 1D numpy array
+        contains ECG signal
+    samplingrate: int
+        sampling rate of ECG
+    """
+    detector = Detectors(samplingrate)
+    rpeaks = detector.swt_detector(ecg_signal)
+    (rpeaks, ) = correct_rpeaks(signal=ecg_signal, rpeaks=rpeaks, sampling_rate=samplingrate, tol=0.15)
+    (rpeaks, ) = correct_rpeaks(signal=ecg_signal, rpeaks=rpeaks, sampling_rate=samplingrate, tol=0.05)
+    # detect large gap (10 s)
+    threshold = 4
+    rpeaks = np.append(rpeaks, ecg_signal.size - 1)
+    rri = np.diff(rpeaks) / samplingrate
+    index = np.where(rri > threshold)[0]
+    # if no gap, return
+    if index.size == 0:
+        return rpeaks
+    real_rpeaks = [rpeaks]
+    num_inserts = np.zeros(index.size)
+    # loop all the gaps
+    for i, ind in enumerate(index):
+        # skip the peaks
+        start_i = rpeaks[ind] + int(samplingrate * 0.02)
+        end_i = rpeaks[ind + 1] - int(samplingrate * 0.02)
+
+        duration = (end_i - start_i) / samplingrate
+        sub_ecg = ecg_signal[start_i: end_i]
+        sub_rpeaks = old_code_get_rpeaks(sub_ecg, samplingrate)
+        if sub_rpeaks.size == 0 or (sub_ecg[sub_rpeaks]).mean() < 100:
+            continue
+        
+        sub_rpeaks = sub_rpeaks + start_i
+        num_inserts[i] = sub_rpeaks.size / duration
+        real_rpeaks.append(sub_rpeaks)
+    if np.max(num_inserts) < 0.2:
+        return rpeaks[:-1]
+
+    rpeaks = np.concatenate(real_rpeaks)
+    rpeaks = np.sort(rpeaks)[:-1]
+    return rpeaks
+
+# ------------------------------------------------------------------------------------------------
+# END OLD CODE
 
 
 def get_rpeaks_hamilton(
@@ -203,7 +260,7 @@ def get_rpeaks_ecgdetectors(
         ecg_signal = ECG[detection_interval[0]:detection_interval[1]]
 
     # detect the R-peaks
-    rpeaks_old = old_rpeak.get_rpeaks(ecg_signal, frequency)
+    rpeaks_old = old_code_get_rpeaks(ecg_signal, frequency)
     
     # if not the whole ECG data is used, the R-peaks are shifted by the start of the detection interval and need to be corrected
     if detection_interval is not None:

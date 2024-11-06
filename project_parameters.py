@@ -69,7 +69,6 @@ file_params = {
     "valid_file_types": [".edf"], # valid file types in the data directory
     "ecg_keys": ["ECG"], # possible labels for the ECG data in the data files
     "wrist_acceleration_keys": [["X"], ["Y"], ["Z"]], # possible labels for the wrist acceleration data in the data files
-    "sleep_stage_keys": ["SleepStage"], # possible labels for the sleep stages in the data files
     "physical_dimension_correction_dictionary": physical_dimension_correction_dictionary, # dictionary to correct the physical dimensions of the data
 }
 
@@ -83,7 +82,12 @@ results_dictionary_key_params = {
     "uncertain_secondary_rpeaks_dictionary_key": "uncertain_secondary_rpeaks", # key that accesses the uncertain secondary r-peaks
     "MAD_dictionary_key": "MAD", # key that accesses the MAD values
     "RRI_dictionary_key": "RRI", # key that accesses the RR-intervals
-    "SLP_dictionary_key": "SLP", # key that accesses the sleep stages
+}
+
+# parameters for the r-peak combination, currently unused
+combine_rpeaks_params = {
+    "rpeak_primary_function_name": "wfdb", # name of the primary r-peak detection function
+    "rpeak_secondary_function_name": "ecgdetectors", # name of the secondary r-peak detection function
 }
 
 # parameters for the r-peak correction
@@ -128,7 +132,7 @@ parameters.update(rpeak_comparison_params)
 del physical_dimension_correction_dictionary
 
 # delete the dictionaries as they are saved in the parameters dictionary now
-del file_params, results_dictionary_key_params, correct_rpeaks_params, only_gif_results_dictionary_key_params, ecg_validation_comparison_params, rpeak_comparison_params
+del file_params, results_dictionary_key_params, combine_rpeaks_params, correct_rpeaks_params, only_gif_results_dictionary_key_params, ecg_validation_comparison_params, rpeak_comparison_params
 
 # create lists of parameters relevant for the following functions (to make the code more readable)
 determine_ecg_region_variables = ["data_directory", "valid_file_types", "ecg_keys", 
