@@ -1,4 +1,3 @@
-Here’s the markdown code for the refined README:
 # EDF File Processing
 
 A Python project for processing .edf files to retrieve ECG and wrist accelerometry signals, enabling 
