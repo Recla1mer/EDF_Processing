@@ -606,14 +606,9 @@ def determine_valid_ecg_regions(
     # path to pickle file which will store results
     temporary_file_path = get_path_without_filename(results_path) + "computation_in_progress.pkl"
 
-    # if the temporary file already exists, it means a previous computation was interrupted
-    # ask the user if the results should be overwritten or recovered
+    # if the temporary file already exists, something went wrong
     if os.path.isfile(temporary_file_path):
-        recover_results_after_error(
-            all_results_path = results_path, 
-            some_results_with_updated_keys_path = temporary_file_path, 
-            file_name_dictionary_key = file_name_dictionary_key,
-        )
+        raise Exception("The file: " + temporary_file_path + " should not exist. Either a previous computation was interrupted or another computation is ongoing.")
     
     # check if the dictionary key for the valid ecg regions already exists
     remove_key = valid_ecg_regions_dictionary_key
@@ -807,6 +802,9 @@ def choose_valid_ecg_regions_for_further_computation(
         results_path: str,
         file_name_dictionary_key: str,
         valid_ecg_regions_dictionary_key: str,
+        rpeak_function_names: list,
+        before_correction_rpeak_function_name_addition: str,
+        use_strictness: None
     ):
     """
     Prints mean valid to total ratios for the evaluation of ecg data for different 
@@ -827,6 +825,15 @@ def choose_valid_ecg_regions_for_further_computation(
         dictionary key to access the file name
     valid_ecg_regions_dictionary_key: str
         dictionary key to access the valid ecg regions
+    rpeak_function_names: list
+        if the r-peaks are already calculated, changing the previous value for valid_ecg_regions_dictionary_key
+        must also remove the r-peaks from the dictionary, as they are not valid anymore
+    before_correction_rpeak_function_name_addition: str
+        addition to the r-peak detection function name to access the r-peaks before correction
+    use_strictness: None or float
+        if None, the strictness value must be chosen via console input, if float, the value is used
+        (using this argument is useful for automated processing)
+
 
     RETURNS:
     --------------------------------
@@ -836,73 +843,89 @@ def choose_valid_ecg_regions_for_further_computation(
     # path to pickle file which will store results
     temporary_file_path = get_path_without_filename(results_path) + "computation_in_progress.pkl"
     
-    # if the temporary file already exists, it means a previous computation was interrupted
-    # ask the user if the results should be overwritten or recovered
+    # if the temporary file already exists, something went wrong
     if os.path.isfile(temporary_file_path):
-        recover_results_after_error(
-            all_results_path = results_path, 
-            some_results_with_updated_keys_path = temporary_file_path, 
-            file_name_dictionary_key = file_name_dictionary_key,
+        raise Exception("The file: " + temporary_file_path + " should not exist. Either a previous computation was interrupted or another computation is ongoing.")
+    
+    if use_strictness is None:
+        # ASK USER FOR STRICTNESS VALUE
+
+        # check if ecg validation strictness was already chosen and if yes: ask for permission to override
+        additionally_remove_keys = copy.deepcopy(rpeak_function_names)
+        for function_name in rpeak_function_names:
+            additionally_remove_keys.append(function_name + before_correction_rpeak_function_name_addition)
+        
+        user_answer = ask_for_permission_to_override_dictionary_entry(
+            file_path = results_path,
+            dictionary_entry = valid_ecg_regions_dictionary_key,
+            additionally_remove_entries = additionally_remove_keys
         )
-    
-    # load existing results
-    results_generator = load_from_pickle(results_path)
 
-    store_strictness_values = []
-    store_valid_total_ratios = []
-
-    for generator_entry in results_generator:
-        # check if needed dictionary keys exist
-        if file_name_dictionary_key not in generator_entry.keys():
-            continue
-        file_name = generator_entry[file_name_dictionary_key]
+        # skip function if user does not want to override
+        if user_answer == "n":
+            return
         
-        # load the data and correct the physical dimension if needed
-        try:
-            ecg_signal_length = read_edf.get_data_length_from_edf_channel(
-                file_path = data_directory + file_name,
-                possible_channel_labels = ecg_keys,
-            )
+        # load existing results
+        results_generator = load_from_pickle(results_path)
 
-            for dict_key in generator_entry.keys():
-                if valid_ecg_regions_dictionary_key in dict_key and dict_key != valid_ecg_regions_dictionary_key:
-                    valid_total_ratio = determine_valid_total_ecg_ratio(
-                        ECG_length = ecg_signal_length, 
-                        valid_regions = generator_entry[dict_key]
-                    )
+        store_strictness_values = []
+        store_valid_total_ratios = []
 
-                    strictness_value = dict_key.split("_")[-1]
-                    if strictness_value not in store_strictness_values:
-                        store_strictness_values.append(strictness_value)
-                        store_valid_total_ratios.append([valid_total_ratio])
-                    else:
-                        store_valid_total_ratios[store_strictness_values.index(strictness_value)].append(valid_total_ratio)
-        except:
-            continue
-    
-    if len(store_strictness_values) == 0:
-        print("\nNo valid regions found in the pickle file. Please recalculate the valid regions.")
-        return
-    
-    if len(store_strictness_values) == 1:
-        strictness_value = store_strictness_values[0]
+        for generator_entry in results_generator:
+            # check if needed dictionary keys exist
+            if file_name_dictionary_key not in generator_entry.keys():
+                continue
+            file_name = generator_entry[file_name_dictionary_key]
+            
+            # load the data and correct the physical dimension if needed
+            try:
+                ecg_signal_length = read_edf.get_data_length_from_edf_channel(
+                    file_path = data_directory + file_name,
+                    possible_channel_labels = ecg_keys,
+                )
+
+                for dict_key in generator_entry.keys():
+                    if valid_ecg_regions_dictionary_key in dict_key and dict_key != valid_ecg_regions_dictionary_key:
+                        valid_total_ratio = determine_valid_total_ecg_ratio(
+                            ECG_length = ecg_signal_length, 
+                            valid_regions = generator_entry[dict_key]
+                        )
+
+                        strictness_value = dict_key.split("_")[-1]
+                        if strictness_value not in store_strictness_values:
+                            store_strictness_values.append(strictness_value)
+                            store_valid_total_ratios.append([valid_total_ratio])
+                        else:
+                            store_valid_total_ratios[store_strictness_values.index(strictness_value)].append(valid_total_ratio)
+            except:
+                continue
+        
+        if len(store_strictness_values) == 0:
+            print("\nNo valid regions found in the pickle file. Please recalculate the valid regions.")
+            return
+        
+        if len(store_strictness_values) == 1:
+            strictness_value = store_strictness_values[0]
+        else:
+            # calculate mean valid_total_ratios for strictness values
+            mean_valid_total_ratios = np.mean(store_valid_total_ratios, axis=1)
+
+            # print results to console
+            max_length = max([len(value) for value in store_strictness_values])
+            print("\nStrictness value | Mean valid to total ECG regions ratio:")
+            for i in range(0, len(store_strictness_values)):
+                print(print_left_aligned(store_strictness_values[i], max_length) + " | " + str(mean_valid_total_ratios[i]))
+            
+            # ask user for the strictness value
+            while True:
+                strictness_value = input("\nChoose a strictness value to assign the valid regions to the dictionary key \"%s\": " % valid_ecg_regions_dictionary_key)
+                if strictness_value in store_strictness_values:
+                    break
+                else:
+                    print("Invalid input. Please choose a valid strictness value.")
     else:
-        # calculate mean valid_total_ratios for strictness values
-        mean_valid_total_ratios = np.mean(store_valid_total_ratios, axis=1)
-
-        # print results to console
-        max_length = max([len(value) for value in store_strictness_values])
-        print("\nStrictness value | Mean valid to total ECG regions ratio:")
-        for i in range(0, len(store_strictness_values)):
-            print(print_left_aligned(store_strictness_values[i], max_length) + " | " + str(mean_valid_total_ratios[i]))
-        
-        # ask user for the strictness value
-        while True:
-            strictness_value = input("\nChoose a strictness value to assign the valid regions to the dictionary key \"%s\": " % valid_ecg_regions_dictionary_key)
-            if strictness_value in store_strictness_values:
-                break
-            else:
-                print("Invalid input. Please choose a valid strictness value.")
+        # USE PROVIDED STRICTNESS VALUE
+        strictness_value = str(use_strictness)
     
     # load existing results
     results_generator = load_from_pickle(results_path)
@@ -1222,14 +1245,9 @@ def ecg_validation_comparison(
     # path to pickle file which will store results
     temporary_file_path = get_path_without_filename(results_path) + "computation_in_progress.pkl"
     
-    # if the temporary file already exists, it means a previous computation was interrupted
-    # ask the user if the results should be overwritten or recovered
+    # if the temporary file already exists, something went wrong
     if os.path.isfile(temporary_file_path):
-        recover_results_after_error(
-            all_results_path = results_path, 
-            some_results_with_updated_keys_path = temporary_file_path, 
-            file_name_dictionary_key = file_name_dictionary_key,
-        )
+        raise Exception("The file: " + temporary_file_path + " should not exist. Either a previous computation was interrupted or another computation is ongoing.")
     
     # check if the evaluation already exists and if yes: ask for permission to override
     user_answer = ask_for_permission_to_override_dictionary_entry(

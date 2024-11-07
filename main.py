@@ -41,12 +41,15 @@ valid_ecg_regions_params = {
     "check_ecg_distance_std_ratio_threshold": 5.0, # if the ratio of the max-min difference and the standard deviation of the ECG data is below this threshold, the data is considered invalid
     "check_ecg_min_valid_length_minutes": 5, # minimum length of valid data in minutes
     "check_ecg_allowed_invalid_region_length_seconds": 30, # data region (see directly above) still considered valid if the invalid part is shorter than this
+    "use_strictness": 0.6 # (PARAMETER FOR DIFFERENT FUNCTION - FITS TO THIS CATEGORY): If None, the ecg regions corresponding to the strictness must be chosen manually by user input. If a float, this strictness will be used.
 }
 
 # parameters for the r-peak detection
 detect_rpeaks_params = {
-    "rpeak_functions": [rpeak_detection.get_rpeaks_wfdb, rpeak_detection.get_rpeaks_ecgdetectors, rpeak_detection.get_rpeaks_hamilton, rpeak_detection.get_rpeaks_christov], # r-peak detection functions
-    "rpeak_function_names": ["wfdb", "ecgdetectors", "hamilton", "christov"], # names of all used r-peak functions
+    "rpeak_functions": [rpeak_detection.get_rpeaks_ecgdetectors, rpeak_detection.get_rpeaks_hamilton], # r-peak detection functions
+    "rpeak_function_names": ["ecgdetectors", "hamilton"], # names of all used r-peak functions
+    # "rpeak_functions": [rpeak_detection.get_rpeaks_wfdb, rpeak_detection.get_rpeaks_ecgdetectors, rpeak_detection.get_rpeaks_hamilton, rpeak_detection.get_rpeaks_christov], # r-peak detection functions
+    # "rpeak_function_names": ["wfdb", "ecgdetectors", "hamilton", "christov"], # names of all used r-peak functions
     "rpeak_distance_threshold_seconds": 0.05, # If r-peaks in the two functions differ by this value, they are still considered the same (max 50ms)
 }
 
@@ -58,6 +61,7 @@ calculate_MAD_params = {
 # parameters for calculating the RRI from the r-peaks
 calculate_rri_from_peaks_params = {
     "RRI_sampling_frequency": 4, # target sampling frequency of the RR-intervals
+    "pad_with": 0, # value to add if RRI at required time point is not calculatable
 }
 
 # add all parameters to the parameters dictionary, so we can access them later more easily
@@ -71,9 +75,9 @@ del valid_ecg_regions_params, detect_rpeaks_params, calculate_MAD_params, calcul
 
 
 """
---------------------------------
+--------------------------
 PROCESSING DATA FUNCTIONS
---------------------------------
+--------------------------
 
 The following functions will call all functions within this project in the right order.
 """
@@ -108,9 +112,9 @@ def Processing_GIF(
     """
 
     """
-    --------------------------------
+    ---------------------------
     SET DATA AND STORAGE PATHS
-    --------------------------------
+    ---------------------------
     """
 
     # create needed directory if it does not exist
@@ -121,6 +125,27 @@ def Processing_GIF(
 
     # set path to pickle file that saves the results
     parameters["results_path"] = GIF_RESULTS_DIRECTORY + GIF_RESULTS_FILE_NAME
+
+    # check if previous computation was interrupted:
+
+    # path to pickle file which will store results
+    temporary_file_path = get_path_without_filename(GIF_RESULTS_DIRECTORY + GIF_RESULTS_FILE_NAME) + "computation_in_progress.pkl"
+
+    # ask the user if the results should be overwritten or recovered
+    if os.path.isfile(temporary_file_path):
+        recover_results_after_error(
+            all_results_path = GIF_RESULTS_DIRECTORY + GIF_RESULTS_FILE_NAME, 
+            some_results_with_updated_keys_path = temporary_file_path, 
+            file_name_dictionary_key = parameters["file_name_dictionary_key"],
+        )
+    
+    del temporary_file_path
+
+    """
+    ---------------
+    ECG VALIDATION
+    ---------------
+    """
     
     # create arguments for the valid ecg regions evaluation and calculate them
     determine_ecg_region_args = create_sub_dict(parameters, determine_ecg_region_variables)
@@ -136,9 +161,9 @@ def Processing_GIF(
     del choose_valid_ecg_regions_for_further_computation_args
     
     """
-    --------------------------------
+    ------------------------
     COMPARE ECG VALIDATIONS
-    --------------------------------
+    ------------------------
     """
     parameters["ecg_classification_values_directory"] = GIF_ECG_CLASSIFICATION_DIRECTORY
     parameters["ecg_validation_comparison_report_path"] = GIF_RESULTS_DIRECTORY + ECG_COMPARISON_FILE_NAME
@@ -151,11 +176,11 @@ def Processing_GIF(
     # create arguments for printing the ECG validation comparison report
     ecg_validation_report_args = create_sub_dict(parameters, ecg_validation_comparison_report_variables)
     check_data.ecg_validation_comparison_report(**ecg_validation_report_args)
-    
+
     """
-    --------------------------------
-    COMPARE R-PEAK DETECTIONS
-    --------------------------------
+    -----------------
+    R-PEAK DETECTION
+    -----------------
     """
 
     # create arguments for the r-peak detection and correction
@@ -172,6 +197,12 @@ def Processing_GIF(
         rpeak_detection.correct_rpeak_locations(**correct_rpeaks_args)
 
     del detect_rpeaks_args, correct_rpeaks_args
+
+    """
+    --------------------------
+    COMPARE R-PEAK DETECTIONS
+    --------------------------
+    """
 
     # create arguments for the r-peak comparison
     rpeak_detection_comparison_args = create_sub_dict(parameters, rpeak_detection_comparison_variables)
@@ -193,9 +224,9 @@ def Processing_GIF(
     rpeak_detection.rpeak_detection_comparison_report(**rpeak_comparison_report_args)
 
     """
-    --------------------------------
+    ---------------------------
     CALCULATE RRI FROM R-PEAKS
-    --------------------------------
+    ---------------------------
     """
 
     parameters["rpeak_function_name"] = parameters["rpeak_comparison_function_names"][-1]
@@ -203,9 +234,9 @@ def Processing_GIF(
     rri_from_rpeak.determine_rri_from_rpeaks(**calculate_rri_from_peaks_args)
 
     """
-    --------------------------------
+    ----------------
     MAD CALCULATION
-    --------------------------------
+    ----------------
     """
 
     # calculate MAD in the wrist acceleration data
@@ -235,9 +266,9 @@ def Processing_NAKO(
 
     for DATA_DIRECTORY in NAKO_DATA_DIRECTORIES:
         """
-        --------------------------------
+        ---------------------------
         SET DATA AND STORAGE PATHS
-        --------------------------------
+        ---------------------------
         """
 
         # set path to where ECG is stored
@@ -248,10 +279,25 @@ def Processing_NAKO(
         create_directories_along_path(SAVE_DIRECTORY)
         parameters["results_path"] = SAVE_DIRECTORY + NAKO_RESULTS_FILE_NAME
 
+        # check if previous computation was interrupted:
+
+        # path to pickle file which will store results
+        temporary_file_path = get_path_without_filename(SAVE_DIRECTORY + NAKO_RESULTS_FILE_NAME) + "computation_in_progress.pkl"
+
+        # ask the user if the results should be overwritten or recovered
+        if os.path.isfile(temporary_file_path):
+            recover_results_after_error(
+                all_results_path = SAVE_DIRECTORY + NAKO_RESULTS_FILE_NAME, 
+                some_results_with_updated_keys_path = temporary_file_path, 
+                file_name_dictionary_key = parameters["file_name_dictionary_key"],
+            )
+        
+        del temporary_file_path
+
         """
-        --------------------------------
+        ----------------------
         ECG REGION VALIDATION
-        --------------------------------
+        ----------------------
         """
 
         # evaluate valid regions for the ECG data
@@ -265,9 +311,9 @@ def Processing_NAKO(
         del choose_valid_ecg_regions_for_further_computation_args
     
         """
-        --------------------------------
+        -----------------
         R-PEAK DETECTION
-        --------------------------------
+        -----------------
         """
 
         # create arguments for the r-peak detection and correction
@@ -290,9 +336,9 @@ def Processing_NAKO(
         del detect_rpeaks_args, correct_rpeaks_args, # combine_detected_rpeaks_args
 
         """
-        --------------------------------
+        ---------------------------
         CALCULATE RRI FROM R-PEAKS
-        --------------------------------
+        ---------------------------
         """
         
         parameters["rpeak_function_name"] = "hamilton"
@@ -300,9 +346,9 @@ def Processing_NAKO(
         rri_from_rpeak.determine_rri_from_rpeaks(**calculate_rri_from_peaks_args)
     
         """
-        --------------------------------
+        ----------------
         MAD CALCULATION
-        --------------------------------
+        ----------------
         """
 
         # calculate MAD in the wrist acceleration data
@@ -312,9 +358,9 @@ def Processing_NAKO(
 
 
 """
---------------------------------
+-------------
 MAIN SECTION
---------------------------------
+-------------
 
 In this section we will run the functions we have created until now.
 """
@@ -326,7 +372,7 @@ if __name__ == "__main__":
         GIF_DATA_DIRECTORY = "Data/GIF/SOMNOwatch/",
         GIF_RPEAK_DIRECTORY = "Data/GIF/Analyse_Somno_TUM/RRI/",
         GIF_ECG_CLASSIFICATION_DIRECTORY = "Data/GIF/Analyse_Somno_TUM/Noise/",
-        GIF_RESULTS_DIRECTORY = "Processed_GIF/",
+        GIF_RESULTS_DIRECTORY = "Processed_GIF_1/",
         GIF_RESULTS_FILE_NAME = "GIF_Results.pkl",
         RPEAK_COMPARISON_FILE_NAME = "RPeak_Comparison_Report.txt",
         ECG_COMPARISON_FILE_NAME = "ECG_Validation_Comparison_Report.txt"
@@ -341,10 +387,8 @@ if __name__ == "__main__":
     """
 
     # process NAKO data
-    """
     Processing_NAKO(
-        NAKO_DATA_DIRECTORIES = ["Data/", "Data/GIF/SOMNOwatch/"],
-        NAKO_RESULTS_DIRECTORY = "Processed_NAKO/",
+        NAKO_DATA_DIRECTORIES = ["Data/GIF/SOMNOwatch/"],
+        NAKO_RESULTS_DIRECTORY = "Processed_NAKO_1/",
         NAKO_RESULTS_FILE_NAME = "NAKO_Results.pkl"
     )
-    """

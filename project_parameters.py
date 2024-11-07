@@ -144,10 +144,11 @@ determine_ecg_region_variables = ["data_directory", "valid_file_types", "ecg_key
     "check_ecg_min_valid_length_minutes", "check_ecg_allowed_invalid_region_length_seconds"]
 
 choose_valid_ecg_regions_for_further_computation_variables = ["data_directory", "ecg_keys", 
-    "results_path", "file_name_dictionary_key", "valid_ecg_regions_dictionary_key"]
+    "results_path", "file_name_dictionary_key", "valid_ecg_regions_dictionary_key", "rpeak_function_names",
+    "before_correction_rpeak_function_name_addition", "use_strictness"]
 
 detect_rpeaks_variables = ["data_directory", "ecg_keys", "physical_dimension_correction_dictionary",
-    "results_path", "file_name_dictionary_key", "valid_ecg_regions_dictionary_key"]
+    "results_path", "file_name_dictionary_key", "valid_ecg_regions_dictionary_key", "before_correction_rpeak_function_name_addition"]
 
 correct_rpeaks_variables = ["data_directory", "ecg_keys", "physical_dimension_correction_dictionary",
     "before_correction_rpeak_function_name_addition", "results_path", "file_name_dictionary_key"]
@@ -187,4 +188,4 @@ read_out_channel_variables = ["data_directory", "valid_file_types", "channel_key
     "physical_dimension_correction_dictionary", "results_path", "file_name_dictionary_key", "new_dictionary_key"]
 
 calculate_rri_from_peaks_variables = ["data_directory", "ecg_keys", "physical_dimension_correction_dictionary",
-    "rpeak_function_name", "RRI_sampling_frequency", "results_path", "file_name_dictionary_key", "RRI_dictionary_key"]
+    "rpeak_function_name", "RRI_sampling_frequency", "pad_with", "results_path", "file_name_dictionary_key", "RRI_dictionary_key"]

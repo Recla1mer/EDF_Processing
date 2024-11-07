@@ -292,19 +292,15 @@ def determine_rri_from_rpeaks(
     # path to pickle file which will store results
     temporary_file_path = get_path_without_filename(results_path) + "computation_in_progress.pkl"
 
-    # if the temporary file already exists, it means a previous computation was interrupted
-    # ask the user if the results should be overwritten or recovered
+    # if the temporary file already exists, something went wrong
     if os.path.isfile(temporary_file_path):
-        recover_results_after_error(
-            all_results_path = results_path, 
-            some_results_with_updated_keys_path = temporary_file_path, 
-            file_name_dictionary_key = file_name_dictionary_key,
-        )
+        raise Exception("The file: " + temporary_file_path + " should not exist. Either a previous computation was interrupted or another computation is ongoing.")
     
     # check if correction of r-peaks already exist and if yes: ask for permission to override
     user_answer = ask_for_permission_to_override_dictionary_entry(
         file_path = results_path,
-        dictionary_entry = RRI_dictionary_key
+        dictionary_entry = RRI_dictionary_key,
+        additionally_remove_entries = [RRI_dictionary_key + "_frequency"]
     )
 
     # cancel if needed data is missing

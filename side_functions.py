@@ -612,7 +612,7 @@ def recover_results_after_error(
         if user_answer == "y":
             break
         elif user_answer == "n":
-            return
+            break
         else:
             print("\nAnswer not recognized. Please answer with 'y' or 'n'.")
     

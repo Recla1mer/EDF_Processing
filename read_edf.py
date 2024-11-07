@@ -294,14 +294,9 @@ def read_out_channel(
     # path to pickle file which will store results
     temporary_file_path = get_path_without_filename(results_path) + "computation_in_progress.pkl"
 
-    # if the temporary file already exists, it means a previous computation was interrupted
-    # ask the user if the results should be overwritten or recovered
+    # if the temporary file already exists, something went wrong
     if os.path.isfile(temporary_file_path):
-        recover_results_after_error(
-            all_results_path = results_path, 
-            some_results_with_updated_keys_path = temporary_file_path, 
-            file_name_dictionary_key = file_name_dictionary_key,
-        )
+        raise Exception("The file: " + temporary_file_path + " should not exist. Either a previous computation was interrupted or another computation is ongoing.")
     
     if new_dictionary_key is None:
         new_dictionary_key = channel_key_to_read_out[0]

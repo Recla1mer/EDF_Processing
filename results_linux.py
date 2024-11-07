@@ -1,7 +1,7 @@
 """
 Author: Johannes Peter Knoll
 
-Python file to run code in jupyter cells in a python file (needed for work computer)
+Same Code as 'Access_Results.ipynb' (needed for work computer)
 """
 
 # IMPORTS
@@ -48,11 +48,11 @@ def straighten_the_ecg_signal(
 
     ecg_signal = ECG[lower_border:lower_border + interval_size]
 
-    plot_helper.simple_plot(ecg_signal)
+    plot_helper.simple_plot([i for i in range(len(ecg_signal))], ecg_signal)
 
     straightened_ecg = check_data.straighten_ecg(ecg_signal, frequency)
 
-    plot_helper.simple_plot(straightened_ecg)
+    plot_helper.simple_plot([i for i in range(len(straightened_ecg))], straightened_ecg)
 
 
 def evaluate_and_show_valid_ecg_regions(

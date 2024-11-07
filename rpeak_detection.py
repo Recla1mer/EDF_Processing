@@ -360,6 +360,7 @@ def detect_rpeaks(
         physical_dimension_correction_dictionary: dict,
         rpeak_function,
         rpeak_function_name: str,
+        before_correction_rpeak_function_name_addition: str,
         results_path: str,
         file_name_dictionary_key: str,
         valid_ecg_regions_dictionary_key: str,
@@ -380,6 +381,8 @@ def detect_rpeaks(
         function to detect the r-peaks
     rpeak_function_name: str
         name of the r-peak detection function
+    before_correction_rpeak_function_name_addition: str
+        addition to the r-peak detection function name to access the r-peaks before correction
     results_path: str
         path to the pickle file where the valid regions are saved
     file_name_dictionary_key
@@ -397,23 +400,20 @@ def detect_rpeaks(
     }
         ...
     """
+    rpeak_function_name = rpeak_function_name + before_correction_rpeak_function_name_addition
 
     # path to pickle file which will store results
     temporary_file_path = get_path_without_filename(results_path) + "computation_in_progress.pkl"
 
-    # if the temporary file already exists, it means a previous computation was interrupted
-    # ask the user if the results should be overwritten or recovered
+    # if the temporary file already exists, something went wrong
     if os.path.isfile(temporary_file_path):
-        recover_results_after_error(
-            all_results_path = results_path, 
-            some_results_with_updated_keys_path = temporary_file_path, 
-            file_name_dictionary_key = file_name_dictionary_key,
-        )
+        raise Exception("The file: " + temporary_file_path + " should not exist. Either a previous computation was interrupted or another computation is ongoing.")
 
     # check if r-peaks already exist and if yes: ask for permission to override
     user_answer = ask_for_permission_to_override_dictionary_entry(
         file_path = results_path,
-        dictionary_entry = rpeak_function_name
+        dictionary_entry = rpeak_function_name,
+        additionally_remove_entries = [rpeak_function_name[:-len(before_correction_rpeak_function_name_addition)]]
     )
 
     # cancel if needed data is missing
@@ -433,7 +433,7 @@ def detect_rpeaks(
     progressed_files = 0
 
     if total_files > 0:
-        print("\nDetecting r-peaks of the ECG data in %i files from \"%s\" using %s:" % (total_files, data_directory, rpeak_function_name))
+        print("\nDetecting r-peaks of the ECG data in %i files from \"%s\" using %s:" % (total_files, data_directory, rpeak_function_name[:-len(before_correction_rpeak_function_name_addition)]))
     
     # detect rpeaks in the valid regions of the ECG data
     for generator_entry in results_generator:
@@ -546,21 +546,14 @@ def correct_rpeak_locations(
     # path to pickle file which will store results
     temporary_file_path = get_path_without_filename(results_path) + "computation_in_progress.pkl"
 
-    # if the temporary file already exists, it means a previous computation was interrupted
-    # ask the user if the results should be overwritten or recovered
+    # if the temporary file already exists, something went wrong
     if os.path.isfile(temporary_file_path):
-        recover_results_after_error(
-            all_results_path = results_path, 
-            some_results_with_updated_keys_path = temporary_file_path, 
-            file_name_dictionary_key = file_name_dictionary_key,
-        )
-    
-    before_correction_rpeak_function_name = rpeak_function_name + before_correction_rpeak_function_name_addition
+        raise Exception("The file: " + temporary_file_path + " should not exist. Either a previous computation was interrupted or another computation is ongoing.")
     
     # check if correction of r-peaks already exist and if yes: ask for permission to override
     user_answer = ask_for_permission_to_override_dictionary_entry(
         file_path = results_path,
-        dictionary_entry = before_correction_rpeak_function_name
+        dictionary_entry = rpeak_function_name
     )
 
     # cancel if needed data is missing
@@ -576,7 +569,7 @@ def correct_rpeak_locations(
     
     # create variables to track progress
     start_time = time.time()
-    total_files = get_pickle_length(results_path, before_correction_rpeak_function_name)
+    total_files = get_pickle_length(results_path, rpeak_function_name)
     progressed_files = 0
 
     if total_files > 0:
@@ -585,7 +578,7 @@ def correct_rpeak_locations(
     # correct rpeaks
     for generator_entry in results_generator:
         # skip if corrected r-peaks already exist and the user does not want to override
-        if user_answer == "n" and before_correction_rpeak_function_name in generator_entry.keys():
+        if user_answer == "n" and rpeak_function_name in generator_entry.keys():
             append_to_pickle(generator_entry, temporary_file_path)
             continue
 
@@ -605,7 +598,7 @@ def correct_rpeak_locations(
             )
 
             # get the r-peaks before correction
-            rpeaks_before_correction = generator_entry[rpeak_function_name]
+            rpeaks_before_correction = generator_entry[rpeak_function_name + before_correction_rpeak_function_name_addition]
 
             # correct the r-peaks
             rpeaks_corrected = wfdb.processing.correct_peaks(
@@ -621,7 +614,6 @@ def correct_rpeak_locations(
         
             # add the r-peaks to the dictionary
             generator_entry[rpeak_function_name] = rpeaks_corrected
-            generator_entry[before_correction_rpeak_function_name] = rpeaks_before_correction
 
         except:
             unprocessable_files.append(file_name)
@@ -812,14 +804,9 @@ def combine_detected_rpeaks(
     # path to pickle file which will store results
     temporary_file_path = get_path_without_filename(results_path) + "computation_in_progress.pkl"
     
-    # if the temporary file already exists, it means a previous computation was interrupted
-    # ask the user if the results should be overwritten or recovered
+    # if the temporary file already exists, something went wrong
     if os.path.isfile(temporary_file_path):
-        recover_results_after_error(
-            all_results_path = results_path, 
-            some_results_with_updated_keys_path = temporary_file_path, 
-            file_name_dictionary_key = file_name_dictionary_key,
-        )
+        raise Exception("The file: " + temporary_file_path + " should not exist. Either a previous computation was interrupted or another computation is ongoing.")
 
     # check if the r-peaks were already combined and if yes: ask for permission to override
     user_answer = ask_for_permission_to_override_dictionary_entry(
@@ -1193,14 +1180,9 @@ def read_rpeaks_from_rri_files(
     # path to pickle file which will store results
     temporary_file_path = get_path_without_filename(results_path) + "computation_in_progress.pkl"
     
-    # if the temporary file already exists, it means a previous computation was interrupted
-    # ask the user if the results should be overwritten or recovered
+    # if the temporary file already exists, something went wrong
     if os.path.isfile(temporary_file_path):
-        recover_results_after_error(
-            all_results_path = results_path, 
-            some_results_with_updated_keys_path = temporary_file_path, 
-            file_name_dictionary_key = file_name_dictionary_key,
-        )
+        raise Exception("The file: " + temporary_file_path + " should not exist. Either a previous computation was interrupted or another computation is ongoing.")
 
     # check if the r-peaks were already read and if yes: ask for permission to override
     user_answer = ask_for_permission_to_override_dictionary_entry(
@@ -1423,14 +1405,9 @@ def rpeak_detection_comparison(
     # path to pickle file which will store results
     temporary_file_path = get_path_without_filename(results_path) + "computation_in_progress.pkl"
     
-    # if the temporary file already exists, it means a previous computation was interrupted
-    # ask the user if the results should be overwritten or recovered
+    # if the temporary file already exists, something went wrong
     if os.path.isfile(temporary_file_path):
-        recover_results_after_error(
-            all_results_path = results_path, 
-            some_results_with_updated_keys_path = temporary_file_path, 
-            file_name_dictionary_key = file_name_dictionary_key,
-        )
+        raise Exception("The file: " + temporary_file_path + " should not exist. Either a previous computation was interrupted or another computation is ongoing.")
 
     # check if the evaluation already exists and if yes: ask for permission to override
     user_answer = ask_for_permission_to_override_dictionary_entry(

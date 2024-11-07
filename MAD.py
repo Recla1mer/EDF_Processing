@@ -184,19 +184,15 @@ def calculate_MAD_in_acceleration_data(
     # path to pickle file which will store results
     temporary_file_path = get_path_without_filename(results_path) + "computation_in_progress.pkl"
 
-    # if the temporary file already exists, it means a previous computation was interrupted
-    # ask the user if the results should be overwritten or recovered
+    # if the temporary file already exists, something went wrong
     if os.path.isfile(temporary_file_path):
-        recover_results_after_error(
-            all_results_path = results_path, 
-            some_results_with_updated_keys_path = temporary_file_path, 
-            file_name_dictionary_key = file_name_dictionary_key,
-        )
+        raise Exception("The file: " + temporary_file_path + " should not exist. Either a previous computation was interrupted or another computation is ongoing.")
 
     # check if MAD values already exist and if yes ask for permission to override
     user_answer = ask_for_permission_to_override_dictionary_entry(
         file_path = results_path,
-        dictionary_entry = MAD_dictionary_key
+        dictionary_entry = MAD_dictionary_key,
+        additionally_remove_entries = [MAD_dictionary_key + "_frequency"]
     )
     
     # create list to store unprocessable files
@@ -281,9 +277,15 @@ def calculate_MAD_in_acceleration_data(
                     time_period = mad_time_period_seconds, 
                     )
                 
+                # calculate sampling frequency
+                mad_sampling_frequency = 1 / mad_time_period_seconds
+                if int(mad_sampling_frequency) == mad_sampling_frequency:
+                    mad_sampling_frequency = int(mad_sampling_frequency)
+                
                 # save MAD values
                 generator_entry[MAD_dictionary_key] = this_MAD_values
-                generator_entry[MAD_dictionary_key + "_frequency"] = 1 / mad_time_period_seconds
+
+                generator_entry[MAD_dictionary_key + "_frequency"] = mad_sampling_frequency
 
             except:
                 unprocessable_files.append(file_name)
@@ -325,9 +327,14 @@ def calculate_MAD_in_acceleration_data(
                 time_period = mad_time_period_seconds, 
                 )
             
+            # calculate sampling frequency
+            mad_sampling_frequency = 1 / mad_time_period_seconds
+            if int(mad_sampling_frequency) == mad_sampling_frequency:
+                mad_sampling_frequency = int(mad_sampling_frequency)
+            
             # save MAD values for this file to the dictionary
             generator_entry[MAD_dictionary_key] = this_MAD_values # type: ignore    
-            generator_entry[MAD_dictionary_key + "_frequency"] = 1 / mad_time_period_seconds # type: ignore
+            generator_entry[MAD_dictionary_key + "_frequency"] = mad_sampling_frequency # type: ignore
 
         except:
             unprocessable_files.append(file_name)
