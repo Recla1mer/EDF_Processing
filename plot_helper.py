@@ -506,9 +506,9 @@ def plot_MAD_values(
     """
     # Set default values
     kwargs.setdefault("figsize", [3.4, 2.7])
-    kwargs.setdefault("title", "ECG Data")
-    kwargs.setdefault("x_label", "time (in iterations)")
-    kwargs.setdefault("y_label", "mg")
+    kwargs.setdefault("title", None)
+    kwargs.setdefault("x_label", r"Time $\left(\text{in }\dfrac{1}{%i} \text{s}\right)$" % frequency)
+    kwargs.setdefault("y_label", r"Acceleration (in m$g$)")
     kwargs.setdefault("legend", ["X", "Y", "Z", "MAD"])
     kwargs.setdefault("linewidth", 2)
     kwargs.setdefault("line_alpha", 0.7)

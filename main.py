@@ -388,7 +388,7 @@ if __name__ == "__main__":
 
     # process NAKO data
     Processing_NAKO(
-        NAKO_DATA_DIRECTORIES = ["Data/GIF/SOMNOwatch/"],
+        NAKO_DATA_DIRECTORIES = ["Data/", "Data/GIF/SOMNOwatch/"],
         NAKO_RESULTS_DIRECTORY = "Processed_NAKO/",
         NAKO_RESULTS_FILE_NAME = "NAKO_Results.pkl"
     )
