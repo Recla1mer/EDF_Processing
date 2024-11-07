@@ -118,7 +118,7 @@ def plot_calibration_data(data_y, data_x, save_path, **kwargs):
     plt.savefig(save_path)
 
 
-def plot_valid_regions(ECG: list, valid_regions: list, **kwargs):
+def plot_valid_regions(ECG: list, sampling_frequency: int, valid_regions: list, **kwargs):
     """
     Plot the valid regions of the ECG data.
 
@@ -126,6 +126,8 @@ def plot_valid_regions(ECG: list, valid_regions: list, **kwargs):
     --------------------------------
     ECG: list
         list of ECG data
+    sampling_frequency: int
+        sampling frequency of the ECG data
     valid_regions: list
         list of valid regions: valid_regions[i] = [start, end]
     
@@ -139,8 +141,8 @@ def plot_valid_regions(ECG: list, valid_regions: list, **kwargs):
     # figure
     kwargs.setdefault("figsize", [3.4, 2.7])
     kwargs.setdefault("title", "ECG Data")
-    kwargs.setdefault("x_label", "time (in iterations)")
-    kwargs.setdefault("y_label", "uV")
+    kwargs.setdefault("x_label", r"Time $\left(\text{in }\dfrac{1}{%i} \text{s}\right)$" % sampling_frequency)
+    kwargs.setdefault("y_label", r"Voltage $\left(\text{in } \mu\text{V} \right)$")
     kwargs.setdefault("legend", ["Valid", "Invalid"])
     kwargs.setdefault("color", ["green", "red"])
 
@@ -369,7 +371,9 @@ def plot_ecg_validation_comparison(ECG: list, valid_regions: list, ecg_classific
 
 
 def plot_rpeak_detection(
+        time: list,
         ECG: list, 
+        sampling_frequency: int,
         rpeaks: list, 
         rpeaks_name: list,
         **kwargs
@@ -379,8 +383,12 @@ def plot_rpeak_detection(
 
     ARGUMENTS:
     --------------------------------
+    time: list
+        list of time stamps
     ECG: list
         list of ECG data
+    sampling_frequency: int
+        sampling frequency of the ECG data
     rpeaks: list
         nested list of R-peaks: rpeaks[i] = [R-peak indices]
     rpeaks_name: list
@@ -396,9 +404,10 @@ def plot_rpeak_detection(
     # figure
     kwargs.setdefault("figsize", [3.4, 2.7])
     kwargs.setdefault("title", None)
-    kwargs.setdefault("x_label", "time (in iterations)")
-    kwargs.setdefault("y_label", "uV")
+    kwargs.setdefault("x_label", r"Time $\left(\text{in }\dfrac{1}{%i} \text{s}\right)$" % sampling_frequency)
+    kwargs.setdefault("y_label", r"Voltage $\left(\text{in } \mu\text{V} \right)$")
     kwargs.setdefault("legend", ["ECG"])
+    kwargs.setdefault("loc", "best")
 
     for name in rpeaks_name:
         kwargs["legend"].append(name)
@@ -415,13 +424,6 @@ def plot_rpeak_detection(
     kwargs.setdefault("scatter_markers", ["s", "D", "^", "v", "o", "x", "<", ">", "p", "P", "*", "h", "H", "+", "X", "|", "_"])
     kwargs.setdefault("scatter_marker_resize", 0.6)
 
-    # xlim and ylim
-    kwargs.setdefault("xlim", [0, len(ECG)])
-    
-    y_min = min(ECG[kwargs["xlim"][0]:kwargs["xlim"][1]])
-    y_max = max(ECG[kwargs["xlim"][0]:kwargs["xlim"][1]])
-    kwargs.setdefault("ylim", [y_min-abs(0.2*y_max), y_max+abs(0.2*y_max)])
-
     # create arguments for line plotting
     local_plot_kwargs = dict()
     local_plot_kwargs["linewidth"] = kwargs["linewidth"]
@@ -430,7 +432,6 @@ def plot_rpeak_detection(
 
     # create arguments for scatter plotting
     local_scatter_kwargs = dict()
-    # local_scatter_kwargs["s"] = kwargs["scatter_s"]
     local_scatter_kwargs["alpha"] = kwargs["scatter_alpha"]
     local_scatter_kwargs["zorder"] = kwargs["scatter_zorder"]
 
@@ -442,8 +443,10 @@ def plot_rpeak_detection(
 
     # plot the ECG data
     ax.plot(
-        np.arange(kwargs["xlim"][0], kwargs["xlim"][1]), 
-        ECG[kwargs["xlim"][0]:kwargs["xlim"][1]], 
+        # np.arange(kwargs["xlim"][0], kwargs["xlim"][1]), 
+        # ECG[kwargs["xlim"][0]:kwargs["xlim"][1]], 
+        time,
+        ECG,
         label=kwargs["legend"][0], 
         **local_plot_kwargs
         )
@@ -462,7 +465,11 @@ def plot_rpeak_detection(
             **local_scatter_kwargs
             )
     
-    ax.legend(loc="best")
+    # xlim and ylim
+    kwargs.setdefault("xlim", plt.xlim())
+    kwargs.setdefault("ylim", plt.ylim())
+    
+    ax.legend(loc=kwargs["loc"])
     ax.set_xlim(kwargs["xlim"])
     ax.set_ylim(kwargs["ylim"])
     ax.set_axisbelow(True)

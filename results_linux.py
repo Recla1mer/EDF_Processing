@@ -366,25 +366,25 @@ ECG VALIDATION
 --------------------------
 """
 
-straighten_the_ecg_signal(
-    data_directory =  "Data/",
-    file_data_name = "Somnowatch_Messung.edf",
-    lower_border = 1012500,
-    interval_size = 1280
-)
+# straighten_the_ecg_signal(
+#     data_directory =  "Data/",
+#     file_data_name = "Somnowatch_Messung.edf",
+#     lower_border = 1012500,
+#     interval_size = 1280
+# )
 
-evaluate_and_show_valid_ecg_regions(
-    data_directory = "Data/GIF/SOMNOwatch/",
-    file_data_name = "SL104_SL104_(1).edf",
-    x_lim_ratio = [0, 1]
-)
+# evaluate_and_show_valid_ecg_regions(
+#     data_directory = "Data/GIF/SOMNOwatch/",
+#     file_data_name = "SL104_SL104_(1).edf",
+#     x_lim_ratio = [0, 1]
+# )
 
-show_evaluated_valid_ecg_regions(
-    data_directory = "Data/GIF/SOMNOwatch/",
-    file_data_name = "SL104_SL104_(1).edf",
-    results_path = "Processed_GIF/GIF_Results.pkl",
-    x_lim_ratio = [0, 1]
-)
+# show_evaluated_valid_ecg_regions(
+#     data_directory = "Data/GIF/SOMNOwatch/",
+#     file_data_name = "SL104_SL104_(1).edf",
+#     results_path = "Processed_GIF/GIF_Results.pkl",
+#     x_lim_ratio = [0, 1]
+# )
 
 """
 --------------------------
@@ -392,14 +392,14 @@ ECG VALIDATION COMPARISON
 --------------------------
 """
 
-compare_ecg_validation_and_gif_classification(
-    data_directory = "Data/GIF/SOMNOwatch/",
-    class_directory = "Data/GIF/Analyse_Somno_TUM/Noise/",
-    file_data_name = "SL001_SL001_(1).edf",
-    results_path = "Processed_GIF/GIF_Results.pkl",
-    validation_strictness = 0.5,
-    x_lim_ratio = [0.89, 11/12] # type: ignore
-)
+# compare_ecg_validation_and_gif_classification(
+#     data_directory = "Data/GIF/SOMNOwatch/",
+#     class_directory = "Data/GIF/Analyse_Somno_TUM/Noise/",
+#     file_data_name = "SL001_SL001_(1).edf",
+#     results_path = "Processed_GIF/GIF_Results.pkl",
+#     validation_strictness = 0.5,
+#     x_lim_ratio = [0.89, 11/12] # type: ignore
+# )
 
 """
 --------------------------
@@ -407,12 +407,12 @@ CALCULATING R_PEAKS
 --------------------------
 """
 
-calculating_rpeaks_from_scratch(
-    data_directory = "Data/",
-    file_data_name = "Somnowatch_Messung.edf",
-    interval_size = 2560,
-    lower_bound = 1781760
-)
+# calculating_rpeaks_from_scratch(
+#     data_directory = "Data/",
+#     file_data_name = "Somnowatch_Messung.edf",
+#     interval_size = 2560,
+#     lower_bound = 1781760
+# )
 
 """
 --------------------------
@@ -424,15 +424,15 @@ R-PEAK DETECTION COMPARISON
 first_function_name = "wfdb"
 second_function_name = "gif_classification"
 
-visualize_rpeak_comparison(
-    first_function_name = first_function_name,
-    second_function_name = second_function_name,
-    results_path = "Processed_GIF/GIF_Results.pkl"
-)
+# visualize_rpeak_comparison(
+#     first_function_name = first_function_name,
+#     second_function_name = second_function_name,
+#     results_path = "Processed_GIF/GIF_Results.pkl"
+# )
 
-plot_non_intersecting_r_peaks(
-    data_directory = "Data/GIF/SOMNOwatch/",
-    file_data_name = "SL001_SL001_(1).edf",
-    interval_size = 2560,
-    results_path = "Processed_GIF/GIF_Results.pkl"
-)
+# plot_non_intersecting_r_peaks(
+#     data_directory = "Data/GIF/SOMNOwatch/",
+#     file_data_name = "SL001_SL001_(1).edf",
+#     interval_size = 2560,
+#     results_path = "Processed_GIF/GIF_Results.pkl"
+# )

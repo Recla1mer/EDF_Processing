@@ -127,10 +127,13 @@ def calc_mad(
     #calculate MAD in intervals
     MAD = []
     for i in np.arange(0, len(acceleration_data_lists[0]), number_of_samples):
+        upper_border = i + number_of_samples
+        if upper_border > len(acceleration_data_lists[0]):
+            upper_border = len(acceleration_data_lists[0])
         MAD.append(calc_mad_in_interval(
             acceleration_data_lists = acceleration_data_lists,
             start_position = i,
-            end_position = i + time_period)
+            end_position = upper_border)
             )
 
     return np.array(MAD)

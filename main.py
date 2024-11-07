@@ -372,7 +372,7 @@ if __name__ == "__main__":
         GIF_DATA_DIRECTORY = "Data/GIF/SOMNOwatch/",
         GIF_RPEAK_DIRECTORY = "Data/GIF/Analyse_Somno_TUM/RRI/",
         GIF_ECG_CLASSIFICATION_DIRECTORY = "Data/GIF/Analyse_Somno_TUM/Noise/",
-        GIF_RESULTS_DIRECTORY = "Processed_GIF_1/",
+        GIF_RESULTS_DIRECTORY = "Processed_GIF/",
         GIF_RESULTS_FILE_NAME = "GIF_Results.pkl",
         RPEAK_COMPARISON_FILE_NAME = "RPeak_Comparison_Report.txt",
         ECG_COMPARISON_FILE_NAME = "ECG_Validation_Comparison_Report.txt"
@@ -389,6 +389,6 @@ if __name__ == "__main__":
     # process NAKO data
     Processing_NAKO(
         NAKO_DATA_DIRECTORIES = ["Data/GIF/SOMNOwatch/"],
-        NAKO_RESULTS_DIRECTORY = "Processed_NAKO_1/",
+        NAKO_RESULTS_DIRECTORY = "Processed_NAKO/",
         NAKO_RESULTS_FILE_NAME = "NAKO_Results.pkl"
     )
