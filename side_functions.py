@@ -138,37 +138,6 @@ def retrieve_all_subdirectories_containing_valid_files(directory: str, valid_fil
     return all_paths
 
 
-def create_save_path_from_directory_name(directory: str):
-    """
-    We will save the results calculated in main.py in equally named directories the data 
-    is stored in. This function creates a directory name that can be associated with the 
-    path of the data directory.
-
-    Example:
-        data_directory = "data/NAKO/ECG_Data/"
-        save_directory = "<direcotry_that_stores_results>/data_NAKO_ECG_Data/"
-
-    ARGUMENTS:
-    --------------------------------
-    directory: str
-        path to the directory
-    
-    RETURNS:
-    --------------------------------
-    save_path: str
-        path to the save directory
-    """
-    
-    new_directory_name = ""
-    for i in range(len(directory)):
-        if directory[i] == "/" and i != len(directory)-1:
-            new_directory_name += "_"
-        else:
-            new_directory_name += directory[i]
-        
-    return new_directory_name
-
-
 def create_directories_along_path(file_path: str):
     """
     Create all directories along a given path that do not exist yet.

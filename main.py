@@ -79,192 +79,93 @@ del valid_ecg_regions_params, detect_rpeaks_params, calculate_MAD_params, calcul
 PROCESSING DATA FUNCTIONS
 --------------------------
 
-The following functions will call all functions within this project in the right order.
+The following functions will call all functions within this project in the designed order.
 """
 
 
-def Processing_GIF(
-        GIF_DATA_DIRECTORY: str,
-        GIF_RPEAK_DIRECTORY: str,
-        GIF_ECG_CLASSIFICATION_DIRECTORY: str,
-        GIF_RESULTS_DIRECTORY: str,
-        GIF_RESULTS_FILE_NAME: str,
-        ECG_COMPARISON_FILE_NAME: str,
-        RPEAK_COMPARISON_FILE_NAME: str,
-):
+def Data_Processing(
+        DATA_DIRECTORIES: list,
+        RESULTS_DIRECTORY: str,
+    ):
     """
-    This function is supposed to run all processing functions in the right order on the GIF data.
+    This function is supposed to run all processing and comparing functions in the designed order.
 
-    It will:
-        - evaluate the valid regions for the ECG data
-        - perform r-peak detection
-        - calculate the MAD in the wrist acceleration data.
-        - read out sleep stages and its sampling frequency
-        - read out already provided r-peak locations
-        - compare already provided ECG classification with the calculated ECG validation
-        - compare all differently obtained r-peak locations
-        - calculate RRI from already provided r-peak locations
-
-    Here we compare different r-peak detections and ECG Validations, as for the GIF data we already
-    have the "ground truth" data available.
-
-    We will also use GIF data to train our neural network, so we will additionally append the sleep stages.
-    """
-
-    """
-    ---------------------------
-    SET DATA AND STORAGE PATHS
-    ---------------------------
-    """
-
-    # create needed directory if it does not exist
-    create_directories_along_path(GIF_RESULTS_DIRECTORY)
-
-    # set path to where ECG is stored
-    parameters["data_directory"] = GIF_DATA_DIRECTORY
-
-    # set path to pickle file that saves the results
-    parameters["results_path"] = GIF_RESULTS_DIRECTORY + GIF_RESULTS_FILE_NAME
-
-    # check if previous computation was interrupted:
-
-    # path to pickle file which will store results
-    temporary_file_path = get_path_without_filename(GIF_RESULTS_DIRECTORY + GIF_RESULTS_FILE_NAME) + "computation_in_progress.pkl"
-
-    # ask the user if the results should be overwritten or recovered
-    if os.path.isfile(temporary_file_path):
-        recover_results_after_error(
-            all_results_path = GIF_RESULTS_DIRECTORY + GIF_RESULTS_FILE_NAME, 
-            some_results_with_updated_keys_path = temporary_file_path, 
-            file_name_dictionary_key = parameters["file_name_dictionary_key"],
-        )
+    Order of Execution:
+        - ECG Validation: Evaluate where ECG data was recorded correctly to determine evaluatable segments
+        - R-peak Detection: Detect R-peak locations the valid segments of the ECG data using specified detectors
+        - RRI Calculation: Calculate RR-Intervals from detected R-peak locations
+        - MAD Calculation: Calculate Mean Amplitude Deviation (values characterizing motion activity) using wrist accelerometry data
     
-    del temporary_file_path
-
-    """
-    ---------------
-    ECG VALIDATION
-    ---------------
-    """
+    ATTENTION:
+    --------------------------------
+    For every path to a data directory in DATA_DIRECTORIES, the function will create a new file in the 
+    RESULTS_DIRECTORY. It will name this file like the last directory in the path (to the data directory). 
+    SO MAKE SURE THEY ARE UNIQUE!
+    The algorithm won't be able to distinguish if you made a mistake here or if you want to reprocess the data.
+    Example:    DATA_DIRECTORIES = ["Data/Directory_1/", "Data/Directory_2/"] is valid, but
+                DATA_DIRECTORIES = ["Data_1/Directory/", "Data_2/Directory/"] is not valid
     
-    # create arguments for the valid ecg regions evaluation and calculate them
-    determine_ecg_region_args = create_sub_dict(parameters, determine_ecg_region_variables)
-
-    # perform ecg validation
-    check_data.determine_valid_ecg_regions(**determine_ecg_region_args)
-    del determine_ecg_region_args
-
-    # create arguments for choosing the valid ecg regions for further computation
-    choose_valid_ecg_regions_for_further_computation_args = create_sub_dict(parameters, choose_valid_ecg_regions_for_further_computation_variables)
-    check_data.choose_valid_ecg_regions_for_further_computation(**choose_valid_ecg_regions_for_further_computation_args)
-
-    del choose_valid_ecg_regions_for_further_computation_args
+    Before running this function check the file parameters in the 'SETTING UNIFORM PARAMETERS' section in the 
+    project_parameters.py file. There you must set what keys access the ECG and wrist accelerometry data
+    in your .edf files. If your data uses different keys across files, add them all to ensure they can be accessed.
+    Also check if the dimension correction contains all strings to physical dimensions that are used in your 
+    .edf files and provide a correction value, that transforms these signals into the physical dimension that 
+    was used by us (dimension correction factor = 1).
     
-    """
-    ------------------------
-    COMPARE ECG VALIDATIONS
-    ------------------------
-    """
-    parameters["ecg_classification_values_directory"] = GIF_ECG_CLASSIFICATION_DIRECTORY
-    parameters["ecg_validation_comparison_report_path"] = GIF_RESULTS_DIRECTORY + ECG_COMPARISON_FILE_NAME
+    ARGUMENTS:
+    --------------------------------
+    DATA_DIRECTORIES: list
+        List of paths to the directories where the ECG data is stored.
+    RESULTS_DIRECTORY: str
+        Path to the directory where the results should be stored.
 
-    # create arguments for the ECG validation comparison and perform it
-    ecg_validation_comparison_args = create_sub_dict(parameters, ecg_validation_comparison_variables)
-    check_data.ecg_validation_comparison(**ecg_validation_comparison_args)
-    del ecg_validation_comparison_args
+    RETURNS:
+    --------------------------------
+    None, but the results will be stored in the specified directory.
 
-    # create arguments for printing the ECG validation comparison report
-    ecg_validation_report_args = create_sub_dict(parameters, ecg_validation_comparison_report_variables)
-    check_data.ecg_validation_comparison_report(**ecg_validation_report_args)
+    RESULTS:
+    --------------------------------
+    Every results (.pkl) file will contain multiple dictionaries. Each dictionary is structured as follows:
+    {
+        "file_name":     
+                Name of the (.edf) file the results are calculated for,
 
-    """
-    -----------------
-    R-PEAK DETECTION
-    -----------------
-    """
+        "valid_ecg_regions_strictness-value":   
+                List of valid regions ([[start_index_1, end_index_1], [start_index_2, end_index_2], ...]) in 
+                the ECG data for the specified strictness-value. You will have multiple of these entries for 
+                every value in parameters["check_ecg_validation_strictness"].
 
-    # create arguments for the r-peak detection and correction
-    detect_rpeaks_args = create_sub_dict(parameters, detect_rpeaks_variables)
-    correct_rpeaks_args = create_sub_dict(parameters, correct_rpeaks_variables)
-
-    # detect and correct r-peaks in the valid regions of the ECG data
-    for i in range(len(parameters["rpeak_comparison_functions"])):
-        detect_rpeaks_args["rpeak_function"] = parameters["rpeak_comparison_functions"][i]
-        detect_rpeaks_args["rpeak_function_name"] = parameters["rpeak_comparison_function_names"][i]
-        rpeak_detection.detect_rpeaks(**detect_rpeaks_args)
-
-        correct_rpeaks_args["rpeak_function_name"] = parameters["rpeak_comparison_function_names"][i]
-        rpeak_detection.correct_rpeak_locations(**correct_rpeaks_args)
-
-    del detect_rpeaks_args, correct_rpeaks_args
-
-    """
-    --------------------------
-    COMPARE R-PEAK DETECTIONS
-    --------------------------
-    """
-
-    # create arguments for the r-peak comparison
-    rpeak_detection_comparison_args = create_sub_dict(parameters, rpeak_detection_comparison_variables)
-
-    # read r-peaks from the classification files
-    parameters["rpeaks_values_directory"] = GIF_RPEAK_DIRECTORY
-    read_rpeak_classification_args = create_sub_dict(parameters, read_rpeak_classification_variables)
-    read_rpeak_classification_args["rpeak_classification_dictionary_key"] = parameters["rpeak_comparison_function_names"][-1]
-    rpeak_detection.read_rpeaks_from_rri_files(**read_rpeak_classification_args)
-    del read_rpeak_classification_args
-
-    # perform r-peak comparison evaluation
-    rpeak_detection.rpeak_detection_comparison(**rpeak_detection_comparison_args)
-    del rpeak_detection_comparison_args
-
-    # create arguments for printing the r-peak comparison report and print it
-    parameters["rpeak_comparison_report_path"] = GIF_RESULTS_DIRECTORY + RPEAK_COMPARISON_FILE_NAME
-    rpeak_comparison_report_args = create_sub_dict(parameters, rpeak_detection_comparison_report_variables)
-    rpeak_detection.rpeak_detection_comparison_report(**rpeak_comparison_report_args)
-
-    """
-    ---------------------------
-    CALCULATE RRI FROM R-PEAKS
-    ---------------------------
-    """
-
-    parameters["rpeak_function_name"] = parameters["rpeak_comparison_function_names"][-1]
-    calculate_rri_from_peaks_args = create_sub_dict(parameters, calculate_rri_from_peaks_variables)
-    rri_from_rpeak.determine_rri_from_rpeaks(**calculate_rri_from_peaks_args)
-
-    """
-    ----------------
-    MAD CALCULATION
-    ----------------
-    """
-
-    # calculate MAD in the wrist acceleration data
-    calculate_MAD_args = create_sub_dict(parameters, calculate_MAD_variables)
-    MAD.calculate_MAD_in_acceleration_data(**calculate_MAD_args)
-    del calculate_MAD_args
+        "valid_ecg_regions": 
+                List of valid regions in the ECG data, that is used during r-peak detection,
         
+        "rpeak-function-name_raw":
+                List of r-peak locations detected by the rpeak-function-name function. You will have multiple 
+                of these entries for every r-peak detection function in parameters["rpeak_function_names"].
+        
+        "rpeak-function-name":
+                List of r-peak locations detected by the rpeak-function-name function AFTER CORRECTION. You 
+                will have multiple of these entries for every r-peak detection function in parameters["rpeak_function_names"].
+        
+        "RRI":
+                List of RR-intervals calculated from the r-peak locations.
+        
+        "RRI_frequency":
+                Sampling frequency of the RR-intervals.
+        
+        "MAD":
+                List of Mean Amplitude Deviation values calculated from the wrist acceleration data.
+        
+        "MAD_frequency":
+                Sampling frequency of the MAD values. Corresponds to 1 / parameters["mad_time_period_seconds"].
+    }
 
-def Processing_NAKO(
-        NAKO_DATA_DIRECTORIES: list,
-        NAKO_RESULTS_DIRECTORY: str,
-        NAKO_RESULTS_FILE_NAME: str,
-):
-    """
-    This function is supposed to run the processing functions in the right order on the NAKO data.
-    We can not apply the same functions as for the GIF data, because the GIF data additionally 
-    provides r-peak locations, ECG classifications and sleep stages.
-
-    This function will:
-        - evaluate the valid regions for the ECG data
-        - perform r-peak detection and calculate the RRI from the r-peaks
-        - calculate the MAD in the wrist acceleration data.
+    Note: In the project_parameters.py file you can alter the names of the keys in the dictionaries.
     """
     
     # create directory if it does not exist
-    create_directories_along_path(NAKO_RESULTS_DIRECTORY)
+    create_directories_along_path(RESULTS_DIRECTORY)
 
-    for DATA_DIRECTORY in NAKO_DATA_DIRECTORIES:
+    for DATA_DIRECTORY in DATA_DIRECTORIES:
         """
         ---------------------------
         SET DATA AND STORAGE PATHS
@@ -274,20 +175,27 @@ def Processing_NAKO(
         # set path to where ECG is stored
         parameters["data_directory"] = DATA_DIRECTORY
 
-        # set path to pickle file that saves the processing results
-        SAVE_DIRECTORY = NAKO_RESULTS_DIRECTORY + create_save_path_from_directory_name(DATA_DIRECTORY)
-        create_directories_along_path(SAVE_DIRECTORY)
-        parameters["results_path"] = SAVE_DIRECTORY + NAKO_RESULTS_FILE_NAME
+        for i in range(len(DATA_DIRECTORY)-2, -1, -1):
+            if DATA_DIRECTORY[i] == "/":
+                break
 
-        # check if previous computation was interrupted:
+        # set path to pickle file that saves the processing results
+        RESULTS_PATH = RESULTS_DIRECTORY + DATA_DIRECTORY[i:-1] + "_Results.pkl"
+        parameters["results_path"] = RESULTS_PATH
+
+        """
+        ----------------------------
+        RECOVER RESULTS AFTER ERROR
+        ----------------------------
+        """
 
         # path to pickle file which will store results
-        temporary_file_path = get_path_without_filename(SAVE_DIRECTORY + NAKO_RESULTS_FILE_NAME) + "computation_in_progress.pkl"
+        temporary_file_path = get_path_without_filename(RESULTS_PATH) + "computation_in_progress.pkl"
 
         # ask the user if the results should be overwritten or recovered
         if os.path.isfile(temporary_file_path):
             recover_results_after_error(
-                all_results_path = SAVE_DIRECTORY + NAKO_RESULTS_FILE_NAME, 
+                all_results_path = RESULTS_PATH, 
                 some_results_with_updated_keys_path = temporary_file_path, 
                 file_name_dictionary_key = parameters["file_name_dictionary_key"],
             )
@@ -357,6 +265,199 @@ def Processing_NAKO(
         del calculate_MAD_args
 
 
+def Data_Processing_and_Comparing(
+        DATA_DIRECTORY: str,
+        RPEAK_DIRECTORY: str,
+        ECG_CLASSIFICATION_DIRECTORY: str,
+        RESULTS_DIRECTORY: str,
+        RESULTS_FILE_NAME: str,
+        ECG_COMPARISON_FILE_NAME: str,
+        RPEAK_COMPARISON_FILE_NAME: str,
+    ):
+    """
+    This function is supposed to run all processing and comparing functions in the designed order.
+
+    Order of Execution:
+        - ECG Validation: Evaluate where ECG data was recorded correctly to determine evaluatable segments
+        - ECG Comparison: Compare already provided ECG classification with the calculated ECG Validation
+        - R-peak Detection: Detect R-peak locations the valid segments of the ECG data using specified detectors
+        - R-peak Comparison: Read out already provided r-peak locations and compare them and those of the specified detection functions with each other
+        - RRI Calculation: Calculate RR-Intervals from detected R-peak locations
+        - MAD Calculation: Calculate Mean Amplitude Deviation (values characterizing motion activity) using wrist accelerometry data
+
+    I designed this function to process the data from the GIF study as it provides ECG classifications
+    and r-peak locations. I think they checked these values manually, so we can consider them as "ground truth".
+
+    ATTENTION:
+    --------------------------------
+    The individual functions were designed to be used on the data provided by the GIF study. If your data
+    is not structured in the same way, you will have to adjust the functions accordingly. I suggest to
+    test 'Data_Processing' first.
+
+    ARGUMENTS:
+    --------------------------------
+    DATA_DIRECTORY: str
+        Path to the directory where the ECG data is stored.
+    RPEAK_DIRECTORY: str
+        Path to the directory where the r-peak locations are stored.
+    ECG_CLASSIFICATION_DIRECTORY: str
+        Path to the directory where the ECG classifications are stored.
+    RESULTS_DIRECTORY: str
+        Path to the directory where the results should be stored.
+    RESULTS_FILE_NAME: str
+        Name of the file where the results should be stored.
+    ECG_COMPARISON_FILE_NAME: str
+        Name of the file where the results of the ECG comparison should be shown.
+    RPEAK_COMPARISON_FILE_NAME: str
+        Name of the file where the results of the r-peak comparison should be shown.
+    
+    RETURNS:
+    --------------------------------
+    None, but the results will be stored in the specified directory.
+
+    RESULTS:
+    --------------------------------
+    Same as in 'Data_Processing', but with additional entries for the ECG and R-peak comparison.
+    """
+
+    """
+    ---------------------------
+    SET DATA AND STORAGE PATHS
+    ---------------------------
+    """
+
+    # create needed directory if it does not exist
+    create_directories_along_path(RESULTS_DIRECTORY)
+
+    # set path to where ECG is stored
+    parameters["data_directory"] = DATA_DIRECTORY
+
+    # set path to pickle file that saves the results
+    parameters["results_path"] = RESULTS_DIRECTORY + RESULTS_FILE_NAME
+
+    """
+    ----------------------------
+    RECOVER RESULTS AFTER ERROR
+    ----------------------------
+    """
+
+    # path to pickle file which will store results
+    temporary_file_path = get_path_without_filename(RESULTS_DIRECTORY + RESULTS_FILE_NAME) + "computation_in_progress.pkl"
+
+    # ask the user if the results should be overwritten or recovered
+    if os.path.isfile(temporary_file_path):
+        recover_results_after_error(
+            all_results_path = RESULTS_DIRECTORY + RESULTS_FILE_NAME, 
+            some_results_with_updated_keys_path = temporary_file_path, 
+            file_name_dictionary_key = parameters["file_name_dictionary_key"],
+        )
+    
+    del temporary_file_path
+
+    """
+    ---------------
+    ECG VALIDATION
+    ---------------
+    """
+    
+    # create arguments for the valid ecg regions evaluation and calculate them
+    determine_ecg_region_args = create_sub_dict(parameters, determine_ecg_region_variables)
+
+    # perform ecg validation
+    check_data.determine_valid_ecg_regions(**determine_ecg_region_args)
+    del determine_ecg_region_args
+
+    # create arguments for choosing the valid ecg regions for further computation
+    choose_valid_ecg_regions_for_further_computation_args = create_sub_dict(parameters, choose_valid_ecg_regions_for_further_computation_variables)
+    check_data.choose_valid_ecg_regions_for_further_computation(**choose_valid_ecg_regions_for_further_computation_args)
+
+    del choose_valid_ecg_regions_for_further_computation_args
+    
+    """
+    ------------------------
+    COMPARE ECG VALIDATIONS
+    ------------------------
+    """
+    parameters["ecg_classification_values_directory"] = ECG_CLASSIFICATION_DIRECTORY
+    parameters["ecg_validation_comparison_report_path"] = RESULTS_DIRECTORY + ECG_COMPARISON_FILE_NAME
+
+    # create arguments for the ECG validation comparison and perform it
+    ecg_validation_comparison_args = create_sub_dict(parameters, ecg_validation_comparison_variables)
+    check_data.ecg_validation_comparison(**ecg_validation_comparison_args)
+    del ecg_validation_comparison_args
+
+    # create arguments for printing the ECG validation comparison report
+    ecg_validation_report_args = create_sub_dict(parameters, ecg_validation_comparison_report_variables)
+    check_data.ecg_validation_comparison_report(**ecg_validation_report_args)
+
+    """
+    -----------------
+    R-PEAK DETECTION
+    -----------------
+    """
+
+    # create arguments for the r-peak detection and correction
+    detect_rpeaks_args = create_sub_dict(parameters, detect_rpeaks_variables)
+    correct_rpeaks_args = create_sub_dict(parameters, correct_rpeaks_variables)
+
+    # detect and correct r-peaks in the valid regions of the ECG data
+    for i in range(len(parameters["rpeak_comparison_functions"])):
+        detect_rpeaks_args["rpeak_function"] = parameters["rpeak_comparison_functions"][i]
+        detect_rpeaks_args["rpeak_function_name"] = parameters["rpeak_comparison_function_names"][i]
+        rpeak_detection.detect_rpeaks(**detect_rpeaks_args)
+
+        correct_rpeaks_args["rpeak_function_name"] = parameters["rpeak_comparison_function_names"][i]
+        rpeak_detection.correct_rpeak_locations(**correct_rpeaks_args)
+
+    del detect_rpeaks_args, correct_rpeaks_args
+
+    """
+    --------------------------
+    COMPARE R-PEAK DETECTIONS
+    --------------------------
+    """
+
+    # create arguments for the r-peak comparison
+    rpeak_detection_comparison_args = create_sub_dict(parameters, rpeak_detection_comparison_variables)
+
+    # read r-peaks from the classification files
+    parameters["rpeaks_values_directory"] = RPEAK_DIRECTORY
+    read_rpeak_classification_args = create_sub_dict(parameters, read_rpeak_classification_variables)
+    read_rpeak_classification_args["rpeak_classification_dictionary_key"] = parameters["rpeak_comparison_function_names"][-1]
+    rpeak_detection.read_rpeaks_from_rri_files(**read_rpeak_classification_args)
+    del read_rpeak_classification_args
+
+    # perform r-peak comparison evaluation
+    rpeak_detection.rpeak_detection_comparison(**rpeak_detection_comparison_args)
+    del rpeak_detection_comparison_args
+
+    # create arguments for printing the r-peak comparison report and print it
+    parameters["rpeak_comparison_report_path"] = RESULTS_DIRECTORY + RPEAK_COMPARISON_FILE_NAME
+    rpeak_comparison_report_args = create_sub_dict(parameters, rpeak_detection_comparison_report_variables)
+    rpeak_detection.rpeak_detection_comparison_report(**rpeak_comparison_report_args)
+
+    """
+    ---------------------------
+    CALCULATE RRI FROM R-PEAKS
+    ---------------------------
+    """
+
+    parameters["rpeak_function_name"] = parameters["rpeak_comparison_function_names"][-1]
+    calculate_rri_from_peaks_args = create_sub_dict(parameters, calculate_rri_from_peaks_variables)
+    rri_from_rpeak.determine_rri_from_rpeaks(**calculate_rri_from_peaks_args)
+
+    """
+    ----------------
+    MAD CALCULATION
+    ----------------
+    """
+
+    # calculate MAD in the wrist acceleration data
+    calculate_MAD_args = create_sub_dict(parameters, calculate_MAD_variables)
+    MAD.calculate_MAD_in_acceleration_data(**calculate_MAD_args)
+    del calculate_MAD_args
+
+
 """
 -------------
 MAIN SECTION
@@ -368,12 +469,12 @@ In this section we will run the functions we have created until now.
 if __name__ == "__main__":
     
     # process GIF data
-    Processing_GIF(
-        GIF_DATA_DIRECTORY = "Data/GIF/SOMNOwatch/",
-        GIF_RPEAK_DIRECTORY = "Data/GIF/Analyse_Somno_TUM/RRI/",
-        GIF_ECG_CLASSIFICATION_DIRECTORY = "Data/GIF/Analyse_Somno_TUM/Noise/",
-        GIF_RESULTS_DIRECTORY = "Processed_GIF/",
-        GIF_RESULTS_FILE_NAME = "GIF_Results.pkl",
+    Data_Processing_and_Comparing(
+        DATA_DIRECTORY = "Data/GIF/SOMNOwatch/",
+        RPEAK_DIRECTORY = "Data/GIF/Analyse_Somno_TUM/RRI/",
+        ECG_CLASSIFICATION_DIRECTORY = "Data/GIF/Analyse_Somno_TUM/Noise/",
+        RESULTS_DIRECTORY = "Processed_GIF/",
+        RESULTS_FILE_NAME = "GIF_Results.pkl",
         RPEAK_COMPARISON_FILE_NAME = "RPeak_Comparison_Report.txt",
         ECG_COMPARISON_FILE_NAME = "ECG_Validation_Comparison_Report.txt"
     )
@@ -387,8 +488,7 @@ if __name__ == "__main__":
     """
 
     # process NAKO data
-    Processing_NAKO(
-        NAKO_DATA_DIRECTORIES = ["Data/", "Data/GIF/SOMNOwatch/"],
-        NAKO_RESULTS_DIRECTORY = "Processed_NAKO/",
-        NAKO_RESULTS_FILE_NAME = "NAKO_Results.pkl"
+    Data_Processing(
+        DATA_DIRECTORIES = ["Data/", "Data/GIF/SOMNOwatch/"],
+        RESULTS_DIRECTORY = "Processed_NAKO/",
     )

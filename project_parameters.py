@@ -62,7 +62,7 @@ I suggest not paying too much attention to these parameters anyway. They are goo
 """
 
 # dictionary that will store all parameters that are used within the project
-parameters = dict()
+parameters = dict() # type: ignore
 
 # file parameters:
 file_params = {
