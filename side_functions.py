@@ -451,6 +451,41 @@ def ask_for_permission_to_override_dictionary_entry(
     return user_answer
 
 
+def delete_dictionary_entries_from_file(file_path: str, dictionary_keys: list):
+    """
+    Delete dictionary keys from all dictionaries in the file.
+
+    ARGUMENTS:
+    --------------------------------
+    file_path: str
+        path to the pickle file
+    dictionary_keys: list
+        list of dictionary keys to be deleted
+    """
+
+    # path to pickle file which will store results
+    temporary_file_path = get_path_without_filename(file_path) + "computation_in_progress.pkl"
+
+    # if the temporary file already exists, something went wrong
+    if os.path.isfile(temporary_file_path):
+        raise Exception("The file: " + temporary_file_path + " should not exist. Either a previous computation was interrupted or another computation is ongoing.")
+
+    # load existing results
+    results_directory_generator = load_from_pickle(file_path)
+
+    for results_directory in results_directory_generator:
+        # delete dictionary entries if they exist
+        for dict_key in dictionary_keys:
+            if dict_key in results_directory:
+                del results_directory[dict_key]
+        append_to_pickle(results_directory, temporary_file_path)
+    
+    # rename the file that stores the calculated data
+    if os.path.isfile(temporary_file_path):
+        os.remove(file_path)
+        os.rename(temporary_file_path, file_path)
+
+
 def create_sub_dict(dictionary: dict, keys: list):
     """
     Create a sub dictionary of the main one with the given keys.
@@ -509,6 +544,48 @@ def print_left_aligned(string: str, length: int):
     """
     len_string = len(string)
     return string + " " * (length - len_string)
+
+
+def print_smart_rounding(number: float, number_decimals: int):
+    """
+    Rounds number to a given number of decimals while maintaining most digits as possible by transforming it 
+    into a number with a power of ten.
+
+    ARGUMENTS:
+    --------------------------------
+    number: float
+        number to be rounded
+    number_decimals: int
+        number of decimals to round to
+    
+    RETURNS:
+    --------------------------------
+    str
+        rounded number
+    """
+
+    if number < 10:
+        power_of_ten = 0
+        while True:
+            if number >= 1:
+                break
+            number *= 10
+            power_of_ten += 1
+        
+        if power_of_ten == 0:
+            return str(round(number, number_decimals))
+        return str(round(number, number_decimals)) + "e-" + str(power_of_ten)
+    else:
+        power_of_ten = 0
+        while True:
+            if number < 10:
+                break
+            number /= 10
+            power_of_ten += 1
+
+        if power_of_ten == 0:
+            return str(round(number, number_decimals))
+        return str(round(number, number_decimals)) + "e" + str(power_of_ten)
 
 
 def manually_remove_file_from_results(file_name: str, results_path: str, file_name_dictionary_key: str):

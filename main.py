@@ -479,6 +479,8 @@ if __name__ == "__main__":
         ECG_COMPARISON_FILE_NAME = "ECG_Validation_Comparison_Report.txt"
     )
 
+    raise SystemExit
+
     # if you want to retrieve all subdirectories containing valid files, you can use the following function
     """
     DATA_DIRECTORIES = retrieve_all_subdirectories_containing_valid_files(

@@ -1333,10 +1333,7 @@ def read_rpeaks_from_rri_files(
 
     # rename the file that stores the calculated data
     if os.path.isfile(temporary_file_path):
-        try:
-            os.remove(results_path)
-        except:
-            pass
+        os.remove(results_path)
         os.rename(temporary_file_path, results_path)
 
     # print unprocessable files 

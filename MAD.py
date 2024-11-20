@@ -349,12 +349,9 @@ def calculate_MAD_in_acceleration_data(
     progress_bar(progressed_files, total_files, start_time)
 
     # rename the file that stores the calculated data
-    if os.path.isfile(temporary_file_path):
-        try:
-            os.remove(results_path)
-        except:
-            pass
-        os.rename(temporary_file_path, results_path)
+    if os.path.isfile(results_path):
+        os.remove(results_path)
+    os.rename(temporary_file_path, results_path)
 
     # print unprocessable files
     if len(unprocessable_files) > 0:
@@ -365,3 +362,193 @@ def calculate_MAD_in_acceleration_data(
         print(" "*5 + "- No matching label in wrist_acceleration_keys and the files")
         print(" "*5 + "- Physical dimension of label is unknown")
         print(" "*5 + "- Error during calculating of MAD values")
+
+
+import h5py
+import matplotlib.pyplot as plt
+
+
+def mad_comparison_report(
+        mad_comparison_report_dezimal_places: int,
+        mad_comparison_report_path: str,
+        mad_differences: list, 
+        file_names: list
+    ):
+    """
+    Saves results of the MAD comparison to a text file.
+
+    ARGUMENTS:
+    --------------------------------
+    mad_comparison_report_dezimal_places: int
+        number of decimal places to which the MAD differences are rounded
+    mad_comparison_report_path: str
+        path to the text file where the comparison report is saved
+    mad_differences: list
+        list of average relative difference between the mad values for each file
+    file_names: list
+        list of file names for which the MAD values were compared
+    """
+
+    # delete the file if it already exists
+    if os.path.isfile(mad_comparison_report_path):
+        os.remove(mad_comparison_report_path)
+
+    # open the file to write the report to
+    comparison_file = open(mad_comparison_report_path, "w")
+
+    # write the header
+    message = "Comparison of MAD Calculation"
+    comparison_file.write(message + "\n")
+    comparison_file.write("="*len(message) + "\n\n")
+
+    mad_difference_column_header = "MAD Difference"
+    file_name_column_header = "File Name"
+
+    mad_difference_column = [mad_difference_column_header]
+    mad_difference_column.append(print_smart_rounding(np.mean(mad_differences), mad_comparison_report_dezimal_places)) # type: ignore
+    for mad_difference in mad_differences:
+        mad_difference_column.append(print_smart_rounding(mad_difference, mad_comparison_report_dezimal_places)) # type: ignore
+
+    file_name_column = [file_name_column_header]
+    file_name_column.append("Mean")
+    for file_name in file_names:
+        file_name_column.append(file_name)
+    
+    mad_difference_column_length = max([len(column) for column in mad_difference_column])
+    file_name_column_length = max([len(column) for column in file_name_column])
+    
+    # write the columns
+    for i in range(len(mad_difference_column)):
+        message = " " + print_in_middle(file_name_column[i], file_name_column_length) + " | " + print_in_middle(mad_difference_column[i], mad_difference_column_length) + " "
+        comparison_file.write(message + "\n")
+        if i < len(mad_difference_column)-1:
+            comparison_file.write("-"*len(message) + "\n")
+    
+    comparison_file.close()
+
+
+def mad_comparison(
+        path_to_h5file: str,
+        results_path: str,
+        file_name_dictionary_key: str,
+        MAD_dictionary_key: str,
+        mad_comparison_report_dezimal_places: int,
+        mad_comparison_report_path: str,
+    ):
+    """
+    Compares MAD values calculated and stored in 'results_path' to the available MAD values accessable in 
+    'path_to_h5file'.
+
+    For every file, the average relative difference between the MAD values is calculated and saved to a text 
+    file.
+
+    ARGUMENTS:
+    --------------------------------
+    path_to_h5file: str
+        path to the h5 file where the available MAD values are stored
+    results_path: str
+        path to the pickle file where the MAD values are saved
+    file_name_dictionary_key: str
+        dictionary key to access the file name
+    MAD_dictionary_key: str
+        dictionary key to access the MAD values
+    mad_comparison_report_dezimal_places: int
+        number of decimal places to which the MAD differences are rounded
+    mad_comparison_report_path: str
+        path to the text file where the comparison report is saved
+    
+    RETURNS:
+    --------------------------------
+    None, but the comparison report is saved to a text file
+    """
+
+    # access the dataset which provides the valid regions
+    h5_dataset = h5py.File(path_to_h5file, 'r')
+
+    # accessing patient ids and rri frequency:
+    patients = list(h5_dataset['mad'].keys()) # type: ignore
+    available_rri_frequency = h5_dataset["mad"].attrs["freq"]
+
+    # load calculated results
+    results_generator = load_from_pickle(results_path)
+
+    mad_difference = list()
+    processed_files = list()
+
+    # create variables to track progress
+    start_time = time.time()
+    total_files = get_pickle_length(results_path, " ")
+    progressed_files = 0
+
+    # create lists to store unprocessable files
+    unprocessable_files = []
+    
+    print("\nComparing calculated to available MAD values for %i files:" % (total_files))
+
+    for generator_entry in results_generator:
+        # show progress
+        progress_bar(progressed_files, total_files, start_time)
+        progressed_files += 1
+
+        try:
+            file_name = generator_entry[file_name_dictionary_key]
+
+            if generator_entry[MAD_dictionary_key + "_frequency"] != available_rri_frequency:
+                raise ValueError
+            
+            # get available MAD values
+            patient_id = file_name[:5]
+            available_mad = np.array(h5_dataset["mad"][patient_id]) # type: ignore
+
+            # get calculated MAD values
+            MAD_values = np.array(generator_entry[MAD_dictionary_key])
+
+            # for some reason the available ones are longer than the original ECG data, so we will shift them
+            differences = list()
+            length_difference = len(available_mad)-len(MAD_values)
+
+            for i in np.arange(0, length_difference):
+                this_difference = np.mean(np.abs(available_mad[i:i+len(MAD_values)] - MAD_values))
+                this_max = np.array([max(abs(available_mad[j]), abs(MAD_values[j-i])) for j in np.arange(i, i+len(MAD_values))]) # type: ignore
+                differences.append(this_difference / this_max)
+            
+            mad_difference.append(np.min(differences))
+            processed_files.append(file_name)
+
+        except:
+            unprocessable_files.append(file_name)
+        
+    progress_bar(progressed_files, total_files, start_time)
+
+    # print unprocessable files 
+    if len(unprocessable_files) > 0:
+        print("\nFor the following " + str(len(unprocessable_files)) + " files the MAD values could not be compared:")
+        print(unprocessable_files)
+        print("Possible reasons (decreasing probability):")
+        print(" "*5 + "- Corresponding comparison file not available in the dataset")
+        print(" "*5 + "- Error occured during comparing the MAD values")
+    
+    # write comparison report
+    print("\nWriting report for MAD Comparison...")
+
+    mad_comparison_report(
+        mad_comparison_report_dezimal_places = mad_comparison_report_dezimal_places,
+        mad_comparison_report_path = mad_comparison_report_path,
+        mad_differences = mad_difference, 
+        file_names = processed_files
+    )
+
+
+mad_comparison(
+    path_to_h5file = "Data/GIF_dataset.h5",
+    results_path = "Processed_GIF/GIF_Results.pkl",
+    file_name_dictionary_key = "file_name",
+    MAD_dictionary_key = "MAD",
+    mad_comparison_report_dezimal_places = 5,
+    mad_comparison_report_path = "Processed_GIF/MAD_Comparison_Report.txt",
+)
+    
+
+
+            
+
