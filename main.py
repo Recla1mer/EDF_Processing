@@ -9,11 +9,11 @@ import numpy as np
 import os
 
 # LOCAL IMPORTS
-import read_edf
 import MAD
 import rpeak_detection
 import check_data
 import rri_from_rpeak
+import data_retrieval
 from side_functions import *
 
 """
@@ -80,7 +80,8 @@ del valid_ecg_regions_params, detect_rpeaks_params, calculate_MAD_params, calcul
 PROCESSING DATA FUNCTIONS
 --------------------------
 
-The following functions will call all functions within this project in the designed order.
+The following functions will call all functions within this project in the designed order to ensure
+a smooth processing of the data.
 """
 
 
@@ -116,7 +117,7 @@ def Data_Processing(
     ARGUMENTS:
     --------------------------------
     DATA_DIRECTORIES: list
-        List of paths to the directories where the ECG data is stored.
+        List of paths to the directories where the .edf-files containing the data are located.
     RESULTS_DIRECTORY: str
         Path to the directory where the results should be stored.
 
@@ -253,6 +254,7 @@ def Data_Processing(
         parameters["rpeak_function_name"] = "hamilton"
         calculate_rri_from_peaks_args = create_sub_dict(parameters, calculate_rri_from_peaks_variables)
         rri_from_rpeak.determine_rri_from_rpeaks(**calculate_rri_from_peaks_args)
+        del calculate_rri_from_peaks_args
     
         """
         ----------------
@@ -268,12 +270,15 @@ def Data_Processing(
 
 def Data_Processing_and_Comparing(
         DATA_DIRECTORY: str,
-        RPEAK_DIRECTORY: str,
         ECG_CLASSIFICATION_DIRECTORY: str,
+        RPEAK_DIRECTORY: str,
+        AVAILABLE_MAD_RRI_PATH: str,
         RESULTS_DIRECTORY: str,
         RESULTS_FILE_NAME: str,
         ECG_COMPARISON_FILE_NAME: str,
         RPEAK_COMPARISON_FILE_NAME: str,
+        RRI_COMPARISON_FILE_NAME: str,
+        MAD_COMPARISON_FILE_NAME: str
     ):
     """
     This function is supposed to run all processing and comparing functions in the designed order.
@@ -299,10 +304,12 @@ def Data_Processing_and_Comparing(
     --------------------------------
     DATA_DIRECTORY: str
         Path to the directory where the ECG data is stored.
-    RPEAK_DIRECTORY: str
-        Path to the directory where the r-peak locations are stored.
     ECG_CLASSIFICATION_DIRECTORY: str
         Path to the directory where the ECG classifications are stored.
+    RPEAK_DIRECTORY: str
+        Path to the directory where the r-peak locations are stored.
+    AVAILABLE_MAD_RRI_PATH: str
+        Path to the directory where the available MAD and RRI values are stored.
     RESULTS_DIRECTORY: str
         Path to the directory where the results should be stored.
     RESULTS_FILE_NAME: str
@@ -311,6 +318,10 @@ def Data_Processing_and_Comparing(
         Name of the file where the results of the ECG comparison should be shown.
     RPEAK_COMPARISON_FILE_NAME: str
         Name of the file where the results of the r-peak comparison should be shown.
+    RRI_COMPARISON_FILE_NAME: str
+        Name of the file where the results of the RRI comparison should be shown.
+    MAD_COMPARISON_FILE_NAME: str
+        Name of the file where the results of the MAD comparison should be shown.
     
     RETURNS:
     --------------------------------
@@ -371,7 +382,6 @@ def Data_Processing_and_Comparing(
     # create arguments for choosing the valid ecg regions for further computation
     choose_valid_ecg_regions_for_further_computation_args = create_sub_dict(parameters, choose_valid_ecg_regions_for_further_computation_variables)
     check_data.choose_valid_ecg_regions_for_further_computation(**choose_valid_ecg_regions_for_further_computation_args)
-
     del choose_valid_ecg_regions_for_further_computation_args
     
     """
@@ -390,6 +400,7 @@ def Data_Processing_and_Comparing(
     # create arguments for printing the ECG validation comparison report
     ecg_validation_report_args = create_sub_dict(parameters, ecg_validation_comparison_report_variables)
     check_data.ecg_validation_comparison_report(**ecg_validation_report_args)
+    del ecg_validation_report_args
 
     """
     -----------------
@@ -436,6 +447,7 @@ def Data_Processing_and_Comparing(
     parameters["rpeak_comparison_report_path"] = RESULTS_DIRECTORY + RPEAK_COMPARISON_FILE_NAME
     rpeak_comparison_report_args = create_sub_dict(parameters, rpeak_detection_comparison_report_variables)
     rpeak_detection.rpeak_detection_comparison_report(**rpeak_comparison_report_args)
+    del rpeak_comparison_report_args
 
     """
     ---------------------------
@@ -446,6 +458,19 @@ def Data_Processing_and_Comparing(
     parameters["rpeak_function_name"] = "hamilton"
     calculate_rri_from_peaks_args = create_sub_dict(parameters, calculate_rri_from_peaks_variables)
     rri_from_rpeak.determine_rri_from_rpeaks(**calculate_rri_from_peaks_args)
+    del calculate_rri_from_peaks_args
+
+    """
+    ---------------------
+    COMPARING RRI VALUES
+    ---------------------
+    """
+
+    parameters["path_to_h5file"] = AVAILABLE_MAD_RRI_PATH
+    parameters["rri_comparison_report_path"] = RESULTS_DIRECTORY + RRI_COMPARISON_FILE_NAME
+    rri_comparison_args = create_sub_dict(parameters, rri_comparison_variables)
+    rri_from_rpeak.rri_comparison(**rri_comparison_args)
+    del rri_comparison_args
 
     """
     ----------------
@@ -458,13 +483,124 @@ def Data_Processing_and_Comparing(
     MAD.calculate_MAD_in_acceleration_data(**calculate_MAD_args)
     del calculate_MAD_args
 
+    """
+    ---------------------
+    COMPARING MAD VALUES
+    ---------------------
+    """
+
+    parameters["mad_comparison_report_path"] = RESULTS_DIRECTORY + MAD_COMPARISON_FILE_NAME
+    mad_comparison_args = create_sub_dict(parameters, mad_comparison_variables)
+    MAD.mad_comparison(**mad_comparison_args)
+    del mad_comparison_args
+
+
+"""
+--------------------------
+RETRIEVING IMPORTANT DATA
+--------------------------
+
+During Data Processing, a lot of data is calculated. For the main project: 'Sleep Stage Classification' we 
+only need the RRI and MAD values within the same time period. After Processing, this is not guaranteed, because
+the RRI values are only calculated for the valid ECG regions. The following function will extract the 
+corresponding MAD values to every time period. If multiple time periods (valid ecg regions) are present in 
+one file, the values will be saved to different dictionaries.
+"""
+
+def Extract_RRI_MAD(
+        DATA_DIRECTORIES: list,
+        RESULTS_DIRECTORY: str,
+        EXTRACTED_DATA_DIRECTORY: str,
+    ):
+    """
+    This function will extract the RRI and MAD values from the results files and save them to a new location,
+    as described above.
+
+    ARGUMENTS:
+    --------------------------------
+    DATA_DIRECTORIES: list
+        List of paths to the directories where the ECG data is stored.
+    RESULTS_DIRECTORY: str
+        Path to the directory where the results were stored.
+    EXTRACTED_DATA_DIRECTORY: str
+        Path to the directory where the extracted data should be stored.
+    
+    RETURNS:
+    --------------------------------
+    None, but the extracted data will be stored in the specified directory.
+
+    RESULTS:
+    --------------------------------
+    Every extracted data (.pkl) file will contain multiple dictionaries. Each dictionary will not correspond 
+    to one file (like above) but to a specific time period within a file (time period of one valid ecg region). 
+    If this results in multiple dictionaries for each file (more than 1 valid ecg region in this file) the
+    corresponding ID will be the file name with the added position of the valid ecg region 
+    (e.g.: file name + "_0" / + "_1", ...). 
+    
+    Each dictionary is structured as follows:
+    {
+        "ID":     
+                Variation of the (.edf) file name the results were calculated for, 
+                (number appended if multiple valid ecgregions)
+        
+        "time_period":
+                List of the start and end time points (in seconds) of the time period in seconds
+        
+        "RRI":
+                List of RR-intervals calculated from the r-peak locations within this time period.
+        
+        "RRI_frequency":
+                Sampling frequency of the RR-intervals.
+        
+        "MAD":
+                List of Mean Amplitude Deviation values calculated from the wrist acceleration data within 
+                this time period.
+        
+        "MAD_frequency":
+                Sampling frequency of the MAD values. Corresponds to 1 / parameters["mad_time_period_seconds"].
+    }
+    """
+
+    # create directory if it does not exist
+    create_directories_along_path(EXTRACTED_DATA_DIRECTORY)
+
+    for DATA_DIRECTORY in DATA_DIRECTORIES:
+        """
+        ---------------------------
+        SET DATA AND STORAGE PATHS
+        ---------------------------
+        """
+
+        # set path to where ECG is stored
+        parameters["data_directory"] = DATA_DIRECTORY
+
+        for i in range(len(DATA_DIRECTORY)-2, -1, -1):
+            if DATA_DIRECTORY[i] == "/":
+                break
+
+        # set path to pickle file that saves the processing results
+        RESULTS_PATH = RESULTS_DIRECTORY + DATA_DIRECTORY[i:-1] + "_Results.pkl"
+        parameters["results_path"] = RESULTS_PATH
+
+        # set path to pickle file that will only contain the RRI and MAD values in the same time period
+        EXTRACTED_DATA_PATH = EXTRACTED_DATA_DIRECTORY + DATA_DIRECTORY[i:-1] + ".pkl"
+        parameters["rri_mad_data_path"] = EXTRACTED_DATA_PATH
+
+        """
+        ---------------------------
+        EXTRACT RRI AND MAD VALUES
+        ---------------------------
+        """
+
+        # create arguments for extracting the RRI and MAD values
+        retrieve_rri_mad_data_args = create_sub_dict(parameters, retrieve_rri_mad_data_variables)
+        data_retrieval.retrieve_rri_mad_data_in_same_time_period(**retrieve_rri_mad_data_args)
+
 
 """
 -------------
 MAIN SECTION
 -------------
-
-In this section we will run the functions we have created until now.
 """
 
 if __name__ == "__main__":
@@ -472,12 +608,15 @@ if __name__ == "__main__":
     # process GIF data
     Data_Processing_and_Comparing(
         DATA_DIRECTORY = "Data/GIF/SOMNOwatch/",
-        RPEAK_DIRECTORY = "Data/GIF/Analyse_Somno_TUM/RRI/",
         ECG_CLASSIFICATION_DIRECTORY = "Data/GIF/Analyse_Somno_TUM/Noise/",
+        RPEAK_DIRECTORY = "Data/GIF/Analyse_Somno_TUM/RRI/",
+        AVAILABLE_MAD_RRI_PATH = "Data/GIF_dataset.h5",
         RESULTS_DIRECTORY = "Processed_GIF/",
         RESULTS_FILE_NAME = "GIF_Results.pkl",
+        ECG_COMPARISON_FILE_NAME = "ECG_Validation_Comparison_Report.txt",
         RPEAK_COMPARISON_FILE_NAME = "RPeak_Comparison_Report.txt",
-        ECG_COMPARISON_FILE_NAME = "ECG_Validation_Comparison_Report.txt"
+        RRI_COMPARISON_FILE_NAME = "RRI_Comparison_Report.txt",
+        MAD_COMPARISON_FILE_NAME = "MAD_Comparison_Report.txt"
     )
 
     # if you want to retrieve all subdirectories containing valid files, you can use the following function
@@ -488,8 +627,18 @@ if __name__ == "__main__":
     )
     """
 
+    EDF_Data_Directories = ["Data/", "Data/GIF/SOMNOwatch/"]
+    Processing_Result_Directory = "Processed_NAKO/"
+
     # process NAKO data
     Data_Processing(
-        DATA_DIRECTORIES = ["Data/", "Data/GIF/SOMNOwatch/"],
-        RESULTS_DIRECTORY = "Processed_NAKO/",
+        DATA_DIRECTORIES = EDF_Data_Directories,
+        RESULTS_DIRECTORY = Processing_Result_Directory,
+    )
+
+    # extract RRI and MAD values
+    Extract_RRI_MAD(
+        DATA_DIRECTORIES = EDF_Data_Directories,
+        RESULTS_DIRECTORY = Processing_Result_Directory,
+        EXTRACTED_DATA_DIRECTORY = "RRI_and_MAD/"
     )

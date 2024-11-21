@@ -120,6 +120,16 @@ rpeak_comparison_params = {
     "remove_peaks_outside_ecg_classification": True, # if True, r-peaks that are not in the valid ECG regions will be removed from the comparison
 }
 
+# parameters for the rri comparison
+rri_comparison_params = {
+    "rri_comparison_report_dezimal_places": 4, # number of dezimal places in the comparison report
+}
+
+# parameters for the MAD comparison
+mad_comparison_params = {
+    "mad_comparison_report_dezimal_places": 4, # number of dezimal places in the comparison report
+}
+
 parameters.update(file_params)
 parameters.update(results_dictionary_key_params)
 parameters.update(correct_rpeaks_params)
@@ -127,12 +137,14 @@ parameters.update(correct_rpeaks_params)
 parameters.update(only_gif_results_dictionary_key_params)
 parameters.update(ecg_validation_comparison_params)
 parameters.update(rpeak_comparison_params)
+parameters.update(rri_comparison_params)
+parameters.update(mad_comparison_params)
 
 # delete variables not needed anymore
 del physical_dimension_correction_dictionary
 
 # delete the dictionaries as they are saved in the parameters dictionary now
-del file_params, results_dictionary_key_params, combine_rpeaks_params, correct_rpeaks_params, only_gif_results_dictionary_key_params, ecg_validation_comparison_params, rpeak_comparison_params
+del file_params, results_dictionary_key_params, combine_rpeaks_params, correct_rpeaks_params, only_gif_results_dictionary_key_params, ecg_validation_comparison_params, rpeak_comparison_params, rri_comparison_params, mad_comparison_params
 
 # create lists of parameters relevant for the following functions (to make the code more readable)
 determine_ecg_region_variables = ["data_directory", "valid_file_types", "ecg_keys", 
@@ -189,4 +201,15 @@ read_out_channel_variables = ["data_directory", "valid_file_types", "channel_key
 
 calculate_rri_from_peaks_variables = ["data_directory", "ecg_keys", "rpeak_function_name", 
     "RRI_sampling_frequency", "pad_with", "results_path", "file_name_dictionary_key", 
-    "valid_ecg_regions_dictionary_key", "RRI_dictionary_key", "realistic_rri_value_range"]
+    "valid_ecg_regions_dictionary_key", "RRI_dictionary_key", "realistic_rri_value_range",
+    "mad_time_period_seconds"]
+
+rri_comparison_variables = ["data_directory", "ecg_keys", "path_to_h5file", "results_path",
+    "file_name_dictionary_key", "valid_ecg_regions_dictionary_key", "RRI_dictionary_key",
+    "rri_comparison_report_dezimal_places", "rri_comparison_report_path", "mad_time_period_seconds"]
+
+mad_comparison_variables = ["path_to_h5file", "results_path", "file_name_dictionary_key",
+    "MAD_dictionary_key", "mad_comparison_report_dezimal_places", "mad_comparison_report_path"]
+
+retrieve_rri_mad_data_variables = ["data_directory", "valid_file_types", "ecg_keys", "rri_mad_data_path",
+    "results_path", "valid_ecg_regions_dictionary_key", "RRI_dictionary_key", "MAD_dictionary_key"]

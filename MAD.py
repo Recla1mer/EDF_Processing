@@ -390,10 +390,6 @@ def mad_comparison_report(
         list of file names for which the MAD values were compared
     """
 
-    # delete the file if it already exists
-    if os.path.isfile(mad_comparison_report_path):
-        os.remove(mad_comparison_report_path)
-
     # open the file to write the report to
     comparison_file = open(mad_comparison_report_path, "w")
 
@@ -462,6 +458,14 @@ def mad_comparison(
     --------------------------------
     None, but the comparison report is saved to a text file
     """
+
+    # check if the report already exists and if yes: ask for permission to override
+    user_answer = ask_for_permission_to_override_file(file_path = mad_comparison_report_path,
+            message = "\nMAD comparison report already exists in " + mad_comparison_report_path + ".")
+
+    # cancel if user does not want to override
+    if user_answer == "n":
+        return
 
     # access the dataset which provides the valid regions
     h5_dataset = h5py.File(path_to_h5file, 'r')
@@ -538,18 +542,3 @@ def mad_comparison(
         mad_differences = mad_difference, 
         file_names = processed_files
     )
-
-
-# mad_comparison(
-#     path_to_h5file = "Data/GIF_dataset.h5",
-#     results_path = "Processed_GIF/GIF_Results.pkl",
-#     file_name_dictionary_key = "file_name",
-#     MAD_dictionary_key = "MAD",
-#     mad_comparison_report_dezimal_places = 5,
-#     mad_comparison_report_path = "Processed_GIF/MAD_Comparison_Report.txt",
-# )
-    
-
-
-            
-

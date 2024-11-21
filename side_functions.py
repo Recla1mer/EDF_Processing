@@ -701,3 +701,42 @@ def recover_results_after_error(
             if os.path.isfile(all_results_path):
                 os.remove(all_results_path)
             os.rename(temporary_file_path, all_results_path)
+
+
+def find_time_point_shared_by_signals(
+        signal_position: int,
+        signal_sampling_frequency: int,
+        other_sampling_frequencies: list
+    ):
+    """
+    Only in valid regions of the ECG signal the R-Peaks were detected. We will therefore also only calculate
+    the RR-intervals in these regions. We want to match the start of the RR-intervals with the start of the
+    ECG signal. Therefore we need to find the next closest point to the given ecg_position which is a multiple
+    of the rri_sampling_frequency / ecg_sampling_frequency.
+
+    ARGUMENTS:
+    --------------------------------
+    signal_position: int
+        position in the signal
+    signal_sampling_frequency: int
+        sampling frequency of the signal
+    other_sampling_frequencies: list
+        list of sampling frequencies of the other signal
+    
+    RETURNS:
+    --------------------------------
+    time_point: int
+        time position at which you have points in the ECG signal and RR-intervals * ecg_sampling_frequency
+    """
+
+    while True:
+        success = True
+        for freq in other_sampling_frequencies:
+            if signal_position % (signal_sampling_frequency / freq) != 0:
+                success = False
+                break
+
+        if success:
+            return int(signal_position)
+        
+        signal_position += 1
