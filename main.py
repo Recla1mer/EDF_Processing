@@ -62,6 +62,7 @@ calculate_MAD_params = {
 calculate_rri_from_peaks_params = {
     "RRI_sampling_frequency": 4, # target sampling frequency of the RR-intervals
     "pad_with": 0, # value to add if RRI at required time point is not calculatable
+    "realistic_rri_value_range": [0.24, 2.4], # realistic range of RRI values, equals 25-250 bpm
 }
 
 # add all parameters to the parameters dictionary, so we can access them later more easily
@@ -442,7 +443,7 @@ def Data_Processing_and_Comparing(
     ---------------------------
     """
 
-    parameters["rpeak_function_name"] = parameters["rpeak_comparison_function_names"][-1]
+    parameters["rpeak_function_name"] = "hamilton"
     calculate_rri_from_peaks_args = create_sub_dict(parameters, calculate_rri_from_peaks_variables)
     rri_from_rpeak.determine_rri_from_rpeaks(**calculate_rri_from_peaks_args)
 
@@ -467,7 +468,7 @@ In this section we will run the functions we have created until now.
 """
 
 if __name__ == "__main__":
-    
+
     # process GIF data
     Data_Processing_and_Comparing(
         DATA_DIRECTORY = "Data/GIF/SOMNOwatch/",
@@ -478,8 +479,6 @@ if __name__ == "__main__":
         RPEAK_COMPARISON_FILE_NAME = "RPeak_Comparison_Report.txt",
         ECG_COMPARISON_FILE_NAME = "ECG_Validation_Comparison_Report.txt"
     )
-
-    raise SystemExit
 
     # if you want to retrieve all subdirectories containing valid files, you can use the following function
     """

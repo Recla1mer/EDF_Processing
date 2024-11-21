@@ -371,7 +371,8 @@ def determine_rri_from_rpeaks_2(
 
     # rename the file that stores the calculated data
     if os.path.isfile(temporary_file_path):
-        os.remove(results_path)
+        if os.path.isfile(results_path):
+            os.remove(results_path)
         os.rename(temporary_file_path, results_path)
 
     # print unprocessable files
@@ -424,6 +425,7 @@ def determine_rri_from_rpeaks(
         rpeak_function_name: str,
         RRI_sampling_frequency: int,
         pad_with: float,
+        realistic_rri_value_range: list,
         results_path: str,
         file_name_dictionary_key: str,
         valid_ecg_regions_dictionary_key: str,
@@ -444,6 +446,9 @@ def determine_rri_from_rpeaks(
         target sampling frequency of the RR-intervals
     pad_with: float
         value to pad the rri list with if no rri value can be calculated
+    realistic_rri_value_range: list
+        list of two floats, which represent the lower and upper bound of realistic rri values
+        if the rri values are outside of this range, they will be replaced with the pad_with value
     results_path: str
         path to the pickle file where the valid regions are saved
     file_name_dictionary_key
@@ -486,20 +491,20 @@ def determine_rri_from_rpeaks(
     # create lists to store unprocessable files
     unprocessable_files = []
 
-    # load results
-    results_generator = load_from_pickle(results_path)
-    
     # create variables to track progress
     start_time = time.time()
     total_files = get_pickle_length(results_path, RRI_dictionary_key)
     progressed_files = 0
+
+    # load results
+    results_generator = load_from_pickle(results_path)
 
     if total_files > 0:
         print("\nCalculating RR-Intervals from r-peaks detected by %s in %i files:" % (rpeak_function_name, total_files))
     
     # correct rpeaks
     for generator_entry in results_generator:
-        # skip if corrected r-peaks already exist and the user does not want to override
+        # skip if rri values already exist and the user does not want to override
         if user_answer == "n" and RRI_dictionary_key in generator_entry.keys():
             append_to_pickle(generator_entry, temporary_file_path)
             continue
@@ -537,9 +542,11 @@ def determine_rri_from_rpeaks(
 
                 this_length = valid_interval[1] - valid_interval[0]
 
+                # get the rpeaks in the valid interval and shift them to the start of the interval to ensure the rri is calculated correctly
                 this_rpeaks = np.array([peak for peak in rpeaks if valid_interval[0] <= peak <= valid_interval[1]])
                 this_rpeaks = this_rpeaks - this_time_point
 
+                # calculate the rri
                 this_rri = calculate_rri_from_peaks(
                     rpeaks = this_rpeaks, # type: ignore
                     ecg_sampling_frequency = ecg_sampling_frequency,
@@ -547,6 +554,11 @@ def determine_rri_from_rpeaks(
                     signal_length = this_length,
                     pad_with = pad_with
                 )
+
+                # correct rri values which are outside of the realistic range
+                for i in range(len(this_rri)):
+                    if this_rri[i] < realistic_rri_value_range[0] or this_rri[i] > realistic_rri_value_range[1]:
+                        this_rri[i] = pad_with
 
                 rri.append(this_rri)
         
@@ -563,7 +575,8 @@ def determine_rri_from_rpeaks(
 
     # rename the file that stores the calculated data
     if os.path.isfile(temporary_file_path):
-        os.remove(results_path)
+        if os.path.isfile(results_path):
+            os.remove(results_path)
         os.rename(temporary_file_path, results_path)
 
     # print unprocessable files

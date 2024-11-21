@@ -414,7 +414,8 @@ def read_out_channel(
 
     # rename the file that stores the calculated data
     if os.path.isfile(temporary_file_path):
-        os.remove(results_path)
+        if os.path.isfile(results_path):
+            os.remove(results_path)
         os.rename(temporary_file_path, results_path)
     
     # print unprocessable files 

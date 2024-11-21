@@ -349,9 +349,10 @@ def calculate_MAD_in_acceleration_data(
     progress_bar(progressed_files, total_files, start_time)
 
     # rename the file that stores the calculated data
-    if os.path.isfile(results_path):
-        os.remove(results_path)
-    os.rename(temporary_file_path, results_path)
+    if os.path.isfile(temporary_file_path):
+        if os.path.isfile(results_path):
+            os.remove(results_path)
+        os.rename(temporary_file_path, results_path)
 
     # print unprocessable files
     if len(unprocessable_files) > 0:
@@ -539,14 +540,14 @@ def mad_comparison(
     )
 
 
-mad_comparison(
-    path_to_h5file = "Data/GIF_dataset.h5",
-    results_path = "Processed_GIF/GIF_Results.pkl",
-    file_name_dictionary_key = "file_name",
-    MAD_dictionary_key = "MAD",
-    mad_comparison_report_dezimal_places = 5,
-    mad_comparison_report_path = "Processed_GIF/MAD_Comparison_Report.txt",
-)
+# mad_comparison(
+#     path_to_h5file = "Data/GIF_dataset.h5",
+#     results_path = "Processed_GIF/GIF_Results.pkl",
+#     file_name_dictionary_key = "file_name",
+#     MAD_dictionary_key = "MAD",
+#     mad_comparison_report_dezimal_places = 5,
+#     mad_comparison_report_path = "Processed_GIF/MAD_Comparison_Report.txt",
+# )
     
 
 

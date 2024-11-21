@@ -780,7 +780,8 @@ def determine_valid_ecg_regions(
 
     # rename the file that stores the calculated data
     if os.path.isfile(temporary_file_path):
-        os.remove(results_path)
+        if os.path.isfile(results_path):
+            os.remove(results_path)
         os.rename(temporary_file_path, results_path)
 
     # print the files that could not be processed
@@ -936,7 +937,8 @@ def choose_valid_ecg_regions_for_further_computation(
     
     # rename the file that stores the calculated data
     if os.path.isfile(temporary_file_path):
-        os.remove(results_path)
+        if os.path.isfile(results_path):
+            os.remove(results_path)
         os.rename(temporary_file_path, results_path)
 
 
@@ -1333,7 +1335,8 @@ def ecg_validation_comparison(
 
     # rename the file that stores the calculated data
     if os.path.isfile(temporary_file_path):
-        os.remove(results_path)
+        if os.path.isfile(results_path):
+            os.remove(results_path)
         os.rename(temporary_file_path, results_path)
 
     # print the files that could not be processed

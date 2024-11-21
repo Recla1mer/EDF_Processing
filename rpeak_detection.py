@@ -480,7 +480,8 @@ def detect_rpeaks(
 
     # rename the file that stores the calculated data
     if os.path.isfile(temporary_file_path):
-        os.remove(results_path)
+        if os.path.isfile(results_path):
+            os.remove(results_path)
         os.rename(temporary_file_path, results_path)
 
     # print unprocessable files
@@ -624,7 +625,8 @@ def correct_rpeak_locations(
 
     # rename the file that stores the calculated data
     if os.path.isfile(temporary_file_path):
-        os.remove(results_path)
+        if os.path.isfile(results_path):
+            os.remove(results_path)
         os.rename(temporary_file_path, results_path)
 
     # print unprocessable files
@@ -880,7 +882,8 @@ def combine_detected_rpeaks(
 
     # rename the file that stores the calculated data
     if os.path.isfile(temporary_file_path):
-        os.remove(results_path)
+        if os.path.isfile(results_path):
+            os.remove(results_path)
         os.rename(temporary_file_path, results_path)
 
     # print unprocessable files
@@ -1333,7 +1336,8 @@ def read_rpeaks_from_rri_files(
 
     # rename the file that stores the calculated data
     if os.path.isfile(temporary_file_path):
-        os.remove(results_path)
+        if os.path.isfile(results_path):
+            os.remove(results_path)
         os.rename(temporary_file_path, results_path)
 
     # print unprocessable files 
@@ -1539,7 +1543,8 @@ def rpeak_detection_comparison(
 
     # rename the file that stores the calculated data
     if os.path.isfile(temporary_file_path):
-        os.remove(results_path)
+        if os.path.isfile(results_path):
+            os.remove(results_path)
         os.rename(temporary_file_path, results_path)
 
     # print unprocessable files 

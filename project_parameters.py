@@ -187,5 +187,6 @@ rpeak_detection_comparison_report_variables = ["rpeak_comparison_report_dezimal_
 read_out_channel_variables = ["data_directory", "valid_file_types", "channel_key_to_read_out",
     "physical_dimension_correction_dictionary", "results_path", "file_name_dictionary_key", "new_dictionary_key"]
 
-calculate_rri_from_peaks_variables = ["data_directory", "ecg_keys", "physical_dimension_correction_dictionary",
-    "rpeak_function_name", "RRI_sampling_frequency", "pad_with", "results_path", "file_name_dictionary_key", "RRI_dictionary_key"]
+calculate_rri_from_peaks_variables = ["data_directory", "ecg_keys", "rpeak_function_name", 
+    "RRI_sampling_frequency", "pad_with", "results_path", "file_name_dictionary_key", 
+    "valid_ecg_regions_dictionary_key", "RRI_dictionary_key", "realistic_rri_value_range"]
