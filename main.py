@@ -179,6 +179,7 @@ def Data_Processing(
 
         for i in range(len(DATA_DIRECTORY)-2, -1, -1):
             if DATA_DIRECTORY[i] == "/":
+                i += 1
                 break
 
         # set path to pickle file that saves the processing results
@@ -576,6 +577,7 @@ def Extract_RRI_MAD(
 
         for i in range(len(DATA_DIRECTORY)-2, -1, -1):
             if DATA_DIRECTORY[i] == "/":
+                i += 1
                 break
 
         # set path to pickle file that saves the processing results

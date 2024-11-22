@@ -211,5 +211,5 @@ rri_comparison_variables = ["data_directory", "ecg_keys", "path_to_h5file", "res
 mad_comparison_variables = ["path_to_h5file", "results_path", "file_name_dictionary_key",
     "MAD_dictionary_key", "mad_comparison_report_dezimal_places", "mad_comparison_report_path"]
 
-retrieve_rri_mad_data_variables = ["data_directory", "valid_file_types", "ecg_keys", "rri_mad_data_path",
-    "results_path", "valid_ecg_regions_dictionary_key", "RRI_dictionary_key", "MAD_dictionary_key"]
+retrieve_rri_mad_data_variables = ["data_directory", "ecg_keys", "rri_mad_data_path", "results_path", 
+    "file_name_dictionary_key", "valid_ecg_regions_dictionary_key", "RRI_dictionary_key", "MAD_dictionary_key"]
