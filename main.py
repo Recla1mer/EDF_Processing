@@ -632,6 +632,9 @@ if __name__ == "__main__":
     EDF_Data_Directories = ["Data/", "Data/GIF/SOMNOwatch/"]
     Processing_Result_Directory = "Processed_NAKO/"
 
+    for file in EDF_Data_Directories:
+        delete_dictionary_entries_from_file(file_path = file, dictionary_keys = ["RRI", "RRI_frequency", "MAD", "MAD_frequency"])
+
     # process NAKO data
     Data_Processing(
         DATA_DIRECTORIES = EDF_Data_Directories,
