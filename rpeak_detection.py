@@ -423,9 +423,6 @@ def detect_rpeaks(
 
     # create lists to store unprocessable files
     unprocessable_files = []
-
-    # load results
-    results_generator = load_from_pickle(results_path)
    
     # create variables to track progress
     start_time = time.time()
@@ -434,6 +431,11 @@ def detect_rpeaks(
 
     if total_files > 0:
         print("\nDetecting r-peaks of the ECG data in %i files from \"%s\" using %s:" % (total_files, data_directory, rpeak_function_name[:-len(before_correction_rpeak_function_name_addition)]))
+    else:
+        return
+    
+    # load results
+    results_generator = load_from_pickle(results_path)
     
     # detect rpeaks in the valid regions of the ECG data
     for generator_entry in results_generator:
@@ -564,9 +566,6 @@ def correct_rpeak_locations(
 
     # create lists to store unprocessable files
     unprocessable_files = []
-
-    # load results
-    results_generator = load_from_pickle(results_path)
     
     # create variables to track progress
     start_time = time.time()
@@ -575,6 +574,11 @@ def correct_rpeak_locations(
 
     if total_files > 0:
         print("\nCorrecting r-peaks detected by %s in %i files:" % (rpeak_function_name, total_files))
+    else:
+        return
+    
+    # load results
+    results_generator = load_from_pickle(results_path)
     
     # correct rpeaks
     for generator_entry in results_generator:

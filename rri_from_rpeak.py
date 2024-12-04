@@ -184,10 +184,10 @@ def calculate_momentarily_rri_from_peaks(
         for j in range(start_looking_at, len(rpeak_position_seconds)):
             start_looking_at = j
 
-            if rpeak_position_seconds[j] == rri_datapoint_second:
+            if rpeak_position_seconds[j] == rri_datapoint_second and j not in [0, len(rpeak_position_seconds)-1]:
                 this_rri = (rpeak_position_seconds[j+1] - rpeak_position_seconds[j-1]) / 2
                 break
-            if rpeak_position_seconds[j-1] <= rri_datapoint_second and rri_datapoint_second < rpeak_position_seconds[j]:
+            if rpeak_position_seconds[j-1] <= rri_datapoint_second and rri_datapoint_second <= rpeak_position_seconds[j]:
                 this_rri = rpeak_position_seconds[j] - rpeak_position_seconds[j-1]
                 break
             if rpeak_position_seconds[j-1] > rri_datapoint_second:
@@ -325,11 +325,13 @@ def determine_rri_from_rpeaks(
     total_files = get_pickle_length(results_path, RRI_dictionary_key)
     progressed_files = 0
 
-    # load results
-    results_generator = load_from_pickle(results_path)
-
     if total_files > 0:
         print("\nCalculating RR-Intervals from r-peaks detected by %s in %i files:" % (rpeak_function_name, total_files))
+    else:
+        return
+    
+    # load results
+    results_generator = load_from_pickle(results_path)
     
     # correct rpeaks
     for generator_entry in results_generator:

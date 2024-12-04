@@ -628,12 +628,10 @@ if __name__ == "__main__":
         valid_file_types = [".edf"]
     )
     """
-
+        
     EDF_Data_Directories = ["Data/", "Data/GIF/SOMNOwatch/"]
+    # EDF_Data_Directories = ["/media/yaopeng/data1/NAKO-33a/", "/media/yaopeng/data1/NAKO-33b/", "/media/yaopeng/data1/NAKO-609/", "/media/yaopeng/data1/NAKO-419/", "/media/yaopeng/data1/NAKO-84/"]
     Processing_Result_Directory = "Processed_NAKO/"
-
-    for file in EDF_Data_Directories:
-        delete_dictionary_entries_from_file(file_path = file, dictionary_keys = ["RRI", "RRI_frequency", "MAD", "MAD_frequency"])
 
     # process NAKO data
     Data_Processing(
@@ -647,3 +645,7 @@ if __name__ == "__main__":
         RESULTS_DIRECTORY = Processing_Result_Directory,
         EXTRACTED_DATA_DIRECTORY = "RRI_and_MAD/"
     )
+
+    # run following code snippet to remove some dictionary entries (in case you do not want to overwrite them manually)
+    for file in EDF_Data_Directories:
+        delete_dictionary_entries_from_file(file_path = file, dictionary_keys = ["RRI", "RRI_frequency", "MAD", "MAD_frequency"])
