@@ -375,7 +375,8 @@ def ask_for_permission_to_override_file(file_path: str, message: str):
 def ask_for_permission_to_override_dictionary_entry(
         file_path: str, 
         dictionary_entry: str, 
-        additionally_remove_entries = []
+        additionally_remove_entries: list = [],
+        remove_similar_keys: bool = False
     ):
     """
     Check if the file that saves the results already contains dictionary entries with the
@@ -390,6 +391,8 @@ def ask_for_permission_to_override_dictionary_entry(
         name of the dictionary entry
     additionally_remove_entries: list
         list of entries that should be removed additionally if user wants to overwrite
+    remove_similar_keys: bool
+        if True, remove all keys that contain the dictionary_entry as a substring
     
     RETURNS:
     --------------------------------
@@ -398,6 +401,7 @@ def ask_for_permission_to_override_dictionary_entry(
         "y" if user wants to overwrite the dictionary key or if they are not present
         "n" if dictionary keys exist but user does not want to overwrite
     """
+
     if not os.path.isfile(file_path):
         return "no_file_found"
 
@@ -426,12 +430,15 @@ def ask_for_permission_to_override_dictionary_entry(
 
             else:
                 user_answer = input("\nPlease answer with 'y' or 'n'.")
+
             if user_answer == "y":
                 temporary_file_path = get_path_without_filename(file_path) + "computation_in_progress.pkl"
                 results_directory_generator = load_from_pickle(file_path)
                 for results_directory in results_directory_generator:
                     if dictionary_entry in results_directory:
-                        del results_directory[dictionary_entry]
+                        del results_directory[dictionary_entry]    
+                    if remove_similar_keys:
+                        additionally_remove_entries = [key for key in results_directory if dictionary_entry in key]
                     for add_entry in additionally_remove_entries:
                         if add_entry in results_directory:
                             del results_directory[add_entry]

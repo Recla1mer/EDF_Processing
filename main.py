@@ -608,18 +608,18 @@ MAIN SECTION
 if __name__ == "__main__":
 
     # process GIF data
-    Data_Processing_and_Comparing(
-        DATA_DIRECTORY = "Data/GIF/SOMNOwatch/",
-        ECG_CLASSIFICATION_DIRECTORY = "Data/GIF/Analyse_Somno_TUM/Noise/",
-        RPEAK_DIRECTORY = "Data/GIF/Analyse_Somno_TUM/RRI/",
-        AVAILABLE_MAD_RRI_PATH = "Data/GIF_dataset.h5",
-        RESULTS_DIRECTORY = "Processed_GIF/",
-        RESULTS_FILE_NAME = "GIF_Results.pkl",
-        ECG_COMPARISON_FILE_NAME = "ECG_Validation_Comparison_Report.txt",
-        RPEAK_COMPARISON_FILE_NAME = "RPeak_Comparison_Report.txt",
-        RRI_COMPARISON_FILE_NAME = "RRI_Comparison_Report.txt",
-        MAD_COMPARISON_FILE_NAME = "MAD_Comparison_Report.txt"
-    )
+    # Data_Processing_and_Comparing(
+    #     DATA_DIRECTORY = "Data/GIF/SOMNOwatch/",
+    #     ECG_CLASSIFICATION_DIRECTORY = "Data/GIF/Analyse_Somno_TUM/Noise/",
+    #     RPEAK_DIRECTORY = "Data/GIF/Analyse_Somno_TUM/RRI/",
+    #     AVAILABLE_MAD_RRI_PATH = "Data/GIF_dataset.h5",
+    #     RESULTS_DIRECTORY = "Processed_GIF/",
+    #     RESULTS_FILE_NAME = "GIF_Results.pkl",
+    #     ECG_COMPARISON_FILE_NAME = "ECG_Validation_Comparison_Report.txt",
+    #     RPEAK_COMPARISON_FILE_NAME = "RPeak_Comparison_Report.txt",
+    #     RRI_COMPARISON_FILE_NAME = "RRI_Comparison_Report.txt",
+    #     MAD_COMPARISON_FILE_NAME = "MAD_Comparison_Report.txt"
+    # )
 
     # if you want to retrieve all subdirectories containing valid files, you can use the following function
     """
@@ -630,6 +630,7 @@ if __name__ == "__main__":
     """
         
     EDF_Data_Directories = ["Data/", "Data/GIF/SOMNOwatch/"]
+    EDF_Data_Directories = ["Data/GIF/SOMNOwatch/"]
     # EDF_Data_Directories = ["/media/yaopeng/data1/NAKO-33a/", "/media/yaopeng/data1/NAKO-33b/", "/media/yaopeng/data1/NAKO-609/", "/media/yaopeng/data1/NAKO-419/", "/media/yaopeng/data1/NAKO-84/"]
     Processing_Result_Directory = "Processed_NAKO/"
 
@@ -639,13 +640,17 @@ if __name__ == "__main__":
         RESULTS_DIRECTORY = Processing_Result_Directory,
     )
 
+    gen = load_from_pickle("Processed_NAKO/SOMNOwatch_Results.pkl")
+    for gener in gen:
+        print(len(gener.keys()))
+
     # extract RRI and MAD values
-    Extract_RRI_MAD(
-        DATA_DIRECTORIES = EDF_Data_Directories,
-        RESULTS_DIRECTORY = Processing_Result_Directory,
-        EXTRACTED_DATA_DIRECTORY = "RRI_and_MAD/"
-    )
+    # Extract_RRI_MAD(
+    #     DATA_DIRECTORIES = EDF_Data_Directories,
+    #     RESULTS_DIRECTORY = Processing_Result_Directory,
+    #     EXTRACTED_DATA_DIRECTORY = "RRI_and_MAD/"
+    # )
 
     # run following code snippet to remove some dictionary entries (in case you do not want to overwrite them manually)
-    for file in EDF_Data_Directories:
-        delete_dictionary_entries_from_file(file_path = file, dictionary_keys = ["RRI", "RRI_frequency", "MAD", "MAD_frequency"])
+    # for file in ["Processed_NAKO/SOMNOwatch_Results.pkl"]:
+    #     delete_dictionary_entries_from_file(file_path = file, dictionary_keys = ["MAD", "MAD_frequency"])

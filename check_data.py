@@ -609,51 +609,24 @@ def determine_valid_ecg_regions(
     # if the temporary file already exists, something went wrong
     if os.path.isfile(temporary_file_path):
         raise Exception("The file: " + temporary_file_path + " should not exist. Either a previous computation was interrupted or another computation is ongoing.")
-    
-    # check if the dictionary key for the valid ecg regions already exists
-    remove_key = valid_ecg_regions_dictionary_key
-    additionally_remove_keys = []
-    if os.path.isfile(results_path):
-        # load existing results to collect keys for valid ecg regions with different strictness values
-        results_generator = load_from_pickle(results_path)
-
-        # additionally remove keys
-        additionally_remove_keys = []
-        for generator_entry in results_generator:
-            for dict_key in generator_entry.keys():
-                if valid_ecg_regions_dictionary_key in dict_key and dict_key not in additionally_remove_keys:
-                    additionally_remove_keys.append(dict_key)
-        
-        if len(additionally_remove_keys) == 0:
-            remove_key = valid_ecg_regions_dictionary_key
-            additionally_remove_keys = []
-        elif len(additionally_remove_keys) == 1:
-            remove_key = additionally_remove_keys[0]
-            additionally_remove_keys = []
-        else:
-            remove_key = additionally_remove_keys[0]
-            additionally_remove_keys = additionally_remove_keys[1:]
 
     # check if valid regions already exist and if yes: ask for permission to override
     user_answer = ask_for_permission_to_override_dictionary_entry(
         file_path = results_path,
-        dictionary_entry = remove_key,
-        additionally_remove_entries = additionally_remove_keys
+        dictionary_entry = valid_ecg_regions_dictionary_key,
+        remove_similar_keys = True
         )
     
-    # create list to store files that could not be processed
+    # create list to store unprocessable files
     unprocessable_files = []
 
     # get all valid files
     all_files = os.listdir(data_directory)
     valid_files = [file for file in all_files if get_file_type(file) in valid_file_types]
-
-    # create dictionary to store dictionaries that do not contain the needed key
-    # (needed to avoid overwriting these entries in the pickle file if user answer is "n")
-    store_previous_dictionary_entries = dict()
    
     # skip calculation if user does not want to override
-    if user_answer == "n":
+    left_overs = 0
+    if not user_answer == "no_file_found":
         # load existing results
         results_generator = load_from_pickle(results_path)
 
@@ -661,10 +634,9 @@ def determine_valid_ecg_regions(
                 # check if needed dictionary keys exist
                 if file_name_dictionary_key not in generator_entry.keys():
                     continue
-
-                if remove_key not in generator_entry.keys():
-                    store_previous_dictionary_entries[generator_entry[file_name_dictionary_key]] = generator_entry
-                    continue
+                    
+                if valid_ecg_regions_dictionary_key not in generator_entry.keys():
+                    left_overs += 1
 
                 # get current file name
                 file_name = generator_entry[file_name_dictionary_key]
@@ -672,21 +644,31 @@ def determine_valid_ecg_regions(
                 if file_name in valid_files:
                     valid_files.remove(file_name)
                 
-                append_to_pickle(generator_entry, temporary_file_path)
+        del results_generator
     
     # create variables to track progress
     start_time = time.time()
-    total_files = len(valid_files)
+    total_files = len(valid_files) + left_overs
     progressed_files = 0
 
     if total_files > 0:
         print("\nCalculating valid regions for the ECG data in %i files from \"%s\":" % (total_files, data_directory))
 
-    if user_answer == "y":
+    # if results file already exists and none of its entries are left to process or reprocess, rename the file 
+    # and continue with remaining valid files that were not processed yet
+    if not user_answer == "no_file_found" and left_overs == 0:
+        os.rename(results_path, temporary_file_path)
+
+    if not user_answer == "no_file_found" and left_overs > 0:
         # load existing results
         results_generator = load_from_pickle(results_path)
 
         for generator_entry in results_generator:
+            # skip if valid ecg regions already exist and the user does not want to override
+            if valid_ecg_regions_dictionary_key in generator_entry.keys() and user_answer == "n":
+                append_to_pickle(generator_entry, temporary_file_path)
+                continue
+
             # show progress
             progress_bar(progressed_files, total_files, start_time)
             progressed_files += 1
@@ -736,10 +718,7 @@ def determine_valid_ecg_regions(
         progress_bar(progressed_files, total_files, start_time)
         progressed_files += 1
 
-        if file_name in store_previous_dictionary_entries.keys():
-            generator_entry = store_previous_dictionary_entries[file_name]
-        else:
-            generator_entry = {file_name_dictionary_key: file_name}
+        generator_entry = {file_name_dictionary_key: file_name}
 
         try:
             # try to load the data and correct the physical dimension if needed

@@ -204,13 +204,10 @@ def calculate_MAD_in_acceleration_data(
     # get all valid files
     all_files = os.listdir(data_directory)
     valid_files = [file for file in all_files if get_file_type(file) in valid_file_types]
-
-    # create dictionary to store dictionaries that do not contain the needed key
-    # (needed to avoid overwriting these entries in the pickle file if user answer is "n")
-    store_previous_dictionary_entries = dict()
    
-    # skip calculation if user does not want to override
-    if user_answer == "n":
+    # check how many files in the results are left to process
+    left_overs = 0
+    if not user_answer == "no_file_found":
         # load existing results
         results_generator = load_from_pickle(results_path)
 
@@ -220,31 +217,40 @@ def calculate_MAD_in_acceleration_data(
                     continue
 
                 if MAD_dictionary_key not in generator_entry.keys():
-                    store_previous_dictionary_entries[generator_entry[file_name_dictionary_key]] = generator_entry
-                    continue
+                    left_overs += 1
 
                 # get current file name
                 file_name = generator_entry[file_name_dictionary_key]
 
                 if file_name in valid_files:
                     valid_files.remove(file_name)
-                
-                append_to_pickle(generator_entry, temporary_file_path)
+        
+        del results_generator
     
     # create variables to track progress
     start_time = time.time()
-    total_files = len(valid_files)
+    total_files = len(valid_files) + left_overs
     progressed_files = 0
 
     if total_files > 0:
         print("\nCalculating MAD in the wrist acceleration data in %i files from \"%s\":" % (total_files, data_directory))
+    
+    # if results file already exists and none of its entries are left to process or reprocess, rename the file 
+    # and continue with remaining valid files that were not processed yet
+    if not user_answer == "no_file_found" and left_overs == 0:
+        os.rename(results_path, temporary_file_path)
 
-    if user_answer == "y":
+    if not user_answer == "no_file_found" and left_overs > 0:
         # load existing results
         results_generator = load_from_pickle(results_path)
 
         # calculate MAD in the wrist acceleration data
         for generator_entry in results_generator:
+            # skip if MAD values already exist and the user does not want to override
+            if MAD_dictionary_key in generator_entry.keys() and user_answer == "n":
+                append_to_pickle(generator_entry, temporary_file_path)
+                continue
+
             # show progress
             progress_bar(progressed_files, total_files, start_time)
             progressed_files += 1
@@ -295,15 +301,13 @@ def calculate_MAD_in_acceleration_data(
             
             append_to_pickle(generator_entry, temporary_file_path)
     
+    # calculate the MAD values for the remaining files
     for file_name in valid_files:
         # show progress
         progress_bar(progressed_files, total_files, start_time)
         progressed_files += 1
 
-        if file_name in store_previous_dictionary_entries.keys():
-            generator_entry = store_previous_dictionary_entries[file_name]
-        else:
-            generator_entry = {file_name_dictionary_key: file_name}
+        generator_entry = {file_name_dictionary_key: file_name}
 
         try:
             # create lists to save the acceleration data and frequencies for each axis
