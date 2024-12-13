@@ -32,6 +32,7 @@ from project_parameters import *
 # parameters for the ECG Validation
 valid_ecg_regions_params = {
     "straighten_ecg_signal": True, # if True, the ECG signal will be straightened before the validation (see check_data.straighten_ecg_signal() for more information)
+    "use_ecg_validation_strictness": 0.6, # If None, the ecg regions corresponding to the strictness must be chosen manually by user input. If a float, this strictness will be used.
     "check_ecg_time_interval_seconds": 5, # time interval considered when determining the valid regions for the ECG data (as small as possible, but should contain at least two R-peaks)
     "check_ecg_overlapping_interval_steps": 1, # number of times the interval needs to be shifted to the right until the next check_ecg_time_interval_seconds is reached (only useful to increase if check_ecg_time_interval_seconds is small)
     "check_ecg_validation_strictness": [round(strict_val, 2) for strict_val in np.arange(0.0, 1.05, 0.05)], # strictness in relation to mean values (0.0: very unstrict, 1.0: very strict)
@@ -41,7 +42,6 @@ valid_ecg_regions_params = {
     "check_ecg_distance_std_ratio_threshold": 5.0, # if the ratio of the max-min difference and the standard deviation of the ECG data is below this threshold, the data is considered invalid
     "check_ecg_min_valid_length_minutes": 5, # minimum length of valid data in minutes
     "check_ecg_allowed_invalid_region_length_seconds": 30, # data region (see directly above) still considered valid if the invalid part is shorter than this
-    "use_strictness": 0.6 # (PARAMETER FOR DIFFERENT FUNCTION - FITS TO THIS CATEGORY): If None, the ecg regions corresponding to the strictness must be chosen manually by user input. If a float, this strictness will be used.
 }
 
 # parameters for the r-peak detection
@@ -214,12 +214,14 @@ def Data_Processing(
         # evaluate valid regions for the ECG data
         determine_ecg_region_args = create_sub_dict(parameters, determine_ecg_region_variables)
         check_data.determine_valid_ecg_regions(**determine_ecg_region_args)
-        del determine_ecg_region_args
 
         # create arguments for choosing the valid ecg regions for further computation
-        choose_valid_ecg_regions_for_further_computation_args = create_sub_dict(parameters, choose_valid_ecg_regions_for_further_computation_variables)
-        check_data.choose_valid_ecg_regions_for_further_computation(**choose_valid_ecg_regions_for_further_computation_args)
-        del choose_valid_ecg_regions_for_further_computation_args
+        if determine_ecg_region_args["use_ecg_validation_strictness"] is None:
+            choose_valid_ecg_regions_for_further_computation_args = create_sub_dict(parameters, choose_valid_ecg_regions_for_further_computation_variables)
+            check_data.choose_valid_ecg_regions_for_further_computation(**choose_valid_ecg_regions_for_further_computation_args)
+            del choose_valid_ecg_regions_for_further_computation_args
+        
+        del determine_ecg_region_args
     
         """
         -----------------
@@ -378,13 +380,15 @@ def Data_Processing_and_Comparing(
 
     # perform ecg validation
     check_data.determine_valid_ecg_regions(**determine_ecg_region_args)
-    del determine_ecg_region_args
 
     # create arguments for choosing the valid ecg regions for further computation
-    choose_valid_ecg_regions_for_further_computation_args = create_sub_dict(parameters, choose_valid_ecg_regions_for_further_computation_variables)
-    check_data.choose_valid_ecg_regions_for_further_computation(**choose_valid_ecg_regions_for_further_computation_args)
-    del choose_valid_ecg_regions_for_further_computation_args
+    if determine_ecg_region_args["use_ecg_validation_strictness"] is None:
+        choose_valid_ecg_regions_for_further_computation_args = create_sub_dict(parameters, choose_valid_ecg_regions_for_further_computation_variables)
+        check_data.choose_valid_ecg_regions_for_further_computation(**choose_valid_ecg_regions_for_further_computation_args)
+        del choose_valid_ecg_regions_for_further_computation_args
     
+    del determine_ecg_region_args
+
     """
     ------------------------
     COMPARE ECG VALIDATIONS
@@ -608,18 +612,18 @@ MAIN SECTION
 if __name__ == "__main__":
 
     # process GIF data
-    # Data_Processing_and_Comparing(
-    #     DATA_DIRECTORY = "Data/GIF/SOMNOwatch/",
-    #     ECG_CLASSIFICATION_DIRECTORY = "Data/GIF/Analyse_Somno_TUM/Noise/",
-    #     RPEAK_DIRECTORY = "Data/GIF/Analyse_Somno_TUM/RRI/",
-    #     AVAILABLE_MAD_RRI_PATH = "Data/GIF_dataset.h5",
-    #     RESULTS_DIRECTORY = "Processed_GIF/",
-    #     RESULTS_FILE_NAME = "GIF_Results.pkl",
-    #     ECG_COMPARISON_FILE_NAME = "ECG_Validation_Comparison_Report.txt",
-    #     RPEAK_COMPARISON_FILE_NAME = "RPeak_Comparison_Report.txt",
-    #     RRI_COMPARISON_FILE_NAME = "RRI_Comparison_Report.txt",
-    #     MAD_COMPARISON_FILE_NAME = "MAD_Comparison_Report.txt"
-    # )
+    Data_Processing_and_Comparing(
+        DATA_DIRECTORY = "Data/GIF/SOMNOwatch/",
+        ECG_CLASSIFICATION_DIRECTORY = "Data/GIF/Analyse_Somno_TUM/Noise/",
+        RPEAK_DIRECTORY = "Data/GIF/Analyse_Somno_TUM/RRI/",
+        AVAILABLE_MAD_RRI_PATH = "Data/GIF_dataset.h5",
+        RESULTS_DIRECTORY = "Processed_GIF/",
+        RESULTS_FILE_NAME = "GIF_Results.pkl",
+        ECG_COMPARISON_FILE_NAME = "ECG_Validation_Comparison_Report.txt",
+        RPEAK_COMPARISON_FILE_NAME = "RPeak_Comparison_Report.txt",
+        RRI_COMPARISON_FILE_NAME = "RRI_Comparison_Report.txt",
+        MAD_COMPARISON_FILE_NAME = "MAD_Comparison_Report.txt"
+    )
 
     # if you want to retrieve all subdirectories containing valid files, you can use the following function
     """
@@ -630,7 +634,6 @@ if __name__ == "__main__":
     """
         
     EDF_Data_Directories = ["Data/", "Data/GIF/SOMNOwatch/"]
-    EDF_Data_Directories = ["Data/GIF/SOMNOwatch/"]
     # EDF_Data_Directories = ["/media/yaopeng/data1/NAKO-33a/", "/media/yaopeng/data1/NAKO-33b/", "/media/yaopeng/data1/NAKO-609/", "/media/yaopeng/data1/NAKO-419/", "/media/yaopeng/data1/NAKO-84/"]
     Processing_Result_Directory = "Processed_NAKO/"
 
@@ -640,16 +643,12 @@ if __name__ == "__main__":
         RESULTS_DIRECTORY = Processing_Result_Directory,
     )
 
-    gen = load_from_pickle("Processed_NAKO/SOMNOwatch_Results.pkl")
-    for gener in gen:
-        print(len(gener.keys()))
-
     # extract RRI and MAD values
-    # Extract_RRI_MAD(
-    #     DATA_DIRECTORIES = EDF_Data_Directories,
-    #     RESULTS_DIRECTORY = Processing_Result_Directory,
-    #     EXTRACTED_DATA_DIRECTORY = "RRI_and_MAD/"
-    # )
+    Extract_RRI_MAD(
+        DATA_DIRECTORIES = EDF_Data_Directories,
+        RESULTS_DIRECTORY = Processing_Result_Directory,
+        EXTRACTED_DATA_DIRECTORY = "RRI_and_MAD/"
+    )
 
     # run following code snippet to remove some dictionary entries (in case you do not want to overwrite them manually)
     # for file in ["Processed_NAKO/SOMNOwatch_Results.pkl"]:

@@ -558,6 +558,7 @@ def determine_valid_ecg_regions(
         results_path: str,
         file_name_dictionary_key: str,
         valid_ecg_regions_dictionary_key: str,
+        use_ecg_validation_strictness: None,
         # check_ecg arguments:
         straighten_ecg_signal: bool,
         check_ecg_time_interval_seconds: int, 
@@ -571,7 +572,8 @@ def determine_valid_ecg_regions(
         check_ecg_allowed_invalid_region_length_seconds: int,
     ):
     """
-    Determine the valid ECG regions for all valid file types in the given data directory.
+    Determine the valid ECG regions for different strictness values and for all valid file types in the given 
+    data directory.
 
     ARGUMENTS:
     --------------------------------
@@ -589,6 +591,10 @@ def determine_valid_ecg_regions(
         dictionary key to access the file name
     valid_ecg_regions_dictionary_key: str
         dictionary key to access the valid ecg regions
+    use_ecg_validation_strictness: None or float
+        if float, valid_ecg_regions_dictionary_key will be assigned to the valid regions for this strictness value
+        if None, valid_ecg_regions_dictionary_key must be chosen via the function choose_valid_ecg_regions_for_further_computation()
+        (using a float for this argument is useful for automated processing)
     others: see check_ecg()
 
     RETURNS:
@@ -602,6 +608,11 @@ def determine_valid_ecg_regions(
             ...
     See check_ecg() for the format of the valid_regions.
     """
+
+    # check if chosen validation strictness will be calculated
+    if use_ecg_validation_strictness is not None:
+        if use_ecg_validation_strictness not in check_ecg_validation_strictness:
+            raise Exception("The parameter \'use_ecg_validation_strictness\' must be one of the values in the list \'check_ecg_validation_strictness\' or \'None\'.")
 
     # path to pickle file which will store results
     temporary_file_path = get_path_without_filename(results_path) + "computation_in_progress.pkl"
@@ -706,6 +717,8 @@ def determine_valid_ecg_regions(
                 # save the valid regions for this file
                 for strictness_index in range(0, len(check_ecg_validation_strictness)):
                     generator_entry[valid_ecg_regions_dictionary_key + "_" + str(check_ecg_validation_strictness[strictness_index])] = store_valid_intervals_for_strictness[strictness_index]
+                    if use_ecg_validation_strictness == check_ecg_validation_strictness[strictness_index]:
+                        generator_entry[valid_ecg_regions_dictionary_key] = store_valid_intervals_for_strictness[strictness_index]
 
             except:
                 unprocessable_files.append(file_name)
@@ -747,6 +760,8 @@ def determine_valid_ecg_regions(
             # save the valid regions for this file to the dictionary
             for strictness_index in range(0, len(check_ecg_validation_strictness)):
                 generator_entry[valid_ecg_regions_dictionary_key + "_" + str(check_ecg_validation_strictness[strictness_index])] = store_valid_intervals_for_strictness[strictness_index]
+                if use_ecg_validation_strictness == check_ecg_validation_strictness[strictness_index]:
+                    generator_entry[valid_ecg_regions_dictionary_key] = store_valid_intervals_for_strictness[strictness_index]
 
         except:
             unprocessable_files.append(file_name)
@@ -823,86 +838,80 @@ def choose_valid_ecg_regions_for_further_computation(
     # if the temporary file already exists, something went wrong
     if os.path.isfile(temporary_file_path):
         raise Exception("The file: " + temporary_file_path + " should not exist. Either a previous computation was interrupted or another computation is ongoing.")
+
+    # check if ecg validation strictness was already chosen and if yes: ask for permission to override
+    additionally_remove_keys = copy.deepcopy(rpeak_function_names)
+    for function_name in rpeak_function_names:
+        additionally_remove_keys.append(function_name + before_correction_rpeak_function_name_addition)
     
-    if use_strictness is None:
-        # ASK USER FOR STRICTNESS VALUE
+    user_answer = ask_for_permission_to_override_dictionary_entry(
+        file_path = results_path,
+        dictionary_entry = valid_ecg_regions_dictionary_key,
+        additionally_remove_entries = additionally_remove_keys
+    )
 
-        # check if ecg validation strictness was already chosen and if yes: ask for permission to override
-        additionally_remove_keys = copy.deepcopy(rpeak_function_names)
-        for function_name in rpeak_function_names:
-            additionally_remove_keys.append(function_name + before_correction_rpeak_function_name_addition)
+    # skip function if user does not want to override
+    if user_answer == "n":
+        return
+    
+    # load existing results
+    results_generator = load_from_pickle(results_path)
+
+    store_strictness_values = []
+    store_valid_total_ratios = []
+
+    for generator_entry in results_generator:
+        # check if needed dictionary keys exist
+        if file_name_dictionary_key not in generator_entry.keys():
+            continue
+        file_name = generator_entry[file_name_dictionary_key]
         
-        user_answer = ask_for_permission_to_override_dictionary_entry(
-            file_path = results_path,
-            dictionary_entry = valid_ecg_regions_dictionary_key,
-            additionally_remove_entries = additionally_remove_keys
-        )
+        # load the data and correct the physical dimension if needed
+        try:
+            ecg_signal_length = read_edf.get_data_length_from_edf_channel(
+                file_path = data_directory + file_name,
+                possible_channel_labels = ecg_keys,
+            )
 
-        # skip function if user does not want to override
-        if user_answer == "n":
-            return
-        
-        # load existing results
-        results_generator = load_from_pickle(results_path)
+            for dict_key in generator_entry.keys():
+                if valid_ecg_regions_dictionary_key in dict_key and dict_key != valid_ecg_regions_dictionary_key:
+                    valid_total_ratio = determine_valid_total_ecg_ratio(
+                        ECG_length = ecg_signal_length, 
+                        valid_regions = generator_entry[dict_key]
+                    )
 
-        store_strictness_values = []
-        store_valid_total_ratios = []
-
-        for generator_entry in results_generator:
-            # check if needed dictionary keys exist
-            if file_name_dictionary_key not in generator_entry.keys():
-                continue
-            file_name = generator_entry[file_name_dictionary_key]
-            
-            # load the data and correct the physical dimension if needed
-            try:
-                ecg_signal_length = read_edf.get_data_length_from_edf_channel(
-                    file_path = data_directory + file_name,
-                    possible_channel_labels = ecg_keys,
-                )
-
-                for dict_key in generator_entry.keys():
-                    if valid_ecg_regions_dictionary_key in dict_key and dict_key != valid_ecg_regions_dictionary_key:
-                        valid_total_ratio = determine_valid_total_ecg_ratio(
-                            ECG_length = ecg_signal_length, 
-                            valid_regions = generator_entry[dict_key]
-                        )
-
-                        strictness_value = dict_key.split("_")[-1]
-                        if strictness_value not in store_strictness_values:
-                            store_strictness_values.append(strictness_value)
-                            store_valid_total_ratios.append([valid_total_ratio])
-                        else:
-                            store_valid_total_ratios[store_strictness_values.index(strictness_value)].append(valid_total_ratio)
-            except:
-                continue
-        
-        if len(store_strictness_values) == 0:
-            print("\nNo valid regions found in the pickle file. Please recalculate the valid regions.")
-            return
-        
-        if len(store_strictness_values) == 1:
-            strictness_value = store_strictness_values[0]
-        else:
-            # calculate mean valid_total_ratios for strictness values
-            mean_valid_total_ratios = np.mean(store_valid_total_ratios, axis=1)
-
-            # print results to console
-            max_length = max([len(value) for value in store_strictness_values])
-            print("\nStrictness value | Mean valid to total ECG regions ratio:")
-            for i in range(0, len(store_strictness_values)):
-                print(print_left_aligned(store_strictness_values[i], max_length) + " | " + str(mean_valid_total_ratios[i]))
-            
-            # ask user for the strictness value
-            while True:
-                strictness_value = input("\nChoose a strictness value to assign the valid regions to the dictionary key \"%s\": " % valid_ecg_regions_dictionary_key)
-                if strictness_value in store_strictness_values:
-                    break
-                else:
-                    print("Invalid input. Please choose a valid strictness value.")
+                    strictness_value = dict_key.split("_")[-1]
+                    if strictness_value not in store_strictness_values:
+                        store_strictness_values.append(strictness_value)
+                        store_valid_total_ratios.append([valid_total_ratio])
+                    else:
+                        store_valid_total_ratios[store_strictness_values.index(strictness_value)].append(valid_total_ratio)
+        except:
+            continue
+    
+    if len(store_strictness_values) == 0:
+        print("\nNo valid regions found in the pickle file. Please recalculate the valid regions.")
+        return
+    
+    if len(store_strictness_values) == 1:
+        strictness_value = store_strictness_values[0]
     else:
-        # USE PROVIDED STRICTNESS VALUE
-        strictness_value = str(use_strictness)
+        # calculate mean valid_total_ratios for strictness values
+        mean_valid_total_ratios = np.mean(store_valid_total_ratios, axis=1)
+
+        # print results to console
+        max_length = max([len(value) for value in store_strictness_values])
+        print("\nStrictness value | Mean valid to total ECG regions ratio:")
+        for i in range(0, len(store_strictness_values)):
+            print(print_left_aligned(store_strictness_values[i], max_length) + " | " + str(mean_valid_total_ratios[i]))
+        
+        # ask user for the strictness value
+        while True:
+            strictness_value = input("\nChoose a strictness value to assign the valid regions to the dictionary key \"%s\": " % valid_ecg_regions_dictionary_key)
+            if strictness_value in store_strictness_values:
+                break
+            else:
+                print("Invalid input. Please choose a valid strictness value.")
     
     # load existing results
     results_generator = load_from_pickle(results_path)

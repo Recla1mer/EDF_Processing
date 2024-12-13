@@ -148,16 +148,16 @@ del file_params, results_dictionary_key_params, combine_rpeaks_params, correct_r
 
 # create lists of parameters relevant for the following functions (to make the code more readable)
 determine_ecg_region_variables = ["data_directory", "valid_file_types", "ecg_keys", 
-    "physical_dimension_correction_dictionary",
-    "results_path", "file_name_dictionary_key", "valid_ecg_regions_dictionary_key", 
-    "straighten_ecg_signal", "check_ecg_time_interval_seconds", "check_ecg_overlapping_interval_steps",
+    "physical_dimension_correction_dictionary", "results_path", "file_name_dictionary_key", 
+    "valid_ecg_regions_dictionary_key", "straighten_ecg_signal", 
+    "use_ecg_validation_strictness", "check_ecg_time_interval_seconds", "check_ecg_overlapping_interval_steps",
     "check_ecg_validation_strictness", "check_ecg_removed_peak_difference_threshold",
     "check_ecg_std_min_threshold", "check_ecg_std_max_threshold", "check_ecg_distance_std_ratio_threshold",
     "check_ecg_min_valid_length_minutes", "check_ecg_allowed_invalid_region_length_seconds"]
 
 choose_valid_ecg_regions_for_further_computation_variables = ["data_directory", "ecg_keys", 
     "results_path", "file_name_dictionary_key", "valid_ecg_regions_dictionary_key", "rpeak_function_names",
-    "before_correction_rpeak_function_name_addition", "use_strictness"]
+    "before_correction_rpeak_function_name_addition"]
 
 detect_rpeaks_variables = ["data_directory", "ecg_keys", "physical_dimension_correction_dictionary",
     "results_path", "file_name_dictionary_key", "valid_ecg_regions_dictionary_key", "before_correction_rpeak_function_name_addition"]
