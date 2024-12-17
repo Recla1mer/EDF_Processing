@@ -330,7 +330,7 @@ def get_pickle_length(file_name: str, dictionary_key: str):
                 this_dictionary = pickle.load(f)
                 if dictionary_key not in this_dictionary:
                     counter += 1
-            except EOFError:
+            except:
                 break
     return counter
 
@@ -624,13 +624,13 @@ def manually_remove_file_from_results(file_name: str, results_path: str, file_na
     results_generator = load_from_pickle(results_path)
 
     for generator_entry in results_generator:
-            try:
-                if generator_entry[file_name_dictionary_key] == file_name:
-                    continue
-            except:
-                pass
-            
-            append_to_pickle(generator_entry, temporary_file_path)
+        try:
+            if generator_entry[file_name_dictionary_key] == file_name:
+                continue
+        except:
+            pass
+        
+        append_to_pickle(generator_entry, temporary_file_path)
     
     # rename the file that stores the calculated data
     if os.path.isfile(temporary_file_path):
