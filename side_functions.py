@@ -301,8 +301,10 @@ def load_from_pickle(file_name: str):
         while True:
             try:
                 yield pickle.load(f)
-            except EOFError:
+            except:
                 break
+            # except EOFError:
+            #     break
 
 
 def get_pickle_length(file_name: str, dictionary_key: str):
@@ -687,9 +689,10 @@ def recover_results_after_error(
         for generator_entry in some_results_generator:
             try:
                 file_names_in_some_results.append(generator_entry[file_name_dictionary_key])
-                append_to_pickle(generator_entry, temporary_file_path)
             except:
                 continue
+        
+        os.rename(some_results_with_updated_keys_path, temporary_file_path)
         
         # load all existing results
         if os.path.isfile(all_results_path):
@@ -704,7 +707,6 @@ def recover_results_after_error(
         
         # rename the file that stores the calculated data
         if os.path.isfile(temporary_file_path):
-            os.remove(some_results_with_updated_keys_path)
             if os.path.isfile(all_results_path):
                 os.remove(all_results_path)
             os.rename(temporary_file_path, all_results_path)
