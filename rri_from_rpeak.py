@@ -326,7 +326,7 @@ def determine_rri_from_rpeaks(
     progressed_files = 0
 
     if total_files > 0:
-        print("\nCalculating RR-Intervals from r-peaks detected by %s in %i files:" % (rpeak_function_name, total_files))
+        print("\nCalculating RR-Intervals from r-peaks detected by %s in %i files from \"%s\":" % (rpeak_function_name, total_files, data_directory))
     else:
         return
     
