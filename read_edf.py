@@ -176,6 +176,84 @@ def get_frequency_from_edf_channel(file_path: str, possible_channel_labels: list
     return sample_frequency
 
 
+def get_header_from_edf_file(file_path: str):
+    """
+    Reads the header of the EDF file.
+
+    ARGUMENTS:
+    --------------------------------
+    file_path: str
+        path to the EDF file
+    
+    RETURNS:
+    --------------------------------
+    header: dict
+        dictionary containing the header information
+    """
+    f = pyedflib.EdfReader(file_path)
+
+    try:
+        signals_in_file = f.signals_in_file
+    except:
+        signals_in_file = None
+    
+    try:
+        file_duration = f.file_duration
+    except:
+        file_duration = None
+    
+    try:
+        datarecord_duration = f.datarecord_duration
+    except:
+        datarecord_duration = None
+    
+    try:
+        start_date = str(f.getStartdatetime().year) + "-" + str(f.getStartdatetime().month) + "-" + str(f.getStartdatetime().day)
+    except:
+        start_date = None
+    
+    try:
+        start_time = str(f.getStartdatetime().hour) + ":" + str(f.getStartdatetime().minute) + ":" + str(f.getStartdatetime().second)
+    except:
+        start_time = None
+    
+    try:
+        patient_code = f.getPatientCode()
+    except:
+        patient_code = None
+
+    try:
+        gender = f.getSex()
+    except:
+        gender = None
+    
+    try:
+        birthdate = f.getBirthdate()
+    except:
+        birthdate = None
+
+    try:
+        patient_name = f.getPatientName()
+    except:
+        patient_name = None
+
+    f._close()
+    
+    header = {
+        "signals_in_file": signals_in_file,
+        "file_duration": file_duration,
+        "datarecord_duration": datarecord_duration,
+        "start_date": start_date,
+        "start_time": start_time,
+        "patient_code": patient_code,
+        "gender": gender,
+        "birthdate": birthdate,
+        "patient_name": patient_name
+    }
+
+    return header
+
+
 """
 Following functions are not needed for the final implementation, but were required by me
 to get an overview of the data.

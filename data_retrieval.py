@@ -27,31 +27,21 @@ def remove_redundant_file_name_part(file_name: str):
     str
         processed file name
     """
+    for i in range(len(file_name)):
+        skip_first = i
+        if file_name[i] not in ["_", "(", ")", " ", "-", ".", ":", ";", ",", "/"]:
+            break
 
     # find patterns that repeat in the file name
-    pattern_repeats = []
-    for i in range(5, int(len(file_name)/2)):
-        pattern = file_name[:i]
-        for j in range(i, len(file_name)):
-            if pattern in file_name[j:]:
-                pattern_repeats.append(pattern)
-                break
-    
-    if len(pattern_repeats) == 0:
-        usefull_pattern = file_name
-    else:
-        usefull_pattern = pattern_repeats[-1]
+    usefull_pattern = file_name
+    for i in range(2, len(file_name)):
+        if file_name[skip_first:i] in file_name[i:]:
+            usefull_pattern = file_name[skip_first:i]
     
     # remove redundant parts
     while True:
         if usefull_pattern[-1] in ["_", "(", ")", " ", "-", ".", ":", ";", ",", "/"]:
             usefull_pattern = usefull_pattern[:-1]
-        else:
-            break
-    
-    while True:
-        if usefull_pattern[0] in ["_", "(", ")", " ", "-", ".", ":", ";", ",", "/"]:
-            usefull_pattern = usefull_pattern[1:]
         else:
             break
     
@@ -137,6 +127,8 @@ def retrieve_rri_mad_data_in_same_time_period(
                 file_path = data_directory + file_name, 
                 possible_channel_labels = ecg_keys
                 )
+            
+            edf_header = read_edf.get_header_from_edf_file(file_path = data_directory + file_name)
 
             # get the RRI sampling frequency
             RRI_sampling_frequency = generator_entry[RRI_dictionary_key + "_frequency"]
@@ -151,28 +143,25 @@ def retrieve_rri_mad_data_in_same_time_period(
             for i in range(len(valid_ecg_regions)):
                 valid_interval = valid_ecg_regions[i]
 
-                # retrieve corresponding MAD region
-                this_time_point = find_time_point_shared_by_signals(
+                # find first signal position within valid ecg region that is shared by all signals (time point where each signal writes the next value)
+                first_shared_signal_position = find_time_point_shared_by_signals(
                     signal_position = valid_interval[0],
                     signal_sampling_frequency = ecg_sampling_frequency,
-                    other_sampling_frequencies = [RRI_sampling_frequency, MAD_sampling_frequency]
+                    other_sampling_frequencies = [RRI_sampling_frequency, MAD_sampling_frequency],
+                    update_position_by = int(1)
                 )
 
-                # get rri
-                this_regions_rri = generator_entry[RRI_dictionary_key][i]
+                # find last signal position within valid ecg region that is shared by all signals (time point where each signal writes the next value)
+                last_shared_signal_position = find_time_point_shared_by_signals(
+                    signal_position = valid_interval[1],
+                    signal_sampling_frequency = ecg_sampling_frequency,
+                    other_sampling_frequencies = [RRI_sampling_frequency, MAD_sampling_frequency],
+                    update_position_by = int(-1)
+                )
 
-                # get the MAD region
-                mad_region_start = int(this_time_point / ecg_sampling_frequency * MAD_sampling_frequency)
-
-                # crop rri values to ensure mad and rri have the same length (in time)
-                crop_datapoints = 0
-                while True:
-                    mad_region_size = (len(this_regions_rri)-crop_datapoints) / RRI_sampling_frequency * MAD_sampling_frequency
-                    if mad_region_size.is_integer():
-                        break
-                mad_region_size = int(mad_region_size)
-                if crop_datapoints > 0:
-                    this_regions_rri = this_regions_rri[:-crop_datapoints]
+                # calculate start and end positions for RRI values
+                rri_start = int((first_shared_signal_position-valid_interval[0])*RRI_sampling_frequency/ecg_sampling_frequency)
+                rri_end = int((last_shared_signal_position-valid_interval[0])*RRI_sampling_frequency/ecg_sampling_frequency)
 
                 # create new datapoint identifier
                 if len(valid_ecg_regions) == 1:
@@ -183,9 +172,11 @@ def retrieve_rri_mad_data_in_same_time_period(
                 # create new dictionary for the important data
                 important_data = {
                     "ID": new_file_name_identifier,
-                    "time_period": [int(mad_region_start/MAD_sampling_frequency), int((mad_region_start+mad_region_size)/MAD_sampling_frequency)],
-                    "RRI": this_regions_rri,
-                    "MAD": generator_entry[MAD_dictionary_key][mad_region_start:mad_region_start+mad_region_size],
+                    "start_date": edf_header["start_date"],
+                    "start_time": edf_header["start_time"],
+                    "time_interval": [int(first_shared_signal_position/ecg_sampling_frequency), int(last_shared_signal_position/ecg_sampling_frequency)],
+                    "RRI": generator_entry[RRI_dictionary_key][rri_start : rri_end],
+                    "MAD": generator_entry[MAD_dictionary_key][int(first_shared_signal_position*MAD_sampling_frequency/ecg_sampling_frequency) : int(last_shared_signal_position*MAD_sampling_frequency/ecg_sampling_frequency)],
                     "RRI_frequency": RRI_sampling_frequency,
                     "MAD_frequency": MAD_sampling_frequency,
                 }

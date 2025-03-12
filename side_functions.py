@@ -715,7 +715,8 @@ def recover_results_after_error(
 def find_time_point_shared_by_signals(
         signal_position: int,
         signal_sampling_frequency: int,
-        other_sampling_frequencies: list
+        other_sampling_frequencies: list,
+        update_position_by: int = 1
     ):
     """
     Only in valid regions of the ECG signal the R-Peaks were detected. We will therefore also only calculate
@@ -731,12 +732,17 @@ def find_time_point_shared_by_signals(
         sampling frequency of the signal
     other_sampling_frequencies: list
         list of sampling frequencies of the other signal
+    update_position_by: int
+        number of positions to update each iteration
+        Useful values:  +1, for increasing the position
+                        -1, for decreasing the position
     
     RETURNS:
     --------------------------------
     time_point: int
         time position at which you have points in the ECG signal and RR-intervals * ecg_sampling_frequency
     """
+    update_position_by = int(update_position_by)
 
     while True:
         success = True
@@ -748,4 +754,4 @@ def find_time_point_shared_by_signals(
         if success:
             return int(signal_position)
         
-        signal_position += 1
+        signal_position += update_position_by

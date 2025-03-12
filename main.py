@@ -547,8 +547,14 @@ def Extract_RRI_MAD(
         "ID":     
                 Variation of the (.edf) file name the results were calculated for, 
                 (number appended if multiple valid ecgregions)
+
+        "start_date":
+                Date of the start of the edf file in the format: "YYYY-MM-DD"
         
-        "time_period":
+        "start_time":
+                Time of the start of the edf file in the format: "HH:MM:SS"
+        
+        "time_interval":
                 List of the start and end time points (in seconds) of the time period in seconds
         
         "RRI":
