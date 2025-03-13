@@ -38,6 +38,7 @@ force_correction = [1]
 
 physical_dimension_correction_dictionary = {
     "ECG": {"possible_dimensions": voltage_dimensions, "dimension_correction": voltage_correction},
+    "ECG II": {"possible_dimensions": voltage_dimensions, "dimension_correction": voltage_correction},
     "X": {"possible_dimensions": force_dimensions, "dimension_correction": force_correction},
     "Y": {"possible_dimensions": force_dimensions, "dimension_correction": force_correction},
     "Z": {"possible_dimensions": force_dimensions, "dimension_correction": force_correction}
@@ -67,7 +68,7 @@ parameters = dict() # type: ignore
 # file parameters:
 file_params = {
     "valid_file_types": [".edf"], # valid file types in the data directory
-    "ecg_keys": ["ECG"], # possible labels for the ECG data in the data files
+    "ecg_keys": ["ECG", "ECG II"], # possible labels for the ECG data in the data files
     "wrist_acceleration_keys": [["X"], ["Y"], ["Z"]], # possible labels for the wrist acceleration data in the data files
     "physical_dimension_correction_dictionary": physical_dimension_correction_dictionary, # dictionary to correct the physical dimensions of the data
 }
@@ -164,6 +165,9 @@ detect_rpeaks_variables = ["data_directory", "ecg_keys", "physical_dimension_cor
 
 correct_rpeaks_variables = ["data_directory", "ecg_keys", "physical_dimension_correction_dictionary",
     "before_correction_rpeak_function_name_addition", "results_path", "file_name_dictionary_key"]
+
+retrieve_rpeak_heights_variables = ["data_directory", "ecg_keys", "physical_dimension_correction_dictionary",
+    "results_path", "file_name_dictionary_key"]
 
 combine_detected_rpeaks_variables = ["data_directory", "ecg_keys", "rpeak_distance_threshold_seconds",
     "rpeak_primary_function_name", "rpeak_secondary_function_name",

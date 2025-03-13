@@ -77,6 +77,13 @@ def old_code_get_rpeaks(ecg_signal, samplingrate):
 # END OLD CODE
 
 
+"""
+---------------------------
+Detect R-peaks in ECG data
+---------------------------
+"""
+
+
 def get_rpeaks_hamilton(
         ECG: list,
         frequency: int,
@@ -902,6 +909,10 @@ def combine_detected_rpeaks(
 
 
 """
+----------------
+Compare R-peaks
+----------------
+
 Following code won't be used for the final implementation, but is useful for testing and
 comparing the results of different R-peak detection methods. R-peaks are also already
 available for the GIF data. They might or might not have been calculated automatically and
@@ -1855,3 +1866,187 @@ def rpeak_detection_comparison_report(
         comparison_file.write("-" * total_length + "\n")
 
     comparison_file.close()
+
+
+"""
+------------------------
+Retrieve R-peak heights
+------------------------
+"""
+
+
+def retrieve_rpeak_height_from_ecg_data(
+        ECG: list,
+        ecg_sampling_frequency: int,
+        rpeaks: list
+    ):
+    """
+    Retrieve the r-peak heights from the ECG data.
+
+    ARGUMENTS:
+    --------------------------------
+    ECG: list
+        list containing the ECG data
+    ecg_sampling_frequency: int
+        sampling frequency of the ECG data
+    rpeaks: list
+        list containing the positions of the r-peaks in the ECG data
+    
+    RETURNS:
+    --------------------------------
+    rpeak_heights: list
+        list containing the heights of the r-peaks
+    """
+
+    """
+    # Simple way (not recommended)
+
+    ECG = np.array(ECG) # type: ignore
+    rpeaks = np.array(rpeaks) # type: ignore
+    rpeak_heights = ECG[rpeaks] # type: ignore"
+    """
+
+    # Calculate ecg interval size around r-peak
+    ecg_interval_size = 1 # seconds
+    ecg_interval_size = int(ecg_interval_size / 2 * ecg_sampling_frequency)
+    
+    # Calculate r-peak heights
+    rpeak_heights = []
+
+    for rpeak_position in rpeaks:
+        lower_border = max(0, rpeak_position - ecg_interval_size)
+        upper_border = min(len(ECG), rpeak_position + ecg_interval_size)
+
+        rpeak_heights.append(ECG[rpeak_position] - min(ECG[lower_border:upper_border]))
+
+    return rpeak_heights
+
+
+def determine_rpeak_heights(
+        data_directory: str,
+        ecg_keys: list,
+        physical_dimension_correction_dictionary: dict,
+        rpeak_function_name: str,
+        results_path: str,
+        file_name_dictionary_key: str,
+    ):
+    """
+    Retrieve the r-peak heights for the detected r-peaks and save them to a pickle file.
+
+    ARGUMENTS:
+    --------------------------------
+    data_directory: str
+        directory where the data is stored
+    ecg_keys: list
+        list of possible labels for the ECG data
+    physical_dimension_correction_dictionary: dict
+        dictionary needed to check and correct the physical dimension of all signals
+    rpeak_function_name: str
+        name of the r-peak detection function
+    results_path: str
+        path to the pickle file where the valid regions are saved
+    file_name_dictionary_key
+        dictionary key to access the file name
+    
+    RETURNS:
+    --------------------------------
+    None, but the rpeak heights are saved as dictionaries to a pickle file in the following format:
+    {
+        file_name_dictionary_key: file_name_1,
+        rpeak_function_name + "_heights": rpeak_heights_1,
+        ...
+    }
+        ...
+    """
+
+    rpeak_heights_dictionary_key = rpeak_function_name + "_heights"
+
+    # path to pickle file which will store results
+    temporary_file_path = get_path_without_filename(results_path) + "computation_in_progress.pkl"
+
+    # if the temporary file already exists, something went wrong
+    if os.path.isfile(temporary_file_path):
+        raise Exception("The file: " + temporary_file_path + " should not exist. Either a previous computation was interrupted or another computation is ongoing.")
+    
+    # check if r-peak heights already exist and if yes: ask for permission to override
+    user_answer = ask_for_permission_to_override_dictionary_entry(
+        file_path = results_path,
+        dictionary_entry = rpeak_heights_dictionary_key
+    )
+
+    # cancel if needed data is missing
+    if user_answer == "no_file_found":
+        print("\nFile containing detected r-peaks not found. As they are needed to determine their heights in the ecg data, the calculation will be skipped.")
+        return
+
+    # create lists to store unprocessable files
+    unprocessable_files = []
+
+    # create variables to track progress
+    start_time = time.time()
+    total_files = get_pickle_length(results_path, rpeak_heights_dictionary_key)
+    progressed_files = 0
+
+    if total_files > 0:
+        print("\nRetrieving heights of r-peaks detected by %s in %i files from \"%s\":" % (rpeak_function_name, total_files, data_directory))
+    else:
+        return
+    
+    # load results
+    results_generator = load_from_pickle(results_path)
+    
+    # retireve rpeak heights
+    for generator_entry in results_generator:
+        # skip if height values already exist and the user does not want to override
+        if user_answer == "n" and rpeak_heights_dictionary_key in generator_entry.keys():
+            append_to_pickle(generator_entry, temporary_file_path)
+            continue
+
+        # show progress
+        progress_bar(progressed_files, total_files, start_time)
+        progressed_files += 1
+
+        try:
+            # get the file name
+            file_name = generator_entry[file_name_dictionary_key]
+
+            # try to load the data and correct the physical dimension if needed
+            ecg_signal, ecg_sampling_frequency = read_edf.get_data_from_edf_channel(
+                file_path = data_directory + file_name,
+                possible_channel_labels = ecg_keys,
+                physical_dimension_correction_dictionary = physical_dimension_correction_dictionary
+            )
+
+            # get the r-peaks
+            rpeaks = generator_entry[rpeak_function_name]
+
+            # retrieve the r-peak heights
+            rpeak_heights = retrieve_rpeak_height_from_ecg_data(
+                ECG = ecg_signal,
+                ecg_sampling_frequency = ecg_sampling_frequency,
+                rpeaks = rpeaks
+            )
+        
+            # add the heights to the dictionary
+            generator_entry[rpeak_heights_dictionary_key] = rpeak_heights
+
+        except:
+            unprocessable_files.append(file_name)
+        
+        append_to_pickle(generator_entry, temporary_file_path)
+    
+    progress_bar(progressed_files, total_files, start_time)
+
+    # rename the file that stores the calculated data
+    if os.path.isfile(temporary_file_path):
+        if os.path.isfile(results_path):
+            os.remove(results_path)
+        os.rename(temporary_file_path, results_path)
+
+    # print unprocessable files
+    if len(unprocessable_files) > 0:
+        print("\nFor the following " + str(len(unprocessable_files)) + " files the rpeak heights could not be retrieved:")
+        print(unprocessable_files)
+        print("Possible reasons (decreasing probability):")
+        print(" "*5 + "- Dictionary keys that access the file name and/or r-peaks do not exist in the results. Check keys in file or recalculate them.")
+        print(" "*5 + "- .edf file contains format errors")

@@ -60,9 +60,9 @@ def retrieve_rri_mad_data_in_same_time_period(
     ):
     """
     During Data Processing, a lot of data is calculated. For the main project: 'Sleep Stage Classification' we 
-    only need the RRI and MAD values within the same time period. After Processing, this is not guaranteed, because
+    only need the RRI and MAD values within the same time interval. After Processing, this is not guaranteed, because
     the RRI values are only calculated for the valid ECG regions. The following function will extract the 
-    corresponding MAD values to every time period. If multiple time periods (valid ecg regions) are present in 
+    corresponding MAD values to every time interval. If multiple time intervals (valid ecg regions) are present in 
     one file, the values will be saved to different dictionaries.
 
     ARGUMENTS:

@@ -289,7 +289,7 @@ def determine_rri_from_rpeaks(
 
     RETURNS:
     --------------------------------
-    None, but the rpeaks are saved as dictionaries to a pickle file in the following format:
+    None, but the rr intervals are saved as dictionaries to a pickle file in the following format:
     {
         file_name_dictionary_key: file_name_1,
         rri_dictionary_key: rri_1,
@@ -314,7 +314,7 @@ def determine_rri_from_rpeaks(
 
     # cancel if needed data is missing
     if user_answer == "no_file_found":
-        print("\nFile containing detected r-peaks not found. As they are needed to correct them in the first place, the correction will be skipped.")
+        print("\nFile containing detected r-peaks not found. As they are needed to calcualte the RR-Intervals, the calculation will be skipped.")
         return
 
     # create lists to store unprocessable files
@@ -345,7 +345,7 @@ def determine_rri_from_rpeaks(
         progressed_files += 1
 
         try:
-            # get the valid regions for the ECG data and file name
+            # get the file name
             file_name = generator_entry[file_name_dictionary_key]
 
             # get the ecg sampling frequency
@@ -354,7 +354,7 @@ def determine_rri_from_rpeaks(
                 possible_channel_labels = ecg_keys
                 )
 
-            # get the valid regions
+            # get the valid regions for the ECG data
             valid_regions = generator_entry[valid_ecg_regions_dictionary_key]
 
             # get the r-peaks

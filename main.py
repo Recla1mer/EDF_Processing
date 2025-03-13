@@ -95,6 +95,7 @@ def Data_Processing(
     Order of Execution:
         - ECG Validation: Evaluate where ECG data was recorded correctly to determine evaluatable segments
         - R-peak Detection: Detect R-peak locations the valid segments of the ECG data using specified detectors
+        - R-peak Height Retrieval: Retrieve the height of the detected R-peaks
         - RRI Calculation: Calculate RR-Intervals from detected R-peak locations
         - MAD Calculation: Calculate Mean Amplitude Deviation (values characterizing motion activity) using wrist accelerometry data
     
@@ -140,13 +141,17 @@ def Data_Processing(
         "valid_ecg_regions": 
                 List of valid regions in the ECG data, that is used during r-peak detection,
         
-        "rpeak-function-name_raw":
+        "rpeak-function-name" + "_raw":
                 List of r-peak locations detected by the rpeak-function-name function. You will have multiple 
                 of these entries for every r-peak detection function in parameters["rpeak_function_names"].
         
         "rpeak-function-name":
                 List of r-peak locations detected by the rpeak-function-name function AFTER CORRECTION. You 
                 will have multiple of these entries for every r-peak detection function in parameters["rpeak_function_names"].
+        
+        "rpeak-function-name" + "_heights":
+                List of heights for rpeak locations detected by the rpeak-function-name function. You will have 
+                multiple of these entries for every r-peak detection function in parameters["rpeak_function_names"].
         
         "RRI":
                 List of RR-intervals calculated from the r-peak locations.
@@ -224,14 +229,15 @@ def Data_Processing(
         del determine_ecg_region_args
     
         """
-        -----------------
-        R-PEAK DETECTION
-        -----------------
+        ---------------------------------------------
+        R-PEAK DETECTION and R-PEAK HEIGHT RETRIEVAL
+        ---------------------------------------------
         """
 
-        # create arguments for the r-peak detection and correction
+        # create arguments for the r-peak detection, correction and height retrieval
         detect_rpeaks_args = create_sub_dict(parameters, detect_rpeaks_variables)
         correct_rpeaks_args = create_sub_dict(parameters, correct_rpeaks_variables)
+        retrieve_rpeak_heights_args = create_sub_dict(parameters, retrieve_rpeak_heights_variables)
 
         # detect and correct r-peaks in the valid regions of the ECG data
         for i in range(len(parameters["rpeak_functions"])):
@@ -242,11 +248,14 @@ def Data_Processing(
             correct_rpeaks_args["rpeak_function_name"] = parameters["rpeak_function_names"][i]
             rpeak_detection.correct_rpeak_locations(**correct_rpeaks_args)
 
+            retrieve_rpeak_heights_args["rpeak_function_name"] = parameters["rpeak_function_names"][i]
+            rpeak_detection.determine_rpeak_heights(**retrieve_rpeak_heights_args)
+
         # combine the detected r-peaks into certain and uncertain r-peaks
         # combine_detected_rpeaks_args = create_sub_dict(parameters, combine_detected_rpeaks_variables)
         # rpeak_detection.combine_detected_rpeaks(**combine_detected_rpeaks_args)
 
-        del detect_rpeaks_args, correct_rpeaks_args, # combine_detected_rpeaks_args
+        del detect_rpeaks_args, correct_rpeaks_args, retrieve_rpeak_heights_args, # combine_detected_rpeaks_args
 
         """
         ---------------------------

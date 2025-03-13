@@ -783,6 +783,7 @@ def determine_valid_ecg_regions(
         print("\nThe following " + str(len(unprocessable_files)) + " files could not be processed for ECG Validation:")
         print(unprocessable_files)
         print("Possible reasons (decreasing probability):")
+        print(" "*5 + "- ECG channel label within .edf file is not in the list of possible ECG keys or label was not added to physical dimension correction dictionary. (See project_parameters.py – line 39 and 71.)")
         print(" "*5 + "- .edf file contains format errors")
         print(" "*5 + "- No matching label in ecg_keys and the files")
         print(" "*5 + "- Physical dimension of label is unknown")

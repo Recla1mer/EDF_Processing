@@ -363,6 +363,7 @@ def calculate_MAD_in_acceleration_data(
         print("\nFor the following " + str(len(unprocessable_files)) + " files the MAD values could not be calculated:")
         print(unprocessable_files)
         print("Possible reasons (decreasing probability):")
+        print(" "*5 + "- Wrist Acceleration channel labels within .edf file are not in the list of possible wrist acceleration keys or labels were not added to physical dimension correction dictionary. (See project_parameters.py – line 39 and 72.)")
         print(" "*5 + "- .edf file contains format errors")
         print(" "*5 + "- No matching label in wrist_acceleration_keys and the files")
         print(" "*5 + "- Physical dimension of label is unknown")
