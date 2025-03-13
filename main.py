@@ -24,6 +24,11 @@ PROJECT PARAMETERS
 Most of the parameters are stored in the project_parameters.py file. They don't change any major functionality
 of the code and can be ignored. 
 
+However, it is important to now what key (string) accesses the ECG and wrist accelerometry data in your 
+.edf files. These need to be added to the project_parameters.py file, see file_params and 
+physical_dimension_correction_dictionary dictionaries. Just add them analogously to the existing ones, if they
+differ.
+
 The parameters below are the important ones and are therefore stored in this file.
 """
 
