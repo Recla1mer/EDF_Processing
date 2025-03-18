@@ -100,7 +100,7 @@ def Data_Processing(
     Order of Execution:
         - ECG Validation: Evaluate where ECG data was recorded correctly to determine evaluatable segments
         - R-peak Detection: Detect R-peak locations the valid segments of the ECG data using specified detectors
-        - R-peak Height Retrieval: Retrieve the height of the detected R-peaks
+        - R-peak Height Retrieval: Retrieve a list of values for every R-peak needed to calculate the height of the detected R-peaks
         - RRI Calculation: Calculate RR-Intervals from detected R-peak locations
         - MAD Calculation: Calculate Mean Amplitude Deviation (values characterizing motion activity) using wrist accelerometry data
     
@@ -144,22 +144,23 @@ def Data_Processing(
                 every value in parameters["check_ecg_validation_strictness"].
 
         "valid_ecg_regions": 
-                List of valid regions in the ECG data, that is used during r-peak detection,
+                List of valid regions in the ECG data, that is used during R-peak detection,
         
         "rpeak-function-name" + "_raw":
-                List of r-peak locations detected by the rpeak-function-name function. You will have multiple 
-                of these entries for every r-peak detection function in parameters["rpeak_function_names"].
+                List of R-peak locations detected by the rpeak-function-name function. You will have multiple 
+                of these entries for every R-peak detection function in parameters["rpeak_function_names"].
         
         "rpeak-function-name":
-                List of r-peak locations detected by the rpeak-function-name function AFTER CORRECTION. You 
-                will have multiple of these entries for every r-peak detection function in parameters["rpeak_function_names"].
+                List of R-peak locations detected by the rpeak-function-name function AFTER CORRECTION. You 
+                will have multiple of these entries for every R-peak detection function in parameters["rpeak_function_names"].
         
-        "rpeak-function-name" + "_heights":
-                List of heights for rpeak locations detected by the rpeak-function-name function. You will have 
-                multiple of these entries for every r-peak detection function in parameters["rpeak_function_names"].
+        "rpeak-function-name" + "_ecg_values":
+                List of lists for every R-peak containing values needed to calculate the heights for the
+                rpeak locations detected by the rpeak-function-name function. You will have multiple of these 
+                entries for every R-peak detection function in parameters["rpeak_function_names"].
         
         "RRI":
-                List of RR-intervals calculated from the r-peak locations.
+                List of RR-intervals calculated from the R-peak locations.
         
         "RRI_frequency":
                 Sampling frequency of the RR-intervals.

@@ -1881,7 +1881,8 @@ def retrieve_rpeak_height_from_ecg_data(
         rpeaks: list
     ):
     """
-    Retrieve the r-peak heights from the ECG data.
+    Retrieve values needed to calculate the r-peak heights from the ECG data 
+    (ecg value at r-peak, mean value around r-peak, max value around r-peak, min value around r-peak).
 
     ARGUMENTS:
     --------------------------------
@@ -1894,8 +1895,8 @@ def retrieve_rpeak_height_from_ecg_data(
     
     RETURNS:
     --------------------------------
-    rpeak_heights: list
-        list containing the heights of the r-peaks
+    rpeak_heights: list of lists
+        list containing values needed to calculate the heights of the r-peaks
     """
 
     """
@@ -1907,17 +1908,17 @@ def retrieve_rpeak_height_from_ecg_data(
     """
 
     # Calculate ecg interval size around r-peak
-    ecg_interval_size = 1 # seconds
+    ecg_interval_size = 0.4 # seconds
     ecg_interval_size = int(ecg_interval_size / 2 * ecg_sampling_frequency)
     
-    # Calculate r-peak heights
+    # Retrieve values needed to calculate r-peak heights (ecg value at r-peak, mean value around r-peak, max value around r-peak, min value around r-peak)
     rpeak_heights = []
 
     for rpeak_position in rpeaks:
         lower_border = max(0, rpeak_position - ecg_interval_size)
         upper_border = min(len(ECG), rpeak_position + ecg_interval_size)
 
-        rpeak_heights.append(ECG[rpeak_position] - min(ECG[lower_border:upper_border]))
+        rpeak_heights.append([ECG[rpeak_position], np.mean(ECG[lower_border:upper_border]), np.max(ECG[lower_border:upper_border]), np.min(ECG[lower_border:upper_border])])
 
     return rpeak_heights
 
@@ -1931,7 +1932,9 @@ def determine_rpeak_heights(
         file_name_dictionary_key: str,
     ):
     """
-    Retrieve the r-peak heights for the detected r-peaks and save them to a pickle file.
+    Retrieve values needed to calculate the r-peak heights 
+    (ecg value at r-peak, mean value around r-peak, max value around r-peak, min value around r-peak) 
+    for the detected r-peaks and save them to a pickle file.
 
     ARGUMENTS:
     --------------------------------
@@ -1950,16 +1953,17 @@ def determine_rpeak_heights(
     
     RETURNS:
     --------------------------------
-    None, but the rpeak heights are saved as dictionaries to a pickle file in the following format:
+    None, but the values needed to calculate the rpeak heights are saved as dictionaries to a pickle file in 
+    the following format:
     {
         file_name_dictionary_key: file_name_1,
-        rpeak_function_name + "_heights": rpeak_heights_1,
+        rpeak_function_name + "_ecg_values": values_for_rpeak_heights_1,
         ...
     }
         ...
     """
 
-    rpeak_heights_dictionary_key = rpeak_function_name + "_heights"
+    rpeak_heights_dictionary_key = rpeak_function_name + "_ecg_values"
 
     # path to pickle file which will store results
     temporary_file_path = get_path_without_filename(results_path) + "computation_in_progress.pkl"
