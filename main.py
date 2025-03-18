@@ -9,6 +9,7 @@ import numpy as np
 import os
 
 # LOCAL IMPORTS
+import read_edf
 import MAD
 import rpeak_detection
 import check_data
@@ -103,6 +104,7 @@ def Data_Processing(
         - R-peak Height Retrieval: Retrieve a list of values for every R-peak needed to calculate the height of the detected R-peaks
         - RRI Calculation: Calculate RR-Intervals from detected R-peak locations
         - MAD Calculation: Calculate Mean Amplitude Deviation (values characterizing motion activity) using wrist accelerometry data
+        - Retrieve Header Information: Retrieve important header information for existing data in the results
     
     ATTENTION:
     --------------------------------
@@ -284,6 +286,18 @@ def Data_Processing(
         calculate_MAD_args = create_sub_dict(parameters, calculate_MAD_variables)
         MAD.calculate_MAD_in_acceleration_data(**calculate_MAD_args)
         del calculate_MAD_args
+
+        """
+        ----------------------------
+        RETRIEVE HEADER INFORMATION
+        ----------------------------
+        """
+
+        # retrieve header information for existing data in the results
+        retrieve_header_information_args = create_sub_dict(parameters, retrieve_header_information_variables)
+        read_edf.retrieve_file_header_information(**retrieve_header_information_args)
+        del retrieve_header_information_args
+
 
 
 def Data_Processing_and_Comparing(

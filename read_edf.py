@@ -583,4 +583,96 @@ def library_overview(file_name):
     del f
 
 
+def retrieve_file_header_information(
+        data_directory: str,
+        results_path: str,
+        file_name_dictionary_key: str,
+    ):
+    """
+    Retrieve basic header information and append it to the results file. Theoretically, this function could 
+    also be applied to data that could not be processed by other main functions (e.g. calculating MAD values
+    or determining valid ecg regions). However, as we do not need this information if we cannot calculate
+    the MAD or RRI values, it will only be applied to existing data in the results file.
+
+    ARGUMENTS:
+    --------------------------------
+    data_directory: str
+        directory where the data is stored
+    results_path: str
+        path to the pickle file where the valid regions are saved
+    file_name_dictionary_key
+        dictionary key to access the file name
+
+    RETURNS:
+    --------------------------------
+    None, but some file header information is saved as dictionaries to a pickle file in the following format:
+    {
+        file_name_dictionary_key: file_name_1,
+        "start_date": start_date_1,
+        "start_time": start_time_1,
+        ...
+    }
+        ...
+    """
+
+    # path to pickle file which will store results
+    temporary_file_path = get_path_without_filename(results_path) + "computation_in_progress.pkl"
+
+    # if the temporary file already exists, something went wrong
+    if os.path.isfile(temporary_file_path):
+        raise Exception("The file: " + temporary_file_path + " should not exist. Either a previous computation was interrupted or another computation is ongoing.")
+
+    # create lists to store unprocessable files
+    unprocessable_files = []
+   
+    # create variables to track progress
+    start_time = time.time()
+    total_files = get_pickle_length(results_path, "start_time")
+    progressed_files = 0
+
+    if total_files > 0:
+        print("\nRetrieving header information of %i files from \"%s\":" % (total_files, data_directory))
+    else:
+        return
+    
+    # load results
+    results_generator = load_from_pickle(results_path)
+    
+    for generator_entry in results_generator:
+
+        # show progress
+        progress_bar(progressed_files, total_files, start_time)
+        progressed_files += 1
+
+        try:
+            # get the file name
+            file_name = generator_entry[file_name_dictionary_key]
+
+            edf_header = get_header_from_edf_file(file_path = data_directory + file_name)
+        
+            # add the information to the dictionary
+            generator_entry["start_date"] = edf_header["start_date"]
+            generator_entry["start_time"] = edf_header["start_time"]
+
+        except:
+            unprocessable_files.append(file_name)
+        
+        append_to_pickle(generator_entry, temporary_file_path)
+    
+    progress_bar(progressed_files, total_files, start_time)
+
+    # rename the file that stores the calculated data
+    if os.path.isfile(temporary_file_path):
+        if os.path.isfile(results_path):
+            os.remove(results_path)
+        os.rename(temporary_file_path, results_path)
+
+    # print unprocessable files
+    if len(unprocessable_files) > 0:
+        print("\nFor the following " + str(len(unprocessable_files)) + " files the header information could not be retrieved:")
+        print(unprocessable_files)
+        print("Possible reasons (decreasing probability):")
+        print(" "*5 + "- Relevent header information not present in .edf file")
+
+
 #library_overview("Data/GIF/SOMNOwatch/SL001_SL001_(1).edf")
