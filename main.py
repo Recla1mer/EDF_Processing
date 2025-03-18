@@ -101,10 +101,10 @@ def Data_Processing(
     Order of Execution:
         - ECG Validation: Evaluate where ECG data was recorded correctly to determine evaluatable segments
         - R-peak Detection: Detect R-peak locations the valid segments of the ECG data using specified detectors
-        - R-peak Height Retrieval: Retrieve a list of values for every R-peak needed to calculate the height of the detected R-peaks
+        - R-peak Height Retrieval: Calculate a list of values for every R-peak needed to determine the height of the detected R-peaks
         - RRI Calculation: Calculate RR-Intervals from detected R-peak locations
         - MAD Calculation: Calculate Mean Amplitude Deviation (values characterizing motion activity) using wrist accelerometry data
-        - Retrieve Header Information: Retrieve important header information for existing data in the results
+        - Header Information Extraction: Extract essential metadata stored in the .edf file header.
     
     ATTENTION:
     --------------------------------
@@ -172,6 +172,15 @@ def Data_Processing(
         
         "MAD_frequency":
                 Sampling frequency of the MAD values. Corresponds to 1 / parameters["mad_time_period_seconds"].
+        
+        "ECG_frequency":
+                Sampling frequency of the ECG data.
+        
+        "start_date":
+                The start date of the EDF file, formatted as "YYYY-MM-DD."
+        
+        "start_time":
+                The start time of the EDF file, formatted as "HH:MM:SS"
     }
 
     Note: In the project_parameters.py file you can alter the names of the keys in the dictionaries.
@@ -568,16 +577,17 @@ def Extract_RRI_MAD(
     {
         "ID":     
                 Variation of the (.edf) file name the results were calculated for, 
-                (number appended if multiple valid ecgregions)
+                (number appended if multiple valid ecg regions).
 
         "start_date":
-                Date of the start of the edf file in the format: "YYYY-MM-DD"
+                The start date of the EDF file, formatted as "YYYY-MM-DD".
         
         "start_time":
-                Time of the start of the edf file in the format: "HH:MM:SS"
+                The start time of the EDF file, formatted as "HH:MM:SS".
         
         "time_interval":
-                List of the start and end time points (in seconds) of the time period in seconds
+                List of the start and end time points (in seconds after "start_time") of this dictionaries 
+                time period.
         
         "RRI":
                 List of RR-intervals calculated from the r-peak locations within this time period.

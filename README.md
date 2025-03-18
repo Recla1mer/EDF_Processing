@@ -23,9 +23,11 @@ Provide a list of paths to directories containing your .edf files and define the
 During processing, the program will execute the following:
 
 - ECG Validation: Evaluate where ECG data was recorded correctly to determine evaluatable segments
-- R-peak Detection: Detect R-peak locations in the valid segments of the ECG data using specified detectors
+- R-peak Detection: Detect R-peak locations the valid segments of the ECG data using specified detectors
+- R-Peak Height Calculation: Compute a list of values for each detected R-peak needed to determine its height.
 - RRI Calculation: Calculate RR-Intervals from detected R-peak locations
-- MAD Calculation: Calculate Mean Amplitude Deviation from wrist accelerometry data
+- MAD Calculation: Calculate Mean Amplitude Deviation (values characterizing motion activity) using wrist accelerometry data
+- Header Information Extraction: Extract essential metadata stored in the .edf file header.
 
 During the `Data_Processing` function, RRI values are calculated only for specific time periods where the 
 ECG data is deemed evaluable. In contrast, MAD values are computed over the entire signal length, as their 
