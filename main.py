@@ -289,7 +289,7 @@ def Data_Processing(
         """
 
         # retrieve header information for existing data in the results
-        retrieve_header_information_args = create_sub_dict(parameters, ["data_directory", "results_path", "ecg_keys"])
+        retrieve_header_information_args = create_sub_dict(parameters, ["data_directory", "results_path"])
         read_edf.retrieve_file_header_information(**retrieve_header_information_args)
         del retrieve_header_information_args
 
