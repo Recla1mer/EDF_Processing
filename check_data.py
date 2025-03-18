@@ -556,8 +556,6 @@ def determine_valid_ecg_regions(
         ecg_keys: list,
         physical_dimension_correction_dictionary: dict,
         results_path: str,
-        file_name_dictionary_key: str,
-        valid_ecg_regions_dictionary_key: str,
         use_ecg_validation_strictness: None,
         # check_ecg arguments:
         straighten_ecg_signal: bool,
@@ -587,13 +585,9 @@ def determine_valid_ecg_regions(
         dictionary needed to check and correct the physical dimension of all signals
     results_path: str
         path to the pickle file where the valid regions are saved
-    file_name_dictionary_key
-        dictionary key to access the file name
-    valid_ecg_regions_dictionary_key: str
-        dictionary key to access the valid ecg regions
     use_ecg_validation_strictness: None or float
-        if float, valid_ecg_regions_dictionary_key will be assigned to the valid regions for this strictness value
-        if None, valid_ecg_regions_dictionary_key must be chosen via the function choose_valid_ecg_regions_for_further_computation()
+        if float, "valid_ecg_regions" will be assigned to the valid regions for this strictness value
+        if None, "valid_ecg_regions" must be chosen via the function choose_valid_ecg_regions_for_further_computation()
         (using a float for this argument is useful for automated processing)
     others: see check_ecg()
 
@@ -602,8 +596,8 @@ def determine_valid_ecg_regions(
     None, but the valid regions are saved as dictionaries to a pickle file in the following
     format:
         {
-            file_name_dictionary_key: file_name_1,
-            valid_ecg_regions_dictionary_key: valid_regions_1
+            "file_name": file_name_1,
+            "valid_ecg_regions": valid_regions_1
         }
             ...
     See check_ecg() for the format of the valid_regions.
@@ -624,7 +618,7 @@ def determine_valid_ecg_regions(
     # check if valid regions already exist and if yes: ask for permission to override
     user_answer = ask_for_permission_to_override_dictionary_entry(
         file_path = results_path,
-        dictionary_entry = valid_ecg_regions_dictionary_key,
+        dictionary_entry = "valid_ecg_regions",
         remove_similar_keys = True
         )
     
@@ -643,14 +637,14 @@ def determine_valid_ecg_regions(
 
         for generator_entry in results_generator:
                 # check if needed dictionary keys exist
-                if file_name_dictionary_key not in generator_entry.keys():
+                if "file_name" not in generator_entry.keys():
                     continue
                     
-                if valid_ecg_regions_dictionary_key not in generator_entry.keys():
+                if "valid_ecg_regions" not in generator_entry.keys():
                     left_overs += 1
 
                 # get current file name
-                file_name = generator_entry[file_name_dictionary_key]
+                file_name = generator_entry["file_name"]
 
                 if file_name in valid_files:
                     valid_files.remove(file_name)
@@ -676,7 +670,7 @@ def determine_valid_ecg_regions(
 
         for generator_entry in results_generator:
             # skip if valid ecg regions already exist and the user does not want to override
-            if valid_ecg_regions_dictionary_key in generator_entry.keys() and user_answer == "n":
+            if "valid_ecg_regions" in generator_entry.keys() and user_answer == "n":
                 append_to_pickle(generator_entry, temporary_file_path)
                 continue
 
@@ -686,7 +680,7 @@ def determine_valid_ecg_regions(
 
             try:
                 # get current file name
-                file_name = generator_entry[file_name_dictionary_key]
+                file_name = generator_entry["file_name"]
 
                 if file_name in valid_files:
                     valid_files.remove(file_name)
@@ -719,9 +713,9 @@ def determine_valid_ecg_regions(
 
                 # save the valid regions for this file
                 for strictness_index in range(0, len(check_ecg_validation_strictness)):
-                    generator_entry[valid_ecg_regions_dictionary_key + "_" + str(check_ecg_validation_strictness[strictness_index])] = store_valid_intervals_for_strictness[strictness_index]
+                    generator_entry["valid_ecg_regions_" + str(check_ecg_validation_strictness[strictness_index])] = store_valid_intervals_for_strictness[strictness_index]
                     if use_ecg_validation_strictness == check_ecg_validation_strictness[strictness_index]:
-                        generator_entry[valid_ecg_regions_dictionary_key] = store_valid_intervals_for_strictness[strictness_index]
+                        generator_entry["valid_ecg_regions"] = store_valid_intervals_for_strictness[strictness_index]
 
             except:
                 unprocessable_files.append(file_name)
@@ -734,7 +728,7 @@ def determine_valid_ecg_regions(
         progress_bar(progressed_files, total_files, start_time)
         progressed_files += 1
 
-        generator_entry = {file_name_dictionary_key: file_name}
+        generator_entry = {"file_name": file_name}
 
         try:
             # try to load the data and correct the physical dimension if needed
@@ -762,12 +756,12 @@ def determine_valid_ecg_regions(
             
             # save ecg sampling frequency for this file
             generator_entry["ECG_frequency"] = ecg_sampling_frequency
-            
+
             # save the valid regions for this file to the dictionary
             for strictness_index in range(0, len(check_ecg_validation_strictness)):
-                generator_entry[valid_ecg_regions_dictionary_key + "_" + str(check_ecg_validation_strictness[strictness_index])] = store_valid_intervals_for_strictness[strictness_index]
+                generator_entry["valid_ecg_regions_" + str(check_ecg_validation_strictness[strictness_index])] = store_valid_intervals_for_strictness[strictness_index]
                 if use_ecg_validation_strictness == check_ecg_validation_strictness[strictness_index]:
-                    generator_entry[valid_ecg_regions_dictionary_key] = store_valid_intervals_for_strictness[strictness_index]
+                    generator_entry["valid_ecg_regions"] = store_valid_intervals_for_strictness[strictness_index]
 
         except:
             unprocessable_files.append(file_name)
@@ -799,10 +793,7 @@ def choose_valid_ecg_regions_for_further_computation(
         data_directory: str,
         ecg_keys: list,
         results_path: str,
-        file_name_dictionary_key: str,
-        valid_ecg_regions_dictionary_key: str,
         rpeak_function_names: list,
-        before_correction_rpeak_function_name_addition: str,
         use_strictness: None
     ):
     """
@@ -820,15 +811,9 @@ def choose_valid_ecg_regions_for_further_computation(
         dictionary needed to check and correct the physical dimension of all signals
     results_path: str
         path to the pickle file where the valid regions are saved
-    file_name_dictionary_key
-        dictionary key to access the file name
-    valid_ecg_regions_dictionary_key: str
-        dictionary key to access the valid ecg regions
     rpeak_function_names: list
-        if the r-peaks are already calculated, changing the previous value for valid_ecg_regions_dictionary_key
+        if the r-peaks are already calculated, changing the previous value for "valid_ecg_regions"
         must also remove the r-peaks from the dictionary, as they are not valid anymore
-    before_correction_rpeak_function_name_addition: str
-        addition to the r-peak detection function name to access the r-peaks before correction
     use_strictness: None or float
         if None, the strictness value must be chosen via console input, if float, the value is used
         (using this argument is useful for automated processing)
@@ -836,7 +821,7 @@ def choose_valid_ecg_regions_for_further_computation(
 
     RETURNS:
     --------------------------------
-    None, but the valid regions for one strictness value are assigned to the valid_ecg_regions_dictionary_key
+    None, but the valid regions for one strictness value are assigned to "valid_ecg_regions"
     """
 
     # path to pickle file which will store results
@@ -849,11 +834,11 @@ def choose_valid_ecg_regions_for_further_computation(
     # check if ecg validation strictness was already chosen and if yes: ask for permission to override
     additionally_remove_keys = copy.deepcopy(rpeak_function_names)
     for function_name in rpeak_function_names:
-        additionally_remove_keys.append(function_name + before_correction_rpeak_function_name_addition)
+        additionally_remove_keys.append(function_name + "_raw")
     
     user_answer = ask_for_permission_to_override_dictionary_entry(
         file_path = results_path,
-        dictionary_entry = valid_ecg_regions_dictionary_key,
+        dictionary_entry = "valid_ecg_regions",
         additionally_remove_entries = additionally_remove_keys
     )
 
@@ -869,9 +854,9 @@ def choose_valid_ecg_regions_for_further_computation(
 
     for generator_entry in results_generator:
         # check if needed dictionary keys exist
-        if file_name_dictionary_key not in generator_entry.keys():
+        if "file_name" not in generator_entry.keys():
             continue
-        file_name = generator_entry[file_name_dictionary_key]
+        file_name = generator_entry["file_name"]
         
         # load the data and correct the physical dimension if needed
         try:
@@ -881,7 +866,7 @@ def choose_valid_ecg_regions_for_further_computation(
             )
 
             for dict_key in generator_entry.keys():
-                if valid_ecg_regions_dictionary_key in dict_key and dict_key != valid_ecg_regions_dictionary_key:
+                if "valid_ecg_regions" in dict_key and dict_key != "valid_ecg_regions":
                     valid_total_ratio = determine_valid_total_ecg_ratio(
                         ECG_length = ecg_signal_length, 
                         valid_regions = generator_entry[dict_key]
@@ -914,7 +899,7 @@ def choose_valid_ecg_regions_for_further_computation(
         
         # ask user for the strictness value
         while True:
-            strictness_value = input("\nChoose a strictness value to assign the valid regions to the dictionary key \"%s\": " % valid_ecg_regions_dictionary_key)
+            strictness_value = input("\nChoose a strictness value to assign the valid regions to the dictionary key \"valid_ecg_regions\":")
             if strictness_value in store_strictness_values:
                 break
             else:
@@ -925,9 +910,9 @@ def choose_valid_ecg_regions_for_further_computation(
     
     # assign the valid regions to the dictionary key
     for generator_entry in results_generator:
-        strictness_key = valid_ecg_regions_dictionary_key + "_" + strictness_value
+        strictness_key = "valid_ecg_regions_" + strictness_value
         if strictness_key in generator_entry.keys():
-            generator_entry[valid_ecg_regions_dictionary_key] = generator_entry[strictness_key]
+            generator_entry["valid_ecg_regions"] = generator_entry[strictness_key]
         append_to_pickle(generator_entry, temporary_file_path)
     
     # rename the file that stores the calculated data
@@ -1191,10 +1176,6 @@ def ecg_validation_comparison(
         ecg_classification_file_types: list,
         check_ecg_validation_strictness: list,
         results_path: str,
-        file_name_dictionary_key: str,
-        valid_ecg_regions_dictionary_key: str,
-        ecg_validation_comparison_dictionary_key: str,
-        ecg_classification_valid_intervals_dictionary_key: str,
     ):
     """
     Compare the ECG validation with the ECG classification values.
@@ -1212,22 +1193,14 @@ def ecg_validation_comparison(
         path to the pickle file where the evaluation is saved
     results_path: str,
         path to the pickle file where the ecg validation comparison should be saved
-    file_name_dictionary_key
-        dictionary key to access the file name
-    valid_ecg_regions_dictionary_key: str
-        dictionary key to access the valid ecg regions
-    ecg_validation_comparison_dictionary_key: str
-        dictionary key to access the ecg validation comparison
-    ecg_classification_valid_intervals_dictionary_key: str
-        dictionary key to access the valid intervals from the ECG classification
     
     RETURNS:
     --------------------------------
     None, but the evaluation is saved as dictionaries to a pickle file in the following
     format:
         {
-            file_name_dictionary_key: file_name_1,
-            ecg_validation_comparison_dictionary_key: [correct_valid_ratio, correct_invalid_ratio, valid_wrong_ratio, invalid_wrong_ratio],
+            "file_name": file_name_1,
+            "ecg_validation_comparison": [correct_valid_ratio, correct_invalid_ratio, valid_wrong_ratio, invalid_wrong_ratio],
             ...
         }
             ...
@@ -1243,8 +1216,8 @@ def ecg_validation_comparison(
     # check if the evaluation already exists and if yes: ask for permission to override
     user_answer = ask_for_permission_to_override_dictionary_entry(
         file_path = results_path,
-        dictionary_entry = ecg_validation_comparison_dictionary_key,
-        additionally_remove_entries = [ecg_classification_valid_intervals_dictionary_key]
+        dictionary_entry = "ecg_validation_comparison",
+        additionally_remove_entries = ["valid_intervals_from_ecg_classification"]
         )
     
     # cancel if needed data is missing
@@ -1261,7 +1234,7 @@ def ecg_validation_comparison(
 
     # create variables to track progress
     start_time = time.time()
-    total_data_files = get_pickle_length(results_path, ecg_validation_comparison_dictionary_key)
+    total_data_files = get_pickle_length(results_path, "ecg_validation_comparison")
     progressed_data_files = 0
 
     # create lists to store unprocessable files
@@ -1273,7 +1246,7 @@ def ecg_validation_comparison(
     # calculate the ECG Validation comparison values for all files
     for generator_entry in results_generator:
         # skip if the comparison values already exist and the user does not want to override
-        if user_answer == "n" and ecg_validation_comparison_dictionary_key in generator_entry.keys():
+        if user_answer == "n" and "ecg_validation_comparison" in generator_entry.keys():
             append_to_pickle(generator_entry, temporary_file_path)
             continue
 
@@ -1283,7 +1256,7 @@ def ecg_validation_comparison(
 
         try:
             # get the file key and the validated ECG regions
-            this_file = generator_entry[file_name_dictionary_key]
+            this_file = generator_entry["file_name"]
 
             # get the file name without the file type
             this_file_name = os.path.splitext(this_file)[0]
@@ -1308,7 +1281,7 @@ def ecg_validation_comparison(
             comparison_values_for_strictness = []
 
             for strictness_index in range(0, len(check_ecg_validation_strictness)):
-                strictness_dict_key = valid_ecg_regions_dictionary_key + "_" + str(check_ecg_validation_strictness[strictness_index])
+                strictness_dict_key = "valid_ecg_regions_" + str(check_ecg_validation_strictness[strictness_index])
                 if strictness_dict_key in generator_entry.keys():
                     comparison_values_for_strictness.append(compare_ecg_validations(
                         validated_intervals = generator_entry[strictness_dict_key],
@@ -1318,8 +1291,8 @@ def ecg_validation_comparison(
                     raise KeyError
         
             # add comparison values for this file
-            generator_entry[ecg_validation_comparison_dictionary_key] = comparison_values_for_strictness
-            generator_entry[ecg_classification_valid_intervals_dictionary_key] = valid_intervals_from_classification
+            generator_entry["ecg_validation_comparison"] = comparison_values_for_strictness
+            generator_entry["valid_intervals_from_ecg_classification"] = valid_intervals_from_classification
 
         except:
             unprocessable_files.append(this_file)
@@ -1348,8 +1321,6 @@ def ecg_validation_comparison_report(
         ecg_validation_comparison_report_path: str,
         results_path: str,
         check_ecg_validation_strictness: list,
-        file_name_dictionary_key: str,
-        ecg_validation_comparison_dictionary_key: str,
         ecg_validation_comparison_report_dezimal_places: int,
     ):
     """
@@ -1361,10 +1332,6 @@ def ecg_validation_comparison_report(
         path to the file where the report is saved
     results_path: str,
         path to the pickle file where the ecg validation comparison should be saved
-    file_name_dictionary_key
-        dictionary key to access the file name
-    ecg_validation_comparison_dictionary_key: str
-        dictionary key to access the ecg validation comparison
     ecg_validation_comparison_report_dezimal_places: int
         number of decimal places for the report
     
@@ -1391,9 +1358,9 @@ def ecg_validation_comparison_report(
 
     all_files_ecg_validation_generator = load_from_pickle(results_path)
     for generator_entry in all_files_ecg_validation_generator:
-        if ecg_validation_comparison_dictionary_key in generator_entry and file_name_dictionary_key in generator_entry:
-            file_names.append(generator_entry[file_name_dictionary_key])
-            ecg_validation_comparison_values.append(generator_entry[ecg_validation_comparison_dictionary_key])
+        if "ecg_validation_comparison" in generator_entry and "file_name" in generator_entry:
+            file_names.append(generator_entry["file_name"])
+            ecg_validation_comparison_values.append(generator_entry["ecg_validation_comparison"])
     
     strictness_values = [str(strictness) for strictness in check_ecg_validation_strictness]
     strictness_max_length = max([len(strict_val) for strict_val in strictness_values])

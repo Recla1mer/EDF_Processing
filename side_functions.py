@@ -597,7 +597,7 @@ def print_smart_rounding(number: float, number_decimals: int):
         return str(round(number, number_decimals)) + "e" + str(power_of_ten)
 
 
-def manually_remove_file_from_results(file_name: str, results_path: str, file_name_dictionary_key: str):
+def manually_remove_file_from_results(file_name: str, results_path: str):
     """
     Remove dictionary containing values for file_name from the results file.
 
@@ -607,8 +607,6 @@ def manually_remove_file_from_results(file_name: str, results_path: str, file_na
         name of the file
     results_path: str
         path to the results file
-    file_name_dictionary_key: str
-        key of the dictionary containing the file name
     
     RETURNS:
     --------------------------------
@@ -625,7 +623,7 @@ def manually_remove_file_from_results(file_name: str, results_path: str, file_na
 
     for generator_entry in results_generator:
         try:
-            if generator_entry[file_name_dictionary_key] == file_name:
+            if generator_entry["file_name"] == file_name:
                 continue
         except:
             pass
@@ -641,7 +639,6 @@ def manually_remove_file_from_results(file_name: str, results_path: str, file_na
 def recover_results_after_error(
         all_results_path: str, 
         some_results_with_updated_keys_path: str, 
-        file_name_dictionary_key: str
     ):
     """
     If the program crashes during the calculation (or which is more likely: the computer gets
@@ -655,8 +652,6 @@ def recover_results_after_error(
         path to the results file that stores all results
     some_results_with_updated_keys_path: str
         path to the temporary file that stores some of the results with additional keys
-    file_name_dictionary_key: str
-        key of the dictionary containing the file name
     
     RETURNS:
     --------------------------------
@@ -688,7 +683,7 @@ def recover_results_after_error(
         some_results_generator = load_from_pickle(some_results_with_updated_keys_path)
         for generator_entry in some_results_generator:
             try:
-                file_names_in_some_results.append(generator_entry[file_name_dictionary_key])
+                file_names_in_some_results.append(generator_entry["file_name"])
             except:
                 continue
         
@@ -699,7 +694,7 @@ def recover_results_after_error(
             all_results_generator = load_from_pickle(all_results_path)
             for generator_entry in all_results_generator:
                 try:
-                    if generator_entry[file_name_dictionary_key] in file_names_in_some_results:
+                    if generator_entry["file_name"] in file_names_in_some_results:
                         continue
                 except:
                     continue

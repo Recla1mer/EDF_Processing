@@ -41,8 +41,8 @@ def show_ecg_validation(
     # load the valid regions
     results_generator = load_from_pickle(results_path)
     for generator_entry in results_generator:
-        if generator_entry[parameters["file_name_dictionary_key"]] == file_data_name:
-            this_files_valid_ecg_regions = generator_entry[parameters["valid_ecg_regions_dictionary_key"]]
+        if generator_entry["file_name"] == file_data_name:
+            this_files_valid_ecg_regions = generator_entry["valid_ecg_regions"]
             break
 
     # load the ECG data
@@ -112,7 +112,7 @@ def show_rpeak_comparison(
 
     results_generator = load_from_pickle(results_path)
     for generator_entry in results_generator:
-        this_files_rpeak_comparison_values = generator_entry[parameters["rpeak_comparison_dictionary_key"]]
+        this_files_rpeak_comparison_values = generator_entry["rpeak_comparison"]
         try:
             analogue_ratios_first_function.append(this_files_rpeak_comparison_values[position_in_list][3]/this_files_rpeak_comparison_values[position_in_list][4])
         except:
@@ -154,7 +154,7 @@ def plot_non_intersecting_rpeaks(
     # load the valid regions
     results_generator = load_from_pickle(results_path)
     for generator_entry in results_generator:
-        if generator_entry[parameters["file_name_dictionary_key"]] == file_data_name:
+        if generator_entry["file_name"] == file_data_name:
             first_rpeaks = generator_entry[first_rpeak_function_name]
             second_rpeaks = generator_entry[second_rpeak_function_name]
             break

@@ -334,7 +334,6 @@ def read_out_channel(
         channel_key_to_read_out: list,
         physical_dimension_correction_dictionary: dict,
         results_path: str,
-        file_name_dictionary_key: str,
         new_dictionary_key = None
     ):
     """
@@ -352,8 +351,6 @@ def read_out_channel(
         dictionary needed to check and correct the physical dimension of all signals
     results_path: str
         path to the pickle file where the valid regions are saved
-    file_name_dictionary_key
-        dictionary key to access the file name
     new_dictionary_keys: list
         new dictionary key to store the read out signal
         if None, the key is the same as the channel key to read out
@@ -362,7 +359,7 @@ def read_out_channel(
     --------------------------------
     None, but the channels are saved to the results path:
         {
-            file_name_dictionary_key: file_name_1,
+            "file_name": file_name_1,
             channel_key_1: channel_signal_1_1,
             channel_key_2: channel_signal_1_2,
         }
@@ -403,15 +400,15 @@ def read_out_channel(
 
         for generator_entry in results_generator:
                 # check if needed dictionary keys exist
-                if file_name_dictionary_key not in generator_entry.keys():
+                if "file_name" not in generator_entry.keys():
                     continue
 
                 if new_dictionary_key not in generator_entry.keys():
-                    store_previous_dictionary_entries[generator_entry[file_name_dictionary_key]] = generator_entry
+                    store_previous_dictionary_entries[generator_entry["file_name"]] = generator_entry
                     continue
 
                 # get current file name
-                file_name = generator_entry[file_name_dictionary_key]
+                file_name = generator_entry["file_name"]
 
                 if file_name in valid_files:
                     valid_files.remove(file_name)
@@ -437,7 +434,7 @@ def read_out_channel(
 
             try:
                 # get current file name
-                file_name = generator_entry[file_name_dictionary_key]
+                file_name = generator_entry["file_name"]
 
                 if file_name in valid_files:
                     valid_files.remove(file_name)
@@ -467,7 +464,7 @@ def read_out_channel(
         if file_name in store_previous_dictionary_entries.keys():
             generator_entry = store_previous_dictionary_entries[file_name]
         else:
-            generator_entry = {file_name_dictionary_key: file_name}
+            generator_entry = {"file_name": file_name}
 
         try:
             # try to load the data and correct the physical dimension if needed
@@ -586,7 +583,6 @@ def library_overview(file_name):
 def retrieve_file_header_information(
         data_directory: str,
         results_path: str,
-        file_name_dictionary_key: str,
         ecg_keys: list,
     ):
     """
@@ -601,8 +597,6 @@ def retrieve_file_header_information(
         directory where the data is stored
     results_path: str
         path to the pickle file where the valid regions are saved
-    file_name_dictionary_key
-        dictionary key to access the file name
     ecg_keys: list
         list of possible labels for the ECG data
 
@@ -610,7 +604,7 @@ def retrieve_file_header_information(
     --------------------------------
     None, but some file header information is saved as dictionaries to a pickle file in the following format:
     {
-        file_name_dictionary_key: file_name_1,
+        "file_name": file_name_1,
         "start_date": start_date_1,
         "start_time": start_time_1,
         ...
@@ -649,7 +643,7 @@ def retrieve_file_header_information(
 
         try:
             # get the file name
-            file_name = generator_entry[file_name_dictionary_key]
+            file_name = generator_entry["file_name"]
 
             # get the ecg sampling frequency
             ecg_sampling_frequency = get_frequency_from_edf_channel(

@@ -212,8 +212,7 @@ def Data_Processing(
         if os.path.isfile(temporary_file_path):
             recover_results_after_error(
                 all_results_path = RESULTS_PATH, 
-                some_results_with_updated_keys_path = temporary_file_path, 
-                file_name_dictionary_key = parameters["file_name_dictionary_key"],
+                some_results_with_updated_keys_path = temporary_file_path,
             )
         
         del temporary_file_path
@@ -225,12 +224,12 @@ def Data_Processing(
         """
 
         # evaluate valid regions for the ECG data
-        determine_ecg_region_args = create_sub_dict(parameters, determine_ecg_region_variables)
+        determine_ecg_region_args = create_sub_dict(parameters, ["data_directory", "valid_file_types", "ecg_keys", "physical_dimension_correction_dictionary", "results_path", "straighten_ecg_signal", "use_ecg_validation_strictness", "check_ecg_time_interval_seconds", "check_ecg_overlapping_interval_steps", "check_ecg_validation_strictness", "check_ecg_removed_peak_difference_threshold", "check_ecg_std_min_threshold", "check_ecg_std_max_threshold", "check_ecg_distance_std_ratio_threshold", "check_ecg_min_valid_length_minutes", "check_ecg_allowed_invalid_region_length_seconds"])
         check_data.determine_valid_ecg_regions(**determine_ecg_region_args)
 
         # create arguments for choosing the valid ecg regions for further computation
         if determine_ecg_region_args["use_ecg_validation_strictness"] is None:
-            choose_valid_ecg_regions_for_further_computation_args = create_sub_dict(parameters, choose_valid_ecg_regions_for_further_computation_variables)
+            choose_valid_ecg_regions_for_further_computation_args = create_sub_dict(parameters, ["data_directory", "ecg_keys", "results_path", "rpeak_function_names"])
             check_data.choose_valid_ecg_regions_for_further_computation(**choose_valid_ecg_regions_for_further_computation_args)
             del choose_valid_ecg_regions_for_further_computation_args
         
@@ -243,9 +242,9 @@ def Data_Processing(
         """
 
         # create arguments for the r-peak detection, correction and height retrieval
-        detect_rpeaks_args = create_sub_dict(parameters, detect_rpeaks_variables)
-        correct_rpeaks_args = create_sub_dict(parameters, correct_rpeaks_variables)
-        retrieve_rpeak_heights_args = create_sub_dict(parameters, retrieve_rpeak_heights_variables)
+        detect_rpeaks_args = create_sub_dict(parameters, ["data_directory", "ecg_keys", "physical_dimension_correction_dictionary", "results_path"])
+        correct_rpeaks_args = create_sub_dict(parameters, ["data_directory", "ecg_keys", "physical_dimension_correction_dictionary", "results_path"])
+        retrieve_rpeak_heights_args = create_sub_dict(parameters, ["data_directory", "ecg_keys", "physical_dimension_correction_dictionary", "results_path"])
 
         # detect and correct r-peaks in the valid regions of the ECG data
         for i in range(len(parameters["rpeak_functions"])):
@@ -259,11 +258,7 @@ def Data_Processing(
             retrieve_rpeak_heights_args["rpeak_function_name"] = parameters["rpeak_function_names"][i]
             rpeak_detection.determine_rpeak_heights(**retrieve_rpeak_heights_args)
 
-        # combine the detected r-peaks into certain and uncertain r-peaks
-        # combine_detected_rpeaks_args = create_sub_dict(parameters, combine_detected_rpeaks_variables)
-        # rpeak_detection.combine_detected_rpeaks(**combine_detected_rpeaks_args)
-
-        del detect_rpeaks_args, correct_rpeaks_args, retrieve_rpeak_heights_args, # combine_detected_rpeaks_args
+        del detect_rpeaks_args, correct_rpeaks_args, retrieve_rpeak_heights_args
 
         """
         ---------------------------
@@ -272,7 +267,7 @@ def Data_Processing(
         """
         
         parameters["rpeak_function_name"] = "hamilton"
-        calculate_rri_from_peaks_args = create_sub_dict(parameters, calculate_rri_from_peaks_variables)
+        calculate_rri_from_peaks_args = create_sub_dict(parameters, ["data_directory", "rpeak_function_name", "RRI_sampling_frequency", "pad_with", "results_path", "realistic_rri_value_range", "mad_time_period_seconds"])
         rri_from_rpeak.determine_rri_from_rpeaks(**calculate_rri_from_peaks_args)
         del calculate_rri_from_peaks_args
     
@@ -283,7 +278,7 @@ def Data_Processing(
         """
 
         # calculate MAD in the wrist acceleration data
-        calculate_MAD_args = create_sub_dict(parameters, calculate_MAD_variables)
+        calculate_MAD_args = create_sub_dict(parameters, ["data_directory", "valid_file_types", "wrist_acceleration_keys", "physical_dimension_correction_dictionary", "mad_time_period_seconds", "results_path"])
         MAD.calculate_MAD_in_acceleration_data(**calculate_MAD_args)
         del calculate_MAD_args
 
@@ -294,10 +289,9 @@ def Data_Processing(
         """
 
         # retrieve header information for existing data in the results
-        retrieve_header_information_args = create_sub_dict(parameters, retrieve_header_information_variables)
+        retrieve_header_information_args = create_sub_dict(parameters, ["data_directory", "results_path", "ecg_keys"])
         read_edf.retrieve_file_header_information(**retrieve_header_information_args)
         del retrieve_header_information_args
-
 
 
 def Data_Processing_and_Comparing(
@@ -393,7 +387,6 @@ def Data_Processing_and_Comparing(
         recover_results_after_error(
             all_results_path = RESULTS_DIRECTORY + RESULTS_FILE_NAME, 
             some_results_with_updated_keys_path = temporary_file_path, 
-            file_name_dictionary_key = parameters["file_name_dictionary_key"],
         )
     
     del temporary_file_path
@@ -405,14 +398,14 @@ def Data_Processing_and_Comparing(
     """
     
     # create arguments for the valid ecg regions evaluation and calculate them
-    determine_ecg_region_args = create_sub_dict(parameters, determine_ecg_region_variables)
+    determine_ecg_region_args = create_sub_dict(parameters, ["data_directory", "valid_file_types", "ecg_keys", "physical_dimension_correction_dictionary", "results_path", "straighten_ecg_signal", "use_ecg_validation_strictness", "check_ecg_time_interval_seconds", "check_ecg_overlapping_interval_steps", "check_ecg_validation_strictness", "check_ecg_removed_peak_difference_threshold", "check_ecg_std_min_threshold", "check_ecg_std_max_threshold", "check_ecg_distance_std_ratio_threshold", "check_ecg_min_valid_length_minutes", "check_ecg_allowed_invalid_region_length_seconds"])
 
     # perform ecg validation
     check_data.determine_valid_ecg_regions(**determine_ecg_region_args)
 
     # create arguments for choosing the valid ecg regions for further computation
     if determine_ecg_region_args["use_ecg_validation_strictness"] is None:
-        choose_valid_ecg_regions_for_further_computation_args = create_sub_dict(parameters, choose_valid_ecg_regions_for_further_computation_variables)
+        choose_valid_ecg_regions_for_further_computation_args = create_sub_dict(parameters, ["data_directory", "ecg_keys", "results_path", "rpeak_function_names"])
         check_data.choose_valid_ecg_regions_for_further_computation(**choose_valid_ecg_regions_for_further_computation_args)
         del choose_valid_ecg_regions_for_further_computation_args
     
@@ -427,12 +420,12 @@ def Data_Processing_and_Comparing(
     parameters["ecg_validation_comparison_report_path"] = RESULTS_DIRECTORY + ECG_COMPARISON_FILE_NAME
 
     # create arguments for the ECG validation comparison and perform it
-    ecg_validation_comparison_args = create_sub_dict(parameters, ecg_validation_comparison_variables)
+    ecg_validation_comparison_args = create_sub_dict(parameters, ["ecg_classification_values_directory", "ecg_classification_file_types", "check_ecg_validation_strictness", "results_path"])
     check_data.ecg_validation_comparison(**ecg_validation_comparison_args)
     del ecg_validation_comparison_args
 
     # create arguments for printing the ECG validation comparison report
-    ecg_validation_report_args = create_sub_dict(parameters, ecg_validation_comparison_report_variables)
+    ecg_validation_report_args = create_sub_dict(parameters, ["ecg_validation_comparison_report_path", "ecg_validation_comparison_report_dezimal_places", "check_ecg_validation_strictness", "results_path"])
     check_data.ecg_validation_comparison_report(**ecg_validation_report_args)
     del ecg_validation_report_args
 
@@ -443,8 +436,8 @@ def Data_Processing_and_Comparing(
     """
 
     # create arguments for the r-peak detection and correction
-    detect_rpeaks_args = create_sub_dict(parameters, detect_rpeaks_variables)
-    correct_rpeaks_args = create_sub_dict(parameters, correct_rpeaks_variables)
+    detect_rpeaks_args = create_sub_dict(parameters, ["data_directory", "ecg_keys", "physical_dimension_correction_dictionary", "results_path"])
+    correct_rpeaks_args = create_sub_dict(parameters, ["data_directory", "ecg_keys", "physical_dimension_correction_dictionary", "results_path"])
 
     # detect and correct r-peaks in the valid regions of the ECG data
     for i in range(len(parameters["rpeak_comparison_functions"])):
@@ -464,11 +457,11 @@ def Data_Processing_and_Comparing(
     """
 
     # create arguments for the r-peak comparison
-    rpeak_detection_comparison_args = create_sub_dict(parameters, rpeak_detection_comparison_variables)
+    rpeak_detection_comparison_args = create_sub_dict(parameters, ["data_directory", "rpeak_distance_threshold_seconds", "results_path", "rpeak_comparison_function_names", "remove_peaks_outside_ecg_classification"])
 
     # read r-peaks from the classification files
     parameters["rpeaks_values_directory"] = RPEAK_DIRECTORY
-    read_rpeak_classification_args = create_sub_dict(parameters, read_rpeak_classification_variables)
+    read_rpeak_classification_args = create_sub_dict(parameters, ["data_directory", "valid_file_types", "rpeaks_values_directory", "valid_rpeak_values_file_types", "include_rpeak_value_classifications", "add_offset_to_classification", "results_path"])
     read_rpeak_classification_args["rpeak_classification_dictionary_key"] = parameters["rpeak_comparison_function_names"][-1]
     rpeak_detection.read_rpeaks_from_rri_files(**read_rpeak_classification_args)
     del read_rpeak_classification_args
@@ -479,7 +472,7 @@ def Data_Processing_and_Comparing(
 
     # create arguments for printing the r-peak comparison report and print it
     parameters["rpeak_comparison_report_path"] = RESULTS_DIRECTORY + RPEAK_COMPARISON_FILE_NAME
-    rpeak_comparison_report_args = create_sub_dict(parameters, rpeak_detection_comparison_report_variables)
+    rpeak_comparison_report_args = create_sub_dict(parameters, ["rpeak_comparison_report_dezimal_places", "rpeak_comparison_report_path", "results_path", "rpeak_comparison_function_names"])
     rpeak_detection.rpeak_detection_comparison_report(**rpeak_comparison_report_args)
     del rpeak_comparison_report_args
 
@@ -490,7 +483,7 @@ def Data_Processing_and_Comparing(
     """
 
     parameters["rpeak_function_name"] = "hamilton"
-    calculate_rri_from_peaks_args = create_sub_dict(parameters, calculate_rri_from_peaks_variables)
+    calculate_rri_from_peaks_args = create_sub_dict(parameters, ["data_directory", "rpeak_function_name", "RRI_sampling_frequency", "pad_with", "results_path", "realistic_rri_value_range", "mad_time_period_seconds"])
     rri_from_rpeak.determine_rri_from_rpeaks(**calculate_rri_from_peaks_args)
     del calculate_rri_from_peaks_args
 
@@ -502,7 +495,7 @@ def Data_Processing_and_Comparing(
 
     parameters["path_to_h5file"] = AVAILABLE_MAD_RRI_PATH
     parameters["rri_comparison_report_path"] = RESULTS_DIRECTORY + RRI_COMPARISON_FILE_NAME
-    rri_comparison_args = create_sub_dict(parameters, rri_comparison_variables)
+    rri_comparison_args = create_sub_dict(parameters, ["path_to_h5file", "results_path", "rri_comparison_report_dezimal_places", "rri_comparison_report_path", "mad_time_period_seconds"])
     rri_from_rpeak.rri_comparison(**rri_comparison_args)
     del rri_comparison_args
 
@@ -513,7 +506,7 @@ def Data_Processing_and_Comparing(
     """
 
     # calculate MAD in the wrist acceleration data
-    calculate_MAD_args = create_sub_dict(parameters, calculate_MAD_variables)
+    calculate_MAD_args = create_sub_dict(parameters, ["data_directory", "valid_file_types", "wrist_acceleration_keys", "physical_dimension_correction_dictionary", "mad_time_period_seconds", "results_path"])
     MAD.calculate_MAD_in_acceleration_data(**calculate_MAD_args)
     del calculate_MAD_args
 
@@ -524,7 +517,7 @@ def Data_Processing_and_Comparing(
     """
 
     parameters["mad_comparison_report_path"] = RESULTS_DIRECTORY + MAD_COMPARISON_FILE_NAME
-    mad_comparison_args = create_sub_dict(parameters, mad_comparison_variables)
+    mad_comparison_args = create_sub_dict(parameters, ["path_to_h5file", "results_path", "mad_comparison_report_dezimal_places", "mad_comparison_report_path"])
     MAD.mad_comparison(**mad_comparison_args)
     del mad_comparison_args
 
@@ -634,7 +627,7 @@ def Extract_RRI_MAD(
         """
 
         # create arguments for extracting the RRI and MAD values
-        retrieve_rri_mad_data_args = create_sub_dict(parameters, retrieve_rri_mad_data_variables)
+        retrieve_rri_mad_data_args = create_sub_dict(parameters, ["data_directory", "rri_mad_data_path", "results_path"])
         data_retrieval.retrieve_rri_mad_data_in_same_time_period(**retrieve_rri_mad_data_args)
 
 

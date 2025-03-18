@@ -146,8 +146,6 @@ def calculate_MAD_in_acceleration_data(
         physical_dimension_correction_dictionary: dict,
         mad_time_period_seconds: int,
         results_path: str,
-        file_name_dictionary_key: str,
-        MAD_dictionary_key: str,
     ):
     """
     Calculate the MAD values for the wrist acceleration data for all valid files in the
@@ -167,18 +165,14 @@ def calculate_MAD_in_acceleration_data(
         time period in seconds over which the MAD will be calculated
     results_path: str
         path to the pickle file where the MAD values are saved
-    file_name_dictionary_key: str
-        dictionary key to access the file name
-    MAD_dictionary_key: str
-        dictionary key to access the MAD values
 
     RETURNS:
     --------------------------------
     None, but the MAD values are saved to a pickle file as a dictionary in the following
     format:
         {
-            file_name_dictionary_key: name of file 1,
-            MAD_dictionary_key: MAD values for file 1,
+            "file_name": name of file 1,
+            "MAD": MAD values for file 1,
             ...
         }
         ...
@@ -194,8 +188,8 @@ def calculate_MAD_in_acceleration_data(
     # check if MAD values already exist and if yes ask for permission to override
     user_answer = ask_for_permission_to_override_dictionary_entry(
         file_path = results_path,
-        dictionary_entry = MAD_dictionary_key,
-        additionally_remove_entries = [MAD_dictionary_key + "_frequency"]
+        dictionary_entry = "MAD",
+        additionally_remove_entries = ["MAD_frequency"]
     )
     
     # create list to store unprocessable files
@@ -213,14 +207,14 @@ def calculate_MAD_in_acceleration_data(
 
         for generator_entry in results_generator:
                 # check if needed dictionary keys exist
-                if file_name_dictionary_key not in generator_entry.keys():
+                if "file_name" not in generator_entry.keys():
                     continue
 
-                if MAD_dictionary_key not in generator_entry.keys():
+                if "MAD" not in generator_entry.keys():
                     left_overs += 1
 
                 # get current file name
-                file_name = generator_entry[file_name_dictionary_key]
+                file_name = generator_entry["file_name"]
 
                 if file_name in valid_files:
                     valid_files.remove(file_name)
@@ -247,7 +241,7 @@ def calculate_MAD_in_acceleration_data(
         # calculate MAD in the wrist acceleration data
         for generator_entry in results_generator:
             # skip if MAD values already exist and the user does not want to override
-            if MAD_dictionary_key in generator_entry.keys() and user_answer == "n":
+            if "MAD" in generator_entry.keys() and user_answer == "n":
                 append_to_pickle(generator_entry, temporary_file_path)
                 continue
 
@@ -257,7 +251,7 @@ def calculate_MAD_in_acceleration_data(
 
             try:
                 # get current file name
-                file_name = generator_entry[file_name_dictionary_key]
+                file_name = generator_entry["file_name"]
 
                 if file_name in valid_files:
                     valid_files.remove(file_name)
@@ -292,9 +286,9 @@ def calculate_MAD_in_acceleration_data(
                     mad_sampling_frequency = int(mad_sampling_frequency)
                 
                 # save MAD values
-                generator_entry[MAD_dictionary_key] = this_MAD_values
+                generator_entry["MAD"] = this_MAD_values
 
-                generator_entry[MAD_dictionary_key + "_frequency"] = mad_sampling_frequency
+                generator_entry["MAD_frequency"] = mad_sampling_frequency
 
             except:
                 unprocessable_files.append(file_name)
@@ -307,7 +301,7 @@ def calculate_MAD_in_acceleration_data(
         progress_bar(progressed_files, total_files, start_time)
         progressed_files += 1
 
-        generator_entry = {file_name_dictionary_key: file_name}
+        generator_entry = {"file_name": file_name}
 
         try:
             # create lists to save the acceleration data and frequencies for each axis
@@ -340,8 +334,8 @@ def calculate_MAD_in_acceleration_data(
                 mad_sampling_frequency = int(mad_sampling_frequency)
             
             # save MAD values for this file to the dictionary
-            generator_entry[MAD_dictionary_key] = this_MAD_values # type: ignore    
-            generator_entry[MAD_dictionary_key + "_frequency"] = mad_sampling_frequency # type: ignore
+            generator_entry["MAD"] = this_MAD_values # type: ignore    
+            generator_entry["MAD_frequency"] = mad_sampling_frequency # type: ignore
 
         except:
             unprocessable_files.append(file_name)
@@ -432,8 +426,6 @@ def mad_comparison_report(
 def mad_comparison(
         path_to_h5file: str,
         results_path: str,
-        file_name_dictionary_key: str,
-        MAD_dictionary_key: str,
         mad_comparison_report_dezimal_places: int,
         mad_comparison_report_path: str,
     ):
@@ -450,10 +442,6 @@ def mad_comparison(
         path to the h5 file where the available MAD values are stored
     results_path: str
         path to the pickle file where the MAD values are saved
-    file_name_dictionary_key: str
-        dictionary key to access the file name
-    MAD_dictionary_key: str
-        dictionary key to access the MAD values
     mad_comparison_report_dezimal_places: int
         number of decimal places to which the MAD differences are rounded
     mad_comparison_report_path: str
@@ -501,9 +489,9 @@ def mad_comparison(
         progressed_files += 1
 
         try:
-            file_name = generator_entry[file_name_dictionary_key]
+            file_name = generator_entry["file_name"]
 
-            if generator_entry[MAD_dictionary_key + "_frequency"] != available_rri_frequency:
+            if generator_entry["MAD_frequency"] != available_rri_frequency:
                 raise ValueError
             
             # get available MAD values
@@ -511,7 +499,7 @@ def mad_comparison(
             available_mad = np.array(h5_dataset["mad"][patient_id]) # type: ignore
 
             # get calculated MAD values
-            MAD_values = np.array(generator_entry[MAD_dictionary_key])
+            MAD_values = np.array(generator_entry["MAD"])
 
             # for some reason the available ones are longer than the original ECG data, so we will shift them
             differences = list()

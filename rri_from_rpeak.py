@@ -247,16 +247,12 @@ def calculate_rri_from_peaks(
 
 def determine_rri_from_rpeaks(
         data_directory: str,
-        ecg_keys: list,
         rpeak_function_name: str,
         RRI_sampling_frequency: int,
         mad_time_period_seconds: int,
         pad_with: float,
         realistic_rri_value_range: list,
         results_path: str,
-        file_name_dictionary_key: str,
-        valid_ecg_regions_dictionary_key: str,
-        RRI_dictionary_key: str,
     ):
     """
     Calculate the RR-intervals from the detected r-peaks and save them to a pickle file.
@@ -265,8 +261,6 @@ def determine_rri_from_rpeaks(
     --------------------------------
     data_directory: str
         directory where the data is stored
-    ecg_keys: list
-        list of possible labels for the ECG data
     rpeak_function_name: str
         name of the r-peak detection function
     RRI_sampling_frequency: int
@@ -280,19 +274,13 @@ def determine_rri_from_rpeaks(
         if the rri values are outside of this range, they will be replaced with the pad_with value
     results_path: str
         path to the pickle file where the valid regions are saved
-    file_name_dictionary_key
-        dictionary key to access the file name
-    valid_ecg_regions_dictionary_key: str
-        dictionary key to access the valid regions
-    RRI_dictionary_key: str
-        dictionary key to access the RR-intervals
 
     RETURNS:
     --------------------------------
     None, but the rr intervals are saved as dictionaries to a pickle file in the following format:
     {
-        file_name_dictionary_key: file_name_1,
-        rri_dictionary_key: rri_1,
+        "file_name": file_name_1,
+        "RRI": rri_1,
         ...
     }
         ...
@@ -308,8 +296,8 @@ def determine_rri_from_rpeaks(
     # check if correction of r-peaks already exist and if yes: ask for permission to override
     user_answer = ask_for_permission_to_override_dictionary_entry(
         file_path = results_path,
-        dictionary_entry = RRI_dictionary_key,
-        additionally_remove_entries = [RRI_dictionary_key + "_frequency"]
+        dictionary_entry = "RRI",
+        additionally_remove_entries = ["RRI_frequency"]
     )
 
     # cancel if needed data is missing
@@ -322,7 +310,7 @@ def determine_rri_from_rpeaks(
 
     # create variables to track progress
     start_time = time.time()
-    total_files = get_pickle_length(results_path, RRI_dictionary_key)
+    total_files = get_pickle_length(results_path, "RRI")
     progressed_files = 0
 
     if total_files > 0:
@@ -336,7 +324,7 @@ def determine_rri_from_rpeaks(
     # correct rpeaks
     for generator_entry in results_generator:
         # skip if rri values already exist and the user does not want to override
-        if user_answer == "n" and RRI_dictionary_key in generator_entry.keys():
+        if user_answer == "n" and "RRI" in generator_entry.keys():
             append_to_pickle(generator_entry, temporary_file_path)
             continue
 
@@ -346,16 +334,13 @@ def determine_rri_from_rpeaks(
 
         try:
             # get the file name
-            file_name = generator_entry[file_name_dictionary_key]
+            file_name = generator_entry["file_name"]
 
             # get the ecg sampling frequency
-            ecg_sampling_frequency = read_edf.get_frequency_from_edf_channel(
-                file_path = data_directory + file_name, 
-                possible_channel_labels = ecg_keys
-                )
+            ecg_sampling_frequency = generator_entry["ECG_frequency"]
 
             # get the valid regions for the ECG data
-            valid_regions = generator_entry[valid_ecg_regions_dictionary_key]
+            valid_regions = generator_entry["valid_ecg_regions"]
 
             # get the r-peaks
             rpeaks = generator_entry[rpeak_function_name]
@@ -394,8 +379,8 @@ def determine_rri_from_rpeaks(
                 rri.append(this_rri)
         
             # add the rri to the dictionary
-            generator_entry[RRI_dictionary_key] = rri
-            generator_entry[RRI_dictionary_key + "_frequency"] = RRI_sampling_frequency
+            generator_entry["RRI"] = rri
+            generator_entry["RRI_frequency"] = RRI_sampling_frequency
 
         except:
             unprocessable_files.append(file_name)
@@ -475,13 +460,8 @@ def rri_comparison_report(
 
 
 def rri_comparison(
-        data_directory: str,
-        ecg_keys: list,
         path_to_h5file: str,
         results_path: str,
-        file_name_dictionary_key: str,
-        valid_ecg_regions_dictionary_key: str,
-        RRI_dictionary_key: str,
         mad_time_period_seconds: int,
         rri_comparison_report_dezimal_places: int,
         rri_comparison_report_path: str,
@@ -497,18 +477,8 @@ def rri_comparison(
     --------------------------------
     path_to_h5file: str
         path to the h5 file where the available RRI values are stored
-    data_directory: str
-        directory where the data is stored
-    ecg_keys: list
-        list of possible labels for the ECG data
     results_path: str
         path to the pickle file where the RRI values are saved
-    file_name_dictionary_key: str
-        dictionary key to access the file name
-    valid_ecg_regions_dictionary_key: str
-        dictionary key to access the valid ecg regions
-    RRI_dictionary_key: str
-        dictionary key to access the RRI values
     1 / mad_time_period_seconds: float
         target sampling frequency of the MAD values
     rri_comparison_report_dezimal_places: int
@@ -558,8 +528,8 @@ def rri_comparison(
         progressed_files += 1
 
         try:
-            file_name = generator_entry[file_name_dictionary_key]
-            calculated_rri_frequency = generator_entry[RRI_dictionary_key + "_frequency"]
+            file_name = generator_entry["file_name"]
+            calculated_rri_frequency = generator_entry["RRI_frequency"]
             calculated_mad_frequency = 1 / mad_time_period_seconds
 
             if calculated_rri_frequency != available_rri_frequency:
@@ -570,16 +540,13 @@ def rri_comparison(
             available_rri = np.array(h5_dataset["rri"][patient_id]) # type: ignore
 
             # load ecg sampling frequency
-            ecg_sampling_frequency = read_edf.get_frequency_from_edf_channel(
-                file_path = data_directory + file_name,
-                possible_channel_labels = ecg_keys
-            )
+            ecg_sampling_frequency = generator_entry["ECG_frequency"]
 
             # get valid regions
-            valid_regions = generator_entry[valid_ecg_regions_dictionary_key]
+            valid_regions = generator_entry["valid_ecg_regions"]
 
             # get calculated RRI values
-            RRI_values = generator_entry[RRI_dictionary_key]
+            RRI_values = generator_entry["RRI"]
 
             # the rri values were only calculated in valid regions, so we need to calculate the starting point and length 
             # for each region

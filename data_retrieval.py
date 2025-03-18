@@ -50,13 +50,8 @@ def remove_redundant_file_name_part(file_name: str):
 
 def retrieve_rri_mad_data_in_same_time_period(
         data_directory: str,
-        ecg_keys: list,
         results_path: str,
         rri_mad_data_path: str,
-        file_name_dictionary_key: str,
-        valid_ecg_regions_dictionary_key: str,
-        RRI_dictionary_key: str,
-        MAD_dictionary_key: str,
     ):
     """
     During Data Processing, a lot of data is calculated. For the main project: 'Sleep Stage Classification' we 
@@ -71,20 +66,10 @@ def retrieve_rri_mad_data_in_same_time_period(
         directory where the data is stored
     valid_file_types: list
         valid file types in the data directory
-    ecg_keys: list
-        list of possible labels for the ECG data
     results_path: str
         path to the pickle file where the valid regions are saved
     rri_mad_data_path: str
         path to the pickle file where the RRI and MAD values are saved
-    file_name_dictionary_key: str
-        dictionary key to access the file name
-    valid_ecg_regions_dictionary_key: str
-        dictionary key to access the valid ecg regions
-    RRI_dictionary_key: str
-        dictionary key to access the RRI values
-    MAD_dictionary_key: str
-        dictionary key to access the MAD values
     
     RETURNS:
     --------------------------------
@@ -120,24 +105,19 @@ def retrieve_rri_mad_data_in_same_time_period(
         progressed_files += 1
 
         try:
-            file_name = generator_entry[file_name_dictionary_key]
+            file_name = generator_entry["file_name"]
 
             # get the ecg sampling frequency
-            ecg_sampling_frequency = read_edf.get_frequency_from_edf_channel(
-                file_path = data_directory + file_name, 
-                possible_channel_labels = ecg_keys
-                )
-            
-            edf_header = read_edf.get_header_from_edf_file(file_path = data_directory + file_name)
+            ecg_sampling_frequency = generator_entry["ECG_frequency"]
 
             # get the RRI sampling frequency
-            RRI_sampling_frequency = generator_entry[RRI_dictionary_key + "_frequency"]
+            RRI_sampling_frequency = generator_entry["RRI_frequency"]
 
             # get the MAD sampling frequency
-            MAD_sampling_frequency = generator_entry[MAD_dictionary_key + "_frequency"]
+            MAD_sampling_frequency = generator_entry["MAD_frequency"]
 
             # get the valid ECG regions
-            valid_ecg_regions = generator_entry[valid_ecg_regions_dictionary_key]
+            valid_ecg_regions = generator_entry["valid_ecg_regions"]
 
             # create new dictionary for every valid ECG region
             for i in range(len(valid_ecg_regions)):
@@ -172,11 +152,11 @@ def retrieve_rri_mad_data_in_same_time_period(
                 # create new dictionary for the important data
                 important_data = {
                     "ID": new_file_name_identifier,
-                    "start_date": edf_header["start_date"],
-                    "start_time": edf_header["start_time"],
+                    "start_date": generator_entry["start_date"],
+                    "start_time": generator_entry["start_time"],
                     "time_interval": [int(first_shared_signal_position/ecg_sampling_frequency), int(last_shared_signal_position/ecg_sampling_frequency)],
-                    "RRI": generator_entry[RRI_dictionary_key][rri_start : rri_end],
-                    "MAD": generator_entry[MAD_dictionary_key][int(first_shared_signal_position*MAD_sampling_frequency/ecg_sampling_frequency) : int(last_shared_signal_position*MAD_sampling_frequency/ecg_sampling_frequency)],
+                    "RRI": generator_entry["RRI"][rri_start : rri_end],
+                    "MAD": generator_entry["MAD"][int(first_shared_signal_position*MAD_sampling_frequency/ecg_sampling_frequency) : int(last_shared_signal_position*MAD_sampling_frequency/ecg_sampling_frequency)],
                     "RRI_frequency": RRI_sampling_frequency,
                     "MAD_frequency": MAD_sampling_frequency,
                 }
