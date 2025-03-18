@@ -178,7 +178,7 @@ calculate_MAD_variables = ["data_directory", "valid_file_types", "wrist_accelera
     "physical_dimension_correction_dictionary", "mad_time_period_seconds",
     "results_path", "file_name_dictionary_key", "MAD_dictionary_key"]
 
-retrieve_header_information_variables = ["data_directory", "results_path", "file_name_dictionary_key"]
+retrieve_header_information_variables = ["data_directory", "results_path", "file_name_dictionary_key", "ecg_keys"]
 
 ecg_validation_comparison_variables = ["ecg_classification_values_directory", "ecg_classification_file_types", 
     "check_ecg_validation_strictness", "results_path", "file_name_dictionary_key", 

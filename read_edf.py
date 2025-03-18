@@ -587,6 +587,7 @@ def retrieve_file_header_information(
         data_directory: str,
         results_path: str,
         file_name_dictionary_key: str,
+        ecg_keys: list,
     ):
     """
     Retrieve basic header information and append it to the results file. Theoretically, this function could 
@@ -602,6 +603,8 @@ def retrieve_file_header_information(
         path to the pickle file where the valid regions are saved
     file_name_dictionary_key
         dictionary key to access the file name
+    ecg_keys: list
+        list of possible labels for the ECG data
 
     RETURNS:
     --------------------------------
@@ -648,9 +651,17 @@ def retrieve_file_header_information(
             # get the file name
             file_name = generator_entry[file_name_dictionary_key]
 
+            # get the ecg sampling frequency
+            ecg_sampling_frequency = get_frequency_from_edf_channel(
+                file_path = data_directory + file_name, 
+                possible_channel_labels = ecg_keys
+                )
+
+            # get the header information
             edf_header = get_header_from_edf_file(file_path = data_directory + file_name)
         
             # add the information to the dictionary
+            generator_entry["ECG_frequency"] = ecg_sampling_frequency
             generator_entry["start_date"] = edf_header["start_date"]
             generator_entry["start_time"] = edf_header["start_time"]
 

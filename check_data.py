@@ -714,6 +714,9 @@ def determine_valid_ecg_regions(
                     check_ecg_allowed_invalid_region_length_seconds = check_ecg_allowed_invalid_region_length_seconds,
                 )
                 
+                # save ecg sampling frequency for this file
+                generator_entry["ECG_frequency"] = ecg_sampling_frequency
+
                 # save the valid regions for this file
                 for strictness_index in range(0, len(check_ecg_validation_strictness)):
                     generator_entry[valid_ecg_regions_dictionary_key + "_" + str(check_ecg_validation_strictness[strictness_index])] = store_valid_intervals_for_strictness[strictness_index]
@@ -756,6 +759,9 @@ def determine_valid_ecg_regions(
                 check_ecg_min_valid_length_minutes = check_ecg_min_valid_length_minutes,
                 check_ecg_allowed_invalid_region_length_seconds = check_ecg_allowed_invalid_region_length_seconds,
             )
+            
+            # save ecg sampling frequency for this file
+            generator_entry["ECG_frequency"] = ecg_sampling_frequency
             
             # save the valid regions for this file to the dictionary
             for strictness_index in range(0, len(check_ecg_validation_strictness)):
