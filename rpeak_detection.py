@@ -423,9 +423,9 @@ def detect_rpeaks(
     unprocessable_files = []
    
     # create variables to track progress
-    start_time = time.time()
     total_files = get_pickle_length(results_path, rpeak_function_name)
     progressed_files = 0
+    start_time = time.time()
 
     if total_files > 0:
         print("\nDetecting r-peaks of the ECG data in %i files from \"%s\" using %s:" % (total_files, data_directory, rpeak_function_name[:-len("_raw")]))
@@ -560,9 +560,9 @@ def correct_rpeak_locations(
     unprocessable_files = []
     
     # create variables to track progress
-    start_time = time.time()
     total_files = get_pickle_length(results_path, rpeak_function_name)
     progressed_files = 0
+    start_time = time.time()
 
     if total_files > 0:
         print("\nCorrecting r-peaks detected by %s in %i files from \"%s\":" % (rpeak_function_name, total_files, data_directory))
@@ -1078,9 +1078,9 @@ def read_rpeaks_from_rri_files(
                 append_to_pickle(generator_entry, temporary_file_path)
     
     # create variables to track progress
-    start_time = time.time()
     total_files = len(valid_data_files)
     progressed_files = 0
+    start_time = time.time()
 
     if total_files > 0:
         print("\nReading r-peak values from %i files from \"%s\":" % (total_files, data_directory))
@@ -1260,9 +1260,9 @@ def rpeak_detection_comparison(
     results_generator = load_from_pickle(results_path)
 
     # create variables to track progress
-    start_time = time.time()
     total_files = get_pickle_length(results_path, "rpeak_comparison")
     progressed_files = 0
+    start_time = time.time()
 
     # create lists to store unprocessable files
     unprocessable_files = []
@@ -1795,9 +1795,9 @@ def determine_rpeak_heights(
     unprocessable_files = []
 
     # create variables to track progress
-    start_time = time.time()
     total_files = get_pickle_length(results_path, rpeak_heights_dictionary_key)
     progressed_files = 0
+    start_time = time.time()
 
     if total_files > 0:
         print("\nRetrieving heights of r-peaks detected by %s in %i files from \"%s\":" % (rpeak_function_name, total_files, data_directory))

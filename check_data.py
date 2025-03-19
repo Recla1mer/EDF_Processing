@@ -652,9 +652,9 @@ def determine_valid_ecg_regions(
         del results_generator
     
     # create variables to track progress
-    start_time = time.time()
     total_files = len(valid_files) + left_overs
     progressed_files = 0
+    start_time = time.time()
 
     if total_files > 0:
         print("\nCalculating valid regions for the ECG data in %i files from \"%s\":" % (total_files, data_directory))
@@ -1233,9 +1233,9 @@ def ecg_validation_comparison(
     valid_classification_files = [file for file in all_classification_files if get_file_type(file) in ecg_classification_file_types]
 
     # create variables to track progress
-    start_time = time.time()
     total_data_files = get_pickle_length(results_path, "ecg_validation_comparison")
     progressed_data_files = 0
+    start_time = time.time()
 
     # create lists to store unprocessable files
     unprocessable_files = []

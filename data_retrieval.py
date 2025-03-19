@@ -88,9 +88,9 @@ def retrieve_rri_mad_data_in_same_time_period(
     unprocessable_files = []
 
     # create variables to track progress
-    start_time = time.time()
     total_files = get_pickle_length(results_path, " ")
     progressed_files = 0
+    start_time = time.time()
 
     # load the results file
     results_generator = load_from_pickle(results_path)
@@ -139,10 +139,6 @@ def retrieve_rri_mad_data_in_same_time_period(
                     update_position_by = int(-1)
                 )
 
-                # calculate start and end positions for RRI values
-                rri_start = int((first_shared_signal_position-valid_interval[0])*RRI_sampling_frequency/ecg_sampling_frequency)
-                rri_end = int((last_shared_signal_position-valid_interval[0])*RRI_sampling_frequency/ecg_sampling_frequency)
-
                 # create new datapoint identifier
                 if len(valid_ecg_regions) == 1:
                     new_file_name_identifier = remove_redundant_file_name_part(file_name)
@@ -155,7 +151,7 @@ def retrieve_rri_mad_data_in_same_time_period(
                     "start_date": generator_entry["start_date"],
                     "start_time": generator_entry["start_time"],
                     "time_interval": [int(first_shared_signal_position/ecg_sampling_frequency), int(last_shared_signal_position/ecg_sampling_frequency)],
-                    "RRI": generator_entry["RRI"][rri_start : rri_end],
+                    "RRI": generator_entry["RRI"][i][0 : int((last_shared_signal_position-first_shared_signal_position)*RRI_sampling_frequency/ecg_sampling_frequency)], # look in rri calculation: rri start is equal to first_shared_signal_position, not valid_interval[0]
                     "MAD": generator_entry["MAD"][int(first_shared_signal_position*MAD_sampling_frequency/ecg_sampling_frequency) : int(last_shared_signal_position*MAD_sampling_frequency/ecg_sampling_frequency)],
                     "RRI_frequency": RRI_sampling_frequency,
                     "MAD_frequency": MAD_sampling_frequency,

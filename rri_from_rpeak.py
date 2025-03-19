@@ -309,9 +309,9 @@ def determine_rri_from_rpeaks(
     unprocessable_files = []
 
     # create variables to track progress
-    start_time = time.time()
     total_files = get_pickle_length(results_path, "RRI")
     progressed_files = 0
+    start_time = time.time()
 
     if total_files > 0:
         print("\nCalculating RR-Intervals from r-peaks detected by %s in %i files from \"%s\":" % (rpeak_function_name, total_files, data_directory))
@@ -513,9 +513,9 @@ def rri_comparison(
     processed_files = list()
 
     # create variables to track progress
-    start_time = time.time()
     total_files = get_pickle_length(results_path, " ")
     progressed_files = 0
+    start_time = time.time()
 
     # create lists to store unprocessable files
     unprocessable_files = []

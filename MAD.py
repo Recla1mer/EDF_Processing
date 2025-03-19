@@ -222,9 +222,9 @@ def calculate_MAD_in_acceleration_data(
         del results_generator
     
     # create variables to track progress
-    start_time = time.time()
     total_files = len(valid_files) + left_overs
     progressed_files = 0
+    start_time = time.time()
 
     if total_files > 0:
         print("\nCalculating MAD in the wrist acceleration data in %i files from \"%s\":" % (total_files, data_directory))
@@ -474,9 +474,9 @@ def mad_comparison(
     processed_files = list()
 
     # create variables to track progress
-    start_time = time.time()
     total_files = get_pickle_length(results_path, " ")
     progressed_files = 0
+    start_time = time.time()
 
     # create lists to store unprocessable files
     unprocessable_files = []

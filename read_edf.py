@@ -287,10 +287,10 @@ def get_dimensions_and_signal_labels(directory, valid_file_types = [".edf"]):
     all_physical_dimensions = []
 
     # variables to track the progress
-    start_time = time.time()
     total_files = len(valid_files)
     progressed_files = 0
     error_in_files = []
+    start_time = time.time()
 
     print("Reading signal labels and their physical dimensions from %i files:" % total_files)
     for file in valid_files:
@@ -416,9 +416,9 @@ def read_out_channel(
                 append_to_pickle(generator_entry, temporary_file_path)
     
     # create variables to track progress
-    start_time = time.time()
     total_files = len(valid_files)
     progressed_files = 0
+    start_time = time.time()
 
     if total_files > 0:
         print(f"\nReading out and saving entries with matching key from: {channel_key_to_read_out} in {total_files} files from \"{data_directory}\":")
@@ -620,9 +620,9 @@ def retrieve_file_header_information(
     unprocessable_files = []
    
     # create variables to track progress
-    start_time = time.time()
     total_files = get_pickle_length(results_path, "start_time")
     progressed_files = 0
+    start_time = time.time()
 
     if total_files > 0:
         print("\nRetrieving header information of %i files from \"%s\":" % (total_files, data_directory))
