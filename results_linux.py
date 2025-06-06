@@ -215,3 +215,131 @@ def plot_non_intersecting_rpeaks(
         xlim = xlim,
         loc = "lower left"
         )
+
+
+def remove_redundant_file_name_part(file_name: str):
+    """
+    For some reason most file names look like this: 'SL256_SL256_(1).edf'. I do not know why, only the first part
+    is necessary. The following function removes the redundant part.
+
+    ARGUMENTS:
+    --------------------------------
+    file_name: str
+        file name that should be processed
+    
+    RETURNS:
+    --------------------------------
+    str
+        processed file name
+    """
+    for i in range(len(file_name)):
+        skip_first = i
+        if file_name[i] not in ["_", "(", ")", " ", "-", ".", ":", ";", ",", "/"]:
+            break
+
+    # find patterns that repeat in the file name
+    usefull_pattern = file_name
+    for i in range(2, len(file_name)):
+        if file_name[skip_first:i] in file_name[i:]:
+            usefull_pattern = file_name[skip_first:i]
+    
+    # remove redundant parts
+    while True:
+        if usefull_pattern[-1] in ["_", "(", ")", " ", "-", ".", ":", ";", ",", "/"]:
+            usefull_pattern = usefull_pattern[:-1]
+        else:
+            break
+    
+    return usefull_pattern
+
+
+def transform_to_yaos_format(
+        results_path: str,
+    ):
+    """
+    Transform the results to Yao's format
+    """
+
+    # create list to store files that could not be processed
+    unprocessable_files = []
+
+    # create variables to track progress
+    total_files = get_pickle_length(results_path, " ")
+    progressed_files = 0
+    start_time = time.time()
+
+    # load the results file
+    results_generator = load_from_pickle(results_path)
+
+    if total_files > 0:
+        print("\nTransforming Data of %i files from \"%s\" to Yao's Format:" % (total_files, results_path))
+
+    new_mad_format_directory = os.path.dirname(results_path) + "/NAKO-994-MAD/"
+    new_rpeak_format_directory = os.path.dirname(results_path) + "/NAKO-994-Rpeak/"
+
+    if not os.path.exists(new_rpeak_format_directory):
+        os.makedirs(new_rpeak_format_directory)
+    if not os.path.exists(new_mad_format_directory):
+        os.makedirs(new_mad_format_directory)
+
+
+    # iterate over all results and create new files
+    for generator_entry in results_generator:
+        # show progress
+        progress_bar(progressed_files, total_files, start_time)
+        progressed_files += 1
+
+        try:
+            file_name = remove_redundant_file_name_part(generator_entry["file_name"])[2:]
+
+            # get the R-peaks
+            rpeaks = generator_entry["hamilton"]
+
+            # save the R-peaks in Yao's format
+            new_rpeak_file = new_rpeak_format_directory + file_name.replace(".edf", "") + ".rri"
+            if os.path.exists(new_rpeak_file):
+                raise FileExistsError("The file %s already exists. Please remove it before running the script again." % new_rpeak_file)
+            
+            # write the rpeak file
+            with open(new_rpeak_file, "w") as f:
+                f.write("author: Johannes Peter Knoll. Format converted into Yao's style, hence this heading. Random numbers assigned to date and time.\n")
+                f.write("number_qrs=" + str(len(rpeaks)) + "\n")
+                f.write("rec-date=01.01.2001\n")
+                f.write("rec-time=24:00:00\n")
+                f.write("pos-type=qrs_pos\n")
+                f.write("---------------------------------------------------------")
+                for rpeak in rpeaks:
+                    f.write("\n" + str(rpeak))
+            f.close()
+
+            del rpeaks
+
+            # get the MAD sampling frequency
+            MAD_sampling_frequency = generator_entry["MAD_frequency"]
+
+            # get the MAD values
+            MAD_values = generator_entry["MAD"]
+
+            # save the MAD values in Yao's format
+            new_mad_file = new_mad_format_directory + file_name.replace(".edf", "") + "_mad"
+            if os.path.exists(new_mad_file):
+                raise FileExistsError("The file %s already exists. Please remove it before running the script again." % new_mad_file)
+            
+            # write the mad file
+            np.savez(new_mad_file, mad=MAD_values, starttime="01.01.2001 24:00:00", allow_pickle=False)
+
+            del MAD_values
+        except:
+            unprocessable_files.append(file_name)
+        
+    progress_bar(progressed_files, total_files, start_time)
+
+    # print unprocessable files 
+    if len(unprocessable_files) > 0:
+        print("\nThe following " + str(len(unprocessable_files)) + " files could not be reformatted:")
+        print(unprocessable_files)
+
+
+transform_to_yaos_format(
+    results_path = "Processed_NAKO/NAKO-994_Results.pkl"
+)

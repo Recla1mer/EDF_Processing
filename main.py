@@ -265,7 +265,7 @@ def Data_Processing(
             rpeak_detection.correct_rpeak_locations(**correct_rpeaks_args)
 
             retrieve_rpeak_heights_args["rpeak_function_name"] = parameters["rpeak_function_names"][i]
-            rpeak_detection.determine_rpeak_heights(**retrieve_rpeak_heights_args)
+            # rpeak_detection.determine_rpeak_heights(**retrieve_rpeak_heights_args)
 
         del detect_rpeaks_args, correct_rpeaks_args, retrieve_rpeak_heights_args
 
