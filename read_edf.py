@@ -667,7 +667,101 @@ def retrieve_file_header_information(
         print("\nFor the following " + str(len(unprocessable_files)) + " files the header information could not be retrieved:")
         print(unprocessable_files)
         print("Possible reasons (decreasing probability):")
-        print(" "*5 + "- Relevent header information not present in .edf file")
+        print(" "*5 + "- Relevant header information not present in .edf file")
 
 
-#library_overview("Data/GIF/SOMNOwatch/SL001_SL001_(1).edf")
+def nako_data_distribution(Data_Directories: list, Directory_Group_Name: list):
+    """
+    """
+
+    information = dict()
+
+    for group_dir, group_name in zip(Data_Directories, Directory_Group_Name):
+        start_dates = []
+        start_times = []
+        datarecord_durations = []
+        file_durations = []
+
+        genders = []
+        birthdates = []
+        
+        channels = []
+
+        total_files = 0
+        file_success = 0
+
+
+        for data_dir in group_dir:
+
+            print("\n Reading informations from files in %s:" % data_dir)
+            count_progress = 0
+
+            for file in os.listdir(data_dir):
+
+                if get_file_type(file) == ".edf":
+
+                    count_progress += 1
+                    print(count_progress, end="\r")
+
+                    path = data_dir + file
+                    total_files += 1
+                    if not os.path.exists(path):
+                        continue
+                    
+                    try:
+                        open_edf_file = pyedflib.EdfReader(path)
+                        start_dates.append((open_edf_file.getStartdatetime().day, open_edf_file.getStartdatetime().month, open_edf_file.getStartdatetime().year))
+                        start_times.append((open_edf_file.getStartdatetime().hour, open_edf_file.getStartdatetime().minute, open_edf_file.getStartdatetime().second))
+                        datarecord_durations.append(open_edf_file.datarecord_duration)
+                        file_durations.append(open_edf_file.getFileDuration())
+
+                        genders.append(open_edf_file.getSex())
+                        birthdates.append(open_edf_file.getBirthdate())
+
+                        needed_channels = 0
+                        this_channels = [open_edf_file.getLabel(i) for i in np.arange(open_edf_file.signals_in_file)]
+                        for chnel in this_channels:
+                            if "X" in chnel or "Y" in chnel or "Z" in chnel or "ECG" in chnel:
+                                needed_channels += 1
+                        
+                        if needed_channels == 4:
+                            channels.append(needed_channels)
+                        else:
+                            channels.append(this_channels)
+                    except:
+                        continue
+
+                    file_success += 1
+                    print(start_dates, start_times, datarecord_durations, file_durations, channels, genders, birthdates)
+                    break
+
+        information[group_name + "_start_dates"] = start_dates
+        information[group_name + "_start_times"] = start_times
+        information[group_name + "_datarecord_durations"] = datarecord_durations
+        information[group_name + "_file_durations"] = file_durations
+        information[group_name + "_genders"] = genders
+        information[group_name + "_birthdates"] = birthdates
+        information[group_name + "_channels"] = channels
+        information[group_name + "_total_files"] = total_files
+        information[group_name + "_error_files"] = total_files - file_success
+    
+    with open("nako_information", "wb") as f:
+        pickle.dump(information, f)
+
+# EDF_Data_Directories = ["/media/yaopeng/data1/NAKO-33a/", "/media/yaopeng/data1/NAKO-33b/", "/media/yaopeng/data1/NAKO-609/", "/media/yaopeng/data1/NAKO-419/", "/media/yaopeng/data1/NAKO-84/"]
+
+nako_data_distribution(
+    Data_Directories = [
+        [
+            "/media/yaopeng/data1/NAKO-33a/",
+            "/media/yaopeng/data1/NAKO-33b/",
+            "/media/yaopeng/data1/NAKO-84/"
+            "/media/yaopeng/data1/NAKO-419/",
+        ],
+        [
+            "/media/yaopeng/data1/NAKO-609/",
+            "/media/yaopeng/data2/NAKO-994/"
+        ]
+    ],
+    Directory_Group_Name = ["baseline", "follow_up"]
+)
