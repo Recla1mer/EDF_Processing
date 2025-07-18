@@ -750,18 +750,18 @@ def nako_data_distribution(Data_Directories: list, Directory_Group_Name: list):
 
 # EDF_Data_Directories = ["/media/yaopeng/data1/NAKO-33a/", "/media/yaopeng/data1/NAKO-33b/", "/media/yaopeng/data1/NAKO-609/", "/media/yaopeng/data1/NAKO-419/", "/media/yaopeng/data1/NAKO-84/"]
 
-nako_data_distribution(
-    Data_Directories = [
-        [
-            "/media/yaopeng/data1/NAKO-33a/",
-            "/media/yaopeng/data1/NAKO-33b/",
-            "/media/yaopeng/data1/NAKO-84/"
-            "/media/yaopeng/data1/NAKO-419/",
-        ],
-        [
-            "/media/yaopeng/data1/NAKO-609/",
-            "/media/yaopeng/data2/NAKO-994/"
-        ]
-    ],
-    Directory_Group_Name = ["baseline", "follow_up"]
-)
+# nako_data_distribution(
+#     Data_Directories = [
+#         [
+#             "/media/yaopeng/data1/NAKO-33a/",
+#             "/media/yaopeng/data1/NAKO-33b/",
+#             "/media/yaopeng/data1/NAKO-84/"
+#             "/media/yaopeng/data1/NAKO-419/",
+#         ],
+#         [
+#             "/media/yaopeng/data1/NAKO-609/",
+#             "/media/yaopeng/data2/NAKO-994/"
+#         ]
+#     ],
+#     Directory_Group_Name = ["baseline", "follow_up"]
+# )

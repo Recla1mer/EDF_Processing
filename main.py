@@ -7,6 +7,7 @@ Main python file for Processing EDF Data.
 # IMPORTS
 import numpy as np
 import os
+import pandas as pd
 
 # LOCAL IMPORTS
 import read_edf
@@ -641,6 +642,426 @@ def Extract_RRI_MAD(
         data_retrieval.retrieve_rri_mad_data_in_same_time_period(**retrieve_rri_mad_data_args)
 
 
+def ADD_SLP_TO_GIF(
+        gif_path: str,
+        slp_files_directory: str,
+        lights_and_time_shift_csv_path: str,
+        munich_rri_directory: str,
+        check_rpeak_similarity: bool = False,
+        min_data_length_seconds: int = 5*3600,
+        fill_ecg_gaps_threshold_seconds: int = 3*60,
+    ):
+    """
+    Adds SLP data to a GIF file.
+
+    PARAMETERS:
+    --------------------------------
+    gif_path: str
+        Path to the input GIF file.
+
+    slp_path: str
+        Path to the SLP data file.
+
+    output_path: str
+        Path to the output GIF file with SLP data added.
+
+    RETURNS:
+    --------------------------------
+    None, but the output GIF file will be created.
+    """
+
+    # load time shift and times of lights off and on
+    lights_and_time_shift = pd.read_csv(lights_and_time_shift_csv_path, sep=" ")
+
+    # access preprocessed GIF data
+    results_generator = load_from_pickle(gif_path)
+
+    for data_dict in results_generator:
+        # add Rpeak from Munich for sections where original were missing
+        patient_id = data_dict["ID"]
+        
+        valid_ecg_regions = data_dict["valid_ecg_regions"]
+        hamilton_rpeaks = np.unique(data_dict["hamilton"])
+        rec_date = data_dict["start_date"]
+        rec_time = data_dict["start_time"]
+        ecg_sampling_frequency = data_dict["ECG_frequency"]
+        # print(rec_date, rec_time, patient_id)
+        
+        munich_rri_path = munich_rri_directory + patient_id
+        
+        if not os.path.isfile(munich_rri_path):
+            continue
+
+        open_munich_file = open(munich_rri_path, "rb")
+        rri_file_lines = open_munich_file.readlines()
+        open_munich_file.close()
+
+        munich_rpeaks = list()
+
+        header_finished = False
+        for line in rri_file_lines:
+            line = line.decode("utf-8").strip()
+
+            if line[0:9] == "rec-date=":
+                munich_rec_date = line[9:]
+                munich_rec_date = str(int(munich_rec_date[-4:])) + "-" + str(int(munich_rec_date[3:5])) + "-" + str(int(munich_rec_date[0:2]))
+            elif line[0:9] == "rec-time=":
+                munich_rec_time = line[9:]
+                munich_rec_time = str(int(munich_rec_time[0:2])) + ":" + str(int(munich_rec_time[3:5])) + ":" + str(int(munich_rec_time[6:8]))
+            elif line[0] == "-":
+                header_finished = True
+                continue
+
+            if header_finished:
+                for string_position in range(0, len(line)):
+                    if not line[string_position].isdigit():
+                        munich_rpeaks.append(int(line[0:string_position]))
+                        break
+        
+        munich_rpeaks = np.unique(munich_rpeaks)
+
+        if munich_rec_date != rec_date or munich_rec_time != rec_time:
+            print("Munich RRI file date/time does not match GIF data:", munich_rec_date, munich_rec_time, "vs", rec_date, rec_time)
+            continue
+
+        rec_time_numbers = rec_time.split(":")
+        if len(rec_time_numbers) == 3:
+            somno_start_time_seconds = int(rec_time_numbers[0]) * 3600 + int(rec_time_numbers[1]) * 60 + int(rec_time_numbers[2])
+        elif len(rec_time_numbers) == 2:
+            somno_start_time_seconds = int(rec_time_numbers[0]) * 60 + int(rec_time_numbers[1])
+        end_somno_time_seconds = somno_start_time_seconds + hamilton_rpeaks[-1]/ecg_sampling_frequency
+            
+        if check_rpeak_similarity:
+            # check rpeak differences
+            total_difference = 0
+            number_of_differences = 0
+            upper_bound_hamilton = len(hamilton_rpeaks) - 1
+            upper_bound_munich = len(munich_rpeaks) - 1
+
+            for ham_rpeak_pos in range(len(hamilton_rpeaks)):
+                print(ham_rpeak_pos, end="\r")
+
+                min_difference = hamilton_rpeaks[-1]
+                last_position = 0
+                for mu_rpeak_pos in range(last_position, len(munich_rpeaks)):
+                    this_difference = abs(munich_rpeaks[mu_rpeak_pos] - hamilton_rpeaks[ham_rpeak_pos])
+                    if this_difference < min_difference:
+                        min_difference = this_difference
+                    else:
+                        total_difference += min_difference
+                        number_of_differences += 1
+                        last_position = mu_rpeak_pos + 1
+                        if mu_rpeak_pos + 1 >= upper_bound_munich or ham_rpeak_pos + 1 >= upper_bound_hamilton:
+                            break
+                        min_difference = abs(munich_rpeaks[mu_rpeak_pos] - hamilton_rpeaks[ham_rpeak_pos + 1])
+                        break
+            
+            if number_of_differences > 0:
+                print(patient_id, total_difference / number_of_differences)
+            else:
+                print(patient_id, "No differences found")
+        
+            # check munich rpeaks outside of valid ecg regions
+            mu_outside_valid_regions = [[] for _ in range(len(valid_ecg_regions)+1)]
+            for mu_rpeak in munich_rpeaks:
+                if mu_rpeak < valid_ecg_regions[0][0]:
+                    mu_outside_valid_regions[0].append(mu_rpeak)
+                else:
+                    break
+            for mu_rpeak_position in range(len(munich_rpeaks)):
+                mu_rpeak = munich_rpeaks[mu_rpeak_position]
+                # check if the rpeak is within a valid region
+                for valid_region_position in range(len(valid_ecg_regions)):
+                    if valid_ecg_regions[valid_region_position-1][1] < mu_rpeak < valid_ecg_regions[valid_region_position][0]:
+                        mu_outside_valid_regions[valid_region_position+1].append(mu_rpeak)
+                        break
+                if mu_rpeak > valid_ecg_regions[-1][1]:
+                    break
+            for mu_position in range(mu_rpeak_position, len(munich_rpeaks)):
+                mu_outside_valid_regions[-1].append(munich_rpeaks[mu_position])
+
+            mu_outside_valid_regions_distances = [[mu_outside_valid_regions[j][i+1] - mu_outside_valid_regions[j][i] for i in range(len(mu_outside_valid_regions[j])-1)] for j in range(len(mu_outside_valid_regions))]
+            for distance_array in mu_outside_valid_regions_distances:
+                if len(distance_array) == 0:
+                    distance_array.append(-1)
+            mu_outside_valid_regions_mean_distance = [np.mean(mu_outside_valid_regions_distances[j]) for j in range(len(mu_outside_valid_regions_distances)) if len(mu_outside_valid_regions_distances[j]) > 0]
+
+            print(patient_id)
+            print(valid_ecg_regions)
+            print(mu_outside_valid_regions_mean_distance)
+        
+        # load SLP data
+        slp_file_path = slp_files_directory + patient_id + ".slp"
+        if not os.path.isfile(slp_file_path):
+            print("SLP file not found for patient:", patient_id)
+            continue
+
+        slp_file = open(slp_file_path, "rb")
+        slp_file_lines = slp_file.readlines()
+        slp_file.close()
+
+        numbers = ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "."]
+
+        first_slp_line = slp_file_lines[0].decode("utf-8").strip()
+        final_index = len(first_slp_line)
+        for char_pos in range(len(first_slp_line)):
+            if first_slp_line[char_pos] not in numbers:
+                final_index = char_pos
+                break
+        slp_start_time_psg = first_slp_line[0:final_index]
+        slp_start_time_seconds_psg = float(slp_start_time_psg) * 3600
+
+        last_slp_line = slp_file_lines[-1].decode("utf-8").strip()
+        final_index = len(last_slp_line)
+        for char_pos in range(len(last_slp_line)):
+            if last_slp_line[char_pos] not in numbers:
+                final_index = char_pos
+                break
+        slp_end_time_psg = last_slp_line[0:final_index]
+        slp_end_time_seconds_psg = float(slp_end_time_psg) * 3600
+
+        del numbers, first_slp_line, last_slp_line, final_index
+
+        slp = list()
+        for slp_line in slp_file_lines:
+            slp_line = slp_line.decode("utf-8").strip()
+            if len(slp_line) > 1:
+                continue
+            slp.append(int(slp_line))
+
+        # access time shift of this patient
+        time_shift = lights_and_time_shift[lights_and_time_shift["subject"] == patient_id]["time_shift"].values
+        lights_off = lights_and_time_shift[lights_and_time_shift["subject"] == patient_id]["lights_off"].values
+        lights_on = lights_and_time_shift[lights_and_time_shift["subject"] == patient_id]["lights_on"].values
+        slope = lights_and_time_shift[lights_and_time_shift["subject"] == patient_id]["slope"].values
+        if len(time_shift) == 0:
+            time_shift, lights_off, lights_on, slope = 0, 0, 0, 0
+        else:
+            time_shift = float(time_shift[0])
+            lights_off = float(lights_off[0])
+            lights_on = float(lights_on[0])
+            slope = float(slope[0])
+        
+        # synchronize ECG data with PSG data (psg time = somno time + shift + slope * (somno time - 2h))
+        # somno time = (psg time + slope * 2h - shift) / (1 + slope)
+        # shift and slope constants => psg1 - psg2 = (somno1 - somno2) (1 + slope)
+        # => RRI = rpeak2 - rpeak1 => change rpeak locations (time in somno) according formula: rpeak = rpeak (1 + slope)
+        #COMMENTS ABOVE NOT IMPORTANT ANYMORE, COMPLETE SYNCHRONIZATION NOT POSSIBLE AS MAD ALREADY CALCULATED
+
+        # synchronize ECG data with PSG data (psg time = somno time + shift + slope * (somno time - 2h))
+
+        # MAIN PROBLEM: MAD Calculated before synchronization, interpolation not possible due to MAD formula
+        # RRI already synchronized on MAD time points
+        # SLP values must be shifted in time to be in sync (low error: MAD every 1s -> Maximum distance = 0.5s = 1/60 SLP stage 'area')
+        
+        # access MAD and RRI (already synchronized, but not in same shape)
+        basic_RRI = data_dict["RRI"]
+        RRI_frequency = data_dict["RRI_frequency"]
+        basic_MAD = data_dict["MAD"]
+        MAD_frequency = data_dict["MAD_frequency"]
+
+        synchronized_RRI = list()
+        synchronized_MAD = list()
+        synchronized_SLP = list()
+        synchronized_signals_start_time_seconds_somno = list()
+
+        # psg time = somno time + shift + slope * (somno time - 2h)
+        # somno time = (psg time + slope * 2h - shift) / (1 + slope)
+        slp_start_time_seconds_somno = (slp_start_time_seconds_psg + slope * 7200 - time_shift) / (1 + slope)
+        somno_psg_start_time_distance_somno = somno_start_time_seconds - slp_start_time_seconds_somno
+
+        print(valid_ecg_regions)
+        print((np.array(valid_ecg_regions)/ecg_sampling_frequency+somno_start_time_seconds)/3600)
+
+        data_time_region = list()
+
+        for i in range(len(valid_ecg_regions)):
+            valid_interval = valid_ecg_regions[i]
+
+            # find first signal position within valid ecg region that is shared by all signals (time point where each signal writes the next value)
+            # look in rri calculation: rri start is equal to first_shared_signal_position, not valid_interval[0]
+            first_shared_signal_position = find_time_point_shared_by_signals(
+                signal_position = valid_interval[0],
+                signal_sampling_frequency = ecg_sampling_frequency,
+                other_sampling_frequencies = [RRI_frequency, MAD_frequency],
+                update_position_by = int(1)
+            )
+
+            # find slp time point that comes after time point of first shared signal position
+            first_shared_signal_position_time_seconds = first_shared_signal_position / ecg_sampling_frequency
+            upper_slp_time = slp_start_time_seconds_somno - somno_start_time_seconds
+            if slp_start_time_seconds_somno > first_shared_signal_position_time_seconds:
+                while True:
+                    if upper_slp_time < first_shared_signal_position_time_seconds:
+                        upper_slp_time += 30
+                        break
+                    upper_slp_time -= 30
+            else:
+                while True:
+                    if upper_slp_time > first_shared_signal_position_time_seconds:
+                        break
+                    upper_slp_time += 30
+            
+            # now (as step size is lower) find signal position closest to the upper_slp_time
+            upper_slp_time_in_ecg = upper_slp_time * ecg_sampling_frequency
+            last_distance = abs(upper_slp_time_in_ecg - first_shared_signal_position)
+            update_signal_position = first_shared_signal_position
+            while True:
+                current_distance = abs(upper_slp_time_in_ecg - update_signal_position)
+                if current_distance > last_distance:
+                    update_signal_position -= ecg_sampling_frequency
+                    break
+                
+                last_distance = current_distance
+                update_signal_position += ecg_sampling_frequency
+
+            skip_datapoints = update_signal_position - first_shared_signal_position
+            first_shared_signal_position = update_signal_position
+
+            # find amount of datapoints so that a whole number of RRI, MAD and SLP values fit into interval without exceeding valid_interval[1]
+            for j in range(valid_interval[1], -1, -1):
+                this_distance_seconds = (j - first_shared_signal_position) / ecg_sampling_frequency
+                all_frequencies_fit = True
+                for frequency in [RRI_frequency, MAD_frequency, 1/30]:
+                    if (this_distance_seconds * frequency) % 1 != 0:
+                        all_frequencies_fit = False
+                        break
+                if all_frequencies_fit:
+                    last_shared_signal_position = j
+                    break
+            
+            data_time_region.append((first_shared_signal_position, last_shared_signal_position))
+
+            synchronized_RRI.append(basic_RRI[i][int(skip_datapoints*RRI_frequency/ecg_sampling_frequency) : int((last_shared_signal_position-first_shared_signal_position+skip_datapoints)*RRI_frequency/ecg_sampling_frequency)])
+            synchronized_MAD.append(basic_MAD[int(first_shared_signal_position*MAD_frequency/ecg_sampling_frequency) : int(last_shared_signal_position*MAD_frequency/ecg_sampling_frequency)])
+            synchronized_signals_start_time_seconds_somno.append(int(first_shared_signal_position/ecg_sampling_frequency))
+
+            # retreive SLP values in the same time period
+            number_required_slp_values = int((last_shared_signal_position-first_shared_signal_position)/30/ecg_sampling_frequency)
+            start_index_slp = int(round((first_shared_signal_position/ecg_sampling_frequency + somno_psg_start_time_distance_somno) / 30))
+            this_slp_values = list()
+            
+            for j in range(start_index_slp, number_required_slp_values+start_index_slp):
+                if j < 0 or j >= len(slp):
+                    this_slp_values.append(0)
+                else:
+                    this_slp_values.append(slp[j])
+            
+            synchronized_SLP.append(this_slp_values)
+        
+        for i in range(len(synchronized_RRI)):
+            print(len(synchronized_RRI[i])/RRI_frequency, len(synchronized_MAD[i])/MAD_frequency, len(synchronized_SLP[i])*30)
+        
+        if fill_ecg_gaps_threshold_seconds > 0:
+            ecg_gaps = []
+            for i in range(len(data_time_region)-1):
+                ecg_gaps.append((data_time_region[i+1][0] - data_time_region[i][1])/ecg_sampling_frequency)
+            
+            print(ecg_gaps)
+
+            filled_gaps_RRI = list([] for _ in range(len(synchronized_RRI)))
+            filled_gaps_RRI[0] = list(synchronized_RRI[0])
+            filled_gaps_MAD = list([] for _ in range(len(synchronized_MAD)))
+            filled_gaps_MAD[0] = list(synchronized_MAD[0])
+            filled_gaps_SLP = list([] for _ in range(len(synchronized_SLP)))
+            filled_gaps_SLP[0] = list(synchronized_SLP[0])
+
+            append_to = 0
+            for i in range(1, len(synchronized_RRI)):
+                # fill gaps in RRI, MAD and SLP data
+                if ecg_gaps[i-1] > fill_ecg_gaps_threshold_seconds:
+                    append_to += 1
+                    # fill gaps with artifact values
+                else:
+                    filled_gaps_RRI[append_to].extend([0 for _ in range(int(ecg_gaps[i-1] * RRI_frequency))])
+                    filled_gaps_MAD[append_to].extend([0 for _ in range(int(ecg_gaps[i-1] * MAD_frequency))])
+                    filled_gaps_SLP[append_to].extend([0 for _ in range(int(ecg_gaps[i-1] / 30))])
+
+                filled_gaps_RRI[append_to].extend(synchronized_RRI[i])
+                filled_gaps_MAD[append_to].extend(synchronized_MAD[i])
+                filled_gaps_SLP[append_to].extend(synchronized_SLP[i])
+            
+            for i in range(len(filled_gaps_RRI)-1, -1, -1):
+                if len(filled_gaps_RRI[i]) == 0:
+                    filled_gaps_RRI.pop(i)
+                if len(filled_gaps_MAD[i]) == 0:
+                    filled_gaps_MAD.pop(i)
+                if len(filled_gaps_SLP[i]) == 0:
+                    filled_gaps_SLP.pop(i)
+        else:
+            filled_gaps_RRI = synchronized_RRI
+            filled_gaps_MAD = synchronized_MAD
+            filled_gaps_SLP = synchronized_SLP
+        
+        for i in range(len(filled_gaps_RRI)):
+            print(len(filled_gaps_RRI[i])/RRI_frequency, len(filled_gaps_MAD[i])/MAD_frequency, len(filled_gaps_SLP[i])*30)
+
+        # create new datapoints and save them
+        for i in range(len(filled_gaps_RRI)):
+            new_data_dict = dict()
+            if i >= 1:
+                new_data_dict["ID"] = patient_id + "_" + str(i)
+            else:
+                new_data_dict["ID"] = patient_id
+            
+            new_data_dict["start_time_somno"] = rec_time
+            new_data_dict["start_time_psg"] = psg_start_time_seconds
+            new_data_dict["end_time_psg"] = psg_end_time_seconds
+            new_data_dict["start_time_somno"] = somno_start_time_seconds
+            new_data_dict["end_time_somno"] = somno_end_time_seconds
+
+        # whatever weird shit odd ass number results from this formula is our new 0
+        # slp_start_time_seconds_somno = (slp_start_time_seconds_psg + slope * 7200 - time_shift) / (1 + slope)
+        # print(slp_start_time_seconds_psg, slp_start_time_seconds_somno)
+
+        break
+
+        for valid_interval in valid_ecg_regions:
+            # retrieve the next closest time point which synchronizes start times of SOMNOwatch (RPeak) and PSG (SLP)
+            # and chooses rri start time so that rri and slp values end up on same time points
+            start_slp_time_somno = (psg_start_time_seconds + slope * 7200 - time_shift) / (1 + slope)
+            break
+
+            valid_ecg_time_start_somno = valid_interval[0]/256
+            valid_ecg_time_end_somno = valid_interval[1]/256
+
+            valid_ecg_time_start_psg = valid_ecg_time_start_somno + time_shift + slope * (valid_ecg_time_start_somno - 7200)
+
+            if somno_start_time_seconds + valid_ecg_time_start_somno + time_shift < lights_on:
+                # if the start time of the valid interval is before lights on, we cannot synchronize it
+                continue
+            this_time_point = find_time_point_shared_by_signals(
+                signal_position = valid_interval[0],
+                signal_sampling_frequency = 256,
+                other_sampling_frequencies = [data_dict["RRI_frequency"], data_dict["MAD_frequency"], 1/30]
+            )
+
+            this_length = valid_interval[1] - valid_interval[0]
+
+            # get the rpeaks in the valid interval and shift them to the start of the interval to ensure the rri is calculated correctly
+            this_rpeaks = np.array([peak for peak in rpeaks if valid_interval[0] <= peak <= valid_interval[1]])
+            this_rpeaks = this_rpeaks - this_time_point
+
+            # calculate the rri
+            this_rri = calculate_rri_from_peaks(
+                rpeaks = this_rpeaks, # type: ignore
+                ecg_sampling_frequency = ecg_sampling_frequency,
+                target_sampling_frequency = RRI_sampling_frequency,
+                signal_length = this_length,
+                pad_with = pad_with
+            )
+
+            # correct rri values which are outside of the realistic range
+            for i in range(len(this_rri)):
+                if this_rri[i] < realistic_rri_value_range[0] or this_rri[i] > realistic_rri_value_range[1]:
+                    this_rri[i] = pad_with
+
+            rri.append(this_rri)
+
+        # print(munich_rec_date, munich_rec_time)
+        print(patient_id, int(float(psg_end_time)*3600-float(psg_start_time)*3600-len(slp)*30), int(float(lights_off)*3600-float(lights_on+24)*3600-len(slp)*30))
+        break
+
 """
 -------------
 MAIN SECTION
@@ -648,6 +1069,15 @@ MAIN SECTION
 """
 
 if __name__ == "__main__":
+
+    ADD_SLP_TO_GIF(
+        gif_path = "Data/GIF/GIF.pkl",
+        slp_files_directory = "Data/GIF/PSG_GIF/",
+        lights_and_time_shift_csv_path = "Data/GIF/GIF-lights.csv",
+        munich_rri_directory = "Data/GIF/Rpeak_GIF_Munich/"
+    )
+
+    raise SystemExit
 
     # process GIF data
     Data_Processing_and_Comparing(
