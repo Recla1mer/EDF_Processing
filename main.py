@@ -965,12 +965,14 @@ def ADD_SLP_TO_GIF(
             filled_gaps_MAD[0] = list(synchronized_MAD[0])
             filled_gaps_SLP = list([] for _ in range(len(synchronized_SLP)))
             filled_gaps_SLP[0] = list(synchronized_SLP[0])
+            filled_gaps_data_times = [list(data_time_region[0])]
 
             append_to = 0
             for i in range(1, len(synchronized_RRI)):
                 # fill gaps in RRI, MAD and SLP data
                 if ecg_gaps[i-1] > fill_ecg_gaps_threshold_seconds:
                     append_to += 1
+                    filled_gaps_data_times.append(list(data_time_region[i]))
                     # fill gaps with artifact values
                 else:
                     filled_gaps_RRI[append_to].extend([0 for _ in range(int(ecg_gaps[i-1] * RRI_frequency))])
@@ -995,6 +997,8 @@ def ADD_SLP_TO_GIF(
         
         for i in range(len(filled_gaps_RRI)):
             print(len(filled_gaps_RRI[i])/RRI_frequency, len(filled_gaps_MAD[i])/MAD_frequency, len(filled_gaps_SLP[i])*30)
+        
+        print(filled_gaps_data_times)
 
         # create new datapoints and save them
         for i in range(len(filled_gaps_RRI)):
@@ -1003,64 +1007,22 @@ def ADD_SLP_TO_GIF(
                 new_data_dict["ID"] = patient_id + "_" + str(i)
             else:
                 new_data_dict["ID"] = patient_id
-            
-            new_data_dict["start_time_somno"] = rec_time
-            new_data_dict["start_time_psg"] = psg_start_time_seconds
-            new_data_dict["end_time_psg"] = psg_end_time_seconds
-            new_data_dict["start_time_somno"] = somno_start_time_seconds
-            new_data_dict["end_time_somno"] = somno_end_time_seconds
 
-        # whatever weird shit odd ass number results from this formula is our new 0
-        # slp_start_time_seconds_somno = (slp_start_time_seconds_psg + slope * 7200 - time_shift) / (1 + slope)
-        # print(slp_start_time_seconds_psg, slp_start_time_seconds_somno)
+            this_start_time_somno = filled_gaps_data_times[i][0] / ecg_sampling_frequency + somno_start_time_seconds
+            this_end_time_somno = filled_gaps_data_times[i][1] / ecg_sampling_frequency + somno_start_time_seconds
 
-        break
+            new_data_dict["start_date"] = rec_date
+            new_data_dict["start_time_somno"] = this_start_time_somno
+            new_data_dict["start_time_psg"] = this_start_time_somno + time_shift + slope * (this_start_time_somno - 7200)
+            new_data_dict["end_time_somno"] = this_end_time_somno
+            new_data_dict["end_time_psg"] = this_end_time_somno + time_shift + slope * (this_end_time_somno - 7200)
 
-        for valid_interval in valid_ecg_regions:
-            # retrieve the next closest time point which synchronizes start times of SOMNOwatch (RPeak) and PSG (SLP)
-            # and chooses rri start time so that rri and slp values end up on same time points
-            start_slp_time_somno = (psg_start_time_seconds + slope * 7200 - time_shift) / (1 + slope)
-            break
-
-            valid_ecg_time_start_somno = valid_interval[0]/256
-            valid_ecg_time_end_somno = valid_interval[1]/256
-
-            valid_ecg_time_start_psg = valid_ecg_time_start_somno + time_shift + slope * (valid_ecg_time_start_somno - 7200)
-
-            if somno_start_time_seconds + valid_ecg_time_start_somno + time_shift < lights_on:
-                # if the start time of the valid interval is before lights on, we cannot synchronize it
-                continue
-            this_time_point = find_time_point_shared_by_signals(
-                signal_position = valid_interval[0],
-                signal_sampling_frequency = 256,
-                other_sampling_frequencies = [data_dict["RRI_frequency"], data_dict["MAD_frequency"], 1/30]
-            )
-
-            this_length = valid_interval[1] - valid_interval[0]
-
-            # get the rpeaks in the valid interval and shift them to the start of the interval to ensure the rri is calculated correctly
-            this_rpeaks = np.array([peak for peak in rpeaks if valid_interval[0] <= peak <= valid_interval[1]])
-            this_rpeaks = this_rpeaks - this_time_point
-
-            # calculate the rri
-            this_rri = calculate_rri_from_peaks(
-                rpeaks = this_rpeaks, # type: ignore
-                ecg_sampling_frequency = ecg_sampling_frequency,
-                target_sampling_frequency = RRI_sampling_frequency,
-                signal_length = this_length,
-                pad_with = pad_with
-            )
-
-            # correct rri values which are outside of the realistic range
-            for i in range(len(this_rri)):
-                if this_rri[i] < realistic_rri_value_range[0] or this_rri[i] > realistic_rri_value_range[1]:
-                    this_rri[i] = pad_with
-
-            rri.append(this_rri)
-
-        # print(munich_rec_date, munich_rec_time)
-        print(patient_id, int(float(psg_end_time)*3600-float(psg_start_time)*3600-len(slp)*30), int(float(lights_off)*3600-float(lights_on+24)*3600-len(slp)*30))
-        break
+            new_data_dict["RRI"] = filled_gaps_RRI[i]
+            new_data_dict["RRI_frequency"] = RRI_frequency
+            new_data_dict["MAD"] = filled_gaps_MAD[i]
+            new_data_dict["MAD_frequency"] = MAD_frequency
+            new_data_dict["SLP"] = filled_gaps_SLP[i]
+            new_data_dict["SLP_frequency"] = 1/30  # SLP is sampled every 30 seconds
 
 """
 -------------
