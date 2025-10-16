@@ -1053,7 +1053,7 @@ def ADD_RRI_MAD_APNEA(
 
         # create SAE data
         sae_data = pd.read_csv(sae_file_path, sep=",")
-        all_apnea_classes = ['Hypopnea', 'Obstructive Apnea', 'Mixed Apnea', 'Central Apnea', 'Central Hypopnea', 'Obstructive Hypopnea', 'Apnea']
+        all_apnea_classes = ['Apnea', 'Obstructive Apnea', 'Central Apnea', 'Mixed Apnea', 'Hypopnea', 'Obstructive Hypopnea', 'Central Hypopnea']
 
         no_apnea_events = True
         if len(sae_data.values) > 0:
@@ -1074,7 +1074,7 @@ def ADD_RRI_MAD_APNEA(
                     sae_end_time = event_end
             
             sae_duration = better_int((sae_end_time-sae_start_time).total_seconds())
-            sae_array = [[0] for _ in range(sae_duration)]
+            sae_array = [0 for _ in range(sae_duration)]
 
             sae_start_time_seconds = sae_start_time.hour * 3600 + sae_start_time.minute * 60 + sae_start_time.second
             start_date_difference = (sae_start_time.date() - somno_start_date.date()).days
@@ -1091,12 +1091,12 @@ def ADD_RRI_MAD_APNEA(
                 event_start_index = better_int((event_start-sae_start_time).total_seconds())
                 event_end_index = better_int((event_end-sae_start_time).total_seconds())
                 for i in range(event_start_index, event_end_index):
-                    if sae_array[i] != [0] and sae_array[i] != [apnea_event]:
+                    if sae_array[i] != 0 and sae_array[i] != apnea_event:
                         count_conflict += 1
-                        sae_array[i].append(apnea_event)
+                        sae_array[i] = max(sae_array[i], apnea_event)
                     else:
-                        sae_array[i] = [apnea_event]
-                    
+                        sae_array[i] = apnea_event
+
                     count_events += 1
 
         # access time shift of this patient
@@ -1192,7 +1192,7 @@ def ADD_RRI_MAD_APNEA(
 
             for i in range(start_index_sae, number_sae_values_in_valid_region+start_index_sae):
                 if i < 0 or i >= len(sae_array): # type: ignore
-                    sae_values_in_valid_region.append([0])
+                    sae_values_in_valid_region.append(0)
                 else:
                     sae_values_in_valid_region.append(sae_array[i])
 
@@ -2394,12 +2394,10 @@ if __name__ == "__main__":
     #     new_directory = "Data/GIF/SAE_Somnoscreen/"
     # )
     
-    apnea_info()
-
-    raise SystemExit
+    # apnea_info()
 
     ADD_RRI_MAD_APNEA(
-        new_save_file_path = "gif_apnea_test.pkl",
+        new_save_file_path = "gif_sleep_apnea_events.pkl",
         results_path = "Data/GIF/GIF.pkl",
         gif_data_directory = "Data/GIF/SOMNOwatch/",
         lights_and_time_shift_csv_path = "Data/GIF/GIF-lights.csv",
@@ -2417,7 +2415,7 @@ if __name__ == "__main__":
 
     path = "Data/GIF/all_apnea_events/"
 
-    all_apnea_classes = ['Hypopnea', 'Obstructive Apnea', 'Mixed Apnea', 'Central Apnea', 'Central Hypopnea', 'Obstructive Hypopnea', 'Apnea']
+    all_apnea_classes = ['Apnea', 'Obstructive Apnea', 'Central Apnea', 'Mixed Apnea', 'Hypopnea', 'Obstructive Hypopnea', 'Central Hypopnea']
     files = os.listdir(path)
     for apnea_file in files:
         if not apnea_file.endswith(".csv"):
