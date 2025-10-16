@@ -1053,6 +1053,7 @@ def ADD_RRI_MAD_APNEA(
 
         # create SAE data
         sae_data = pd.read_csv(sae_file_path, sep=",")
+        #
         all_apnea_classes = ['Apnea', 'Obstructive Apnea', 'Central Apnea', 'Mixed Apnea', 'Hypopnea', 'Obstructive Hypopnea', 'Central Hypopnea']
 
         no_apnea_events = True
@@ -1098,6 +1099,8 @@ def ADD_RRI_MAD_APNEA(
                         sae_array[i] = apnea_event
 
                     count_events += 1
+            
+            print(f"Patient {patient_id} has {count_events} apnea events with {count_conflict} conflicts. (Relative conflicts: {count_conflict/count_events:.2%})")
 
         # access time shift of this patient
         time_shift = lights_and_time_shift[lights_and_time_shift["subject"] == patient_id]["time_shift"].values
@@ -1146,7 +1149,7 @@ def ADD_RRI_MAD_APNEA(
         somno_start_time_seconds_psg = somno_start_time_seconds_somno + time_shift + slope * (somno_start_time_seconds_somno - 7200)
         
         hamilton_rpeaks_somno = np.unique(data_dict["hamilton"])
-        hamilton_rpeaks_seconds_psg = [(somno_start_time_seconds_psg + peak/ecg_sampling_frequency) + time_shift + slope * ((somno_start_time_seconds_psg + peak/ecg_sampling_frequency) - 7200) for peak in hamilton_rpeaks_somno]
+        hamilton_rpeaks_seconds_psg = [(somno_start_time_seconds_somno + peak/ecg_sampling_frequency) + time_shift + slope * ((somno_start_time_seconds_somno + peak/ecg_sampling_frequency) - 7200) for peak in hamilton_rpeaks_somno]
 
         # print(patient_id, time_shift, somno_start_time_seconds_psg, slp_start_time_seconds_psg)
         # print(valid_ecg_regions_somno)
@@ -1154,14 +1157,16 @@ def ADD_RRI_MAD_APNEA(
 
         for valid_region in valid_ecg_regions_somno:
             # transform valid ecg region into psg times
-            valid_region_psg = [(somno_start_time_seconds_psg + valid_region[0]/ecg_sampling_frequency) + time_shift + slope * ((somno_start_time_seconds_psg + valid_region[0]/ecg_sampling_frequency) - 7200),
-                                (somno_start_time_seconds_psg + valid_region[1]/ecg_sampling_frequency) + time_shift + slope * ((somno_start_time_seconds_psg + valid_region[1]/ecg_sampling_frequency) - 7200)]
+            valid_region_psg = [(somno_start_time_seconds_somno + valid_region[0]/ecg_sampling_frequency) + time_shift + slope * ((somno_start_time_seconds_somno + valid_region[0]/ecg_sampling_frequency) - 7200),
+                                (somno_start_time_seconds_somno + valid_region[1]/ecg_sampling_frequency) + time_shift + slope * ((somno_start_time_seconds_somno + valid_region[1]/ecg_sampling_frequency) - 7200)]
 
             # print(np.array(valid_region_psg))
 
             # access first time point in valid ecg region that is in sync with the SLP data
             if no_apnea_events:
                 first_sae_value_in_valid_region = valid_region_psg[0]
+                sae_start_time_seconds = valid_region_psg[0]
+                sae_array = []
             else:
                 if sae_start_time_seconds > valid_region_psg[0]: # type: ignore
                     number_sae_values = int((sae_start_time_seconds - valid_region_psg[0]) * SAE_frequency) # type: ignore
@@ -1227,25 +1232,20 @@ def ADD_RRI_MAD_APNEA(
             synchronized_RRI.append(rri_values_in_valid_region)
 
             # calculate MAD from wrist acceleration data in valid ecg regions
-            first_sae_value_in_valid_region_somno = (first_sae_value_in_valid_region + slope * 7200 - time_shift) / (1 + slope)
-            last_sae_value_in_valid_region_somno = (last_sae_value_in_valid_region + slope * 7200 - time_shift) / (1 + slope)
-
-            valid_interval_size_seconds_somno = last_sae_value_in_valid_region_somno - first_sae_value_in_valid_region_somno
-            number_mad_values_in_valid_region = int(valid_interval_size_seconds_psg * MAD_frequency)
-            number_acceleration_values_in_valid_region = int(valid_interval_size_seconds_psg * acceleration_sample_frequency)
-            corrected_mad_frequency = number_mad_values_in_valid_region / valid_interval_size_seconds_somno
-            corrected_acc_frequency = number_acceleration_values_in_valid_region / valid_interval_size_seconds_somno
-
-            mad_borders_in_acc = [[int(np.ceil((time_somno - somno_start_time_seconds_somno) * corrected_acc_frequency)), int(np.ceil((time_somno + 1/MAD_frequency - somno_start_time_seconds_somno) * corrected_acc_frequency))] for time_somno in np.arange(first_sae_value_in_valid_region_somno, last_sae_value_in_valid_region_somno, 1/corrected_mad_frequency)]
-            if mad_borders_in_acc[-1][0] > (last_sae_value_in_valid_region_somno - somno_start_time_seconds_somno) * corrected_acc_frequency:
-                mad_borders_in_acc.pop(-1)
-            # print(mad_borders_in_acc[0], mad_borders_in_acc[-1], (first_sae_value_in_valid_region_somno - somno_start_time_seconds_somno) * corrected_acc_frequency, (last_sae_value_in_valid_region_somno - somno_start_time_seconds_somno) * corrected_acc_frequency)
-            if len(mad_borders_in_acc) != number_mad_values_in_valid_region:
-                raise ValueError("Number of MAD borders in acceleration data does not match the expected number of MAD values in valid region.")
+            number_mad_values_in_valid_region = better_int(valid_interval_size_seconds_psg * MAD_frequency)
+            mad_acc_borders_psg = [[first_sae_value_in_valid_region + i/MAD_frequency, first_sae_value_in_valid_region + (i+1)/MAD_frequency] for i in range(number_mad_values_in_valid_region)] # type: ignore
+            mad_acc_borders_somno = [[(border[0] + slope * 7200 - time_shift) / (1 + slope), (border[1] + slope * 7200 - time_shift) / (1 + slope)] for border in mad_acc_borders_psg] # type: ignore
+            mad_acc_borders_num = [[int((border[0] - somno_start_time_seconds_somno) * acceleration_sample_frequency), int(np.ceil((border[1] - somno_start_time_seconds_somno) * acceleration_sample_frequency))] for border in mad_acc_borders_somno] # type: ignore
+            if mad_acc_borders_num[0][0] < 0:
+                mad_acc_borders_num[0][0] = 0
+                if mad_acc_borders_num[0][1] < 0:
+                    raise ValueError("Something went wrong.")
+            if mad_acc_borders_num[-1][1] > len(x_acceleration):
+                raise ValueError("Something went wrong.")
 
             # calculate MAD for each segment
             mad_values_in_valid_region = list()
-            for segment in mad_borders_in_acc:    
+            for segment in mad_acc_borders_num:    
                 mad_values_in_valid_region.append(MAD.calc_mad_in_interval(
                     acceleration_data_lists=[x_acceleration, y_acceleration, z_acceleration],
                     start_position=segment[0],
