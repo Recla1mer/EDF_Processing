@@ -5,8 +5,13 @@ Python file containing functions that plot data for this project.
 """
 
 # IMPORTS
+import read_edf
+
 import copy
+import os
 import numpy as np
+import random
+from datetime import datetime, timedelta
 
 import matplotlib
 import matplotlib.pyplot as plt
@@ -49,7 +54,7 @@ def simple_plot(data_x, data_y, **kwargs):
     """
 
     # Default values
-    kwargs.setdefault("figsize", [3.4, 2.7])
+    kwargs.setdefault("figsize", matplotlib.rcParams["figure.figsize"])
     kwargs.setdefault("title", "")
     kwargs.setdefault("xlabel", "")
     kwargs.setdefault("ylabel", "")
@@ -92,7 +97,7 @@ def simple_plot(data_x, data_y, **kwargs):
     plt.ylim(kwargs["ylim"])
     plt.xlim(kwargs["xlim"])
     
-    return plt
+    plt.show()
 
 
 def plot_calibration_data(data_y, data_x, save_path, **kwargs):
@@ -687,3 +692,312 @@ def plot_simple_histogram(
     ax.legend(title=kwargs["label_title"], labels=kwargs["label"], loc=kwargs["loc"])
     ax.set_title(kwargs["title"])
     plt.show()
+
+
+def plot_eeg(plot_stage: str = "w", include_eeg = ["f4-m1", "c4-m1", "o2-m1", "c3-m2"], **kwargs):
+
+    f = read_edf.pyedflib.EdfReader("Data/SN001.edf")
+    signal_labels = f.getSignalLabels()
+    
+    start_time = f.getStartdatetime()
+    
+    eeg_f4_m1 = f.readSignal(signal_labels.index("EEG F4-M1"))
+    eeg_c4_m1 = f.readSignal(signal_labels.index("EEG C4-M1"))
+    eeg_o2_m1 = f.readSignal(signal_labels.index("EEG O2-M1"))
+    eeg_c3_m2 = f.readSignal(signal_labels.index("EEG C3-M2"))
+
+    eeg_f4_m1_frequency = f.getSampleFrequency(signal_labels.index("EEG F4-M1"))
+    eeg_c4_m1_frequency = f.getSampleFrequency(signal_labels.index("EEG C4-M1"))
+    eeg_o2_m1_frequency = f.getSampleFrequency(signal_labels.index("EEG O2-M1"))
+    eeg_c3_m2_frequency = f.getSampleFrequency(signal_labels.index("EEG C3-M2"))
+    f.close()
+
+    # plot a segment within desired time range
+    w_ranges = [["2001-01-01 23:59:30", "2001-01-02 00:03:00"], ["2001-01-02 00:17:00", "2001-01-02 00:18:30"], ["2001-01-02 01:29:30", "2001-01-02 01:35:00"]]
+    n1_ranges = [["2001-01-02 00:03:30", "2001-01-02 00:07:30"], ["2001-01-02 01:35:30", "2001-01-02 01:41:30"], ["2001-01-02 01:35:30", "2001-01-02 01:38:00"]]
+    n2_ranges = [["2001-01-02 00:08:30", "2001-01-02 00:11:30"], ["2001-01-02 00:25:00", "2001-01-02 00:51:30"], ["2001-01-02 00:59:30", "2001-01-02 01:16:00"], ["2001-01-02 01:38:30", "2001-01-02 01:59:30"]]
+    n3_ranges = [["2001-01-02 00:52:00", "2001-01-02 00:59:30"], ["2001-01-02 05:21:30", "2001-01-02 05:23:30"]]
+    rem_ranges = [["2001-01-02 01:17:00", "2001-01-02 01:29:30"], ["2001-01-02 04:18:30", "2001-01-02 04:46:30"], ["2001-01-02 05:47:30", "2001-01-02 06:16:30"]]
+
+    if plot_stage == "w":
+        plot_ranges = random.choice(w_ranges)
+    elif plot_stage == "n1":
+        plot_ranges = random.choice(n1_ranges)
+    elif plot_stage == "n2":
+        plot_ranges = random.choice(n2_ranges)
+    elif plot_stage == "n3":
+        plot_ranges = random.choice(n3_ranges)
+    elif plot_stage == "rem":
+        plot_ranges = random.choice(rem_ranges)
+
+    plot_start_index = int((datetime.strptime(plot_ranges[0], "%Y-%m-%d %H:%M:%S") - start_time).total_seconds() * eeg_f4_m1_frequency)
+    plot_end_index = int((datetime.strptime(plot_ranges[1], "%Y-%m-%d %H:%M:%S") - start_time).total_seconds() * eeg_f4_m1_frequency)
+
+    simple_x_axis = range(0, len(eeg_f4_m1[plot_start_index:plot_end_index]))
+    
+    if "f4-m1" in include_eeg:
+        simple_plot(
+            data_x=simple_x_axis,
+            data_y=eeg_f4_m1[plot_start_index:plot_end_index],
+            title = "EEG F4-M1",
+            **kwargs
+        )
+
+    if "c4-m1" in include_eeg:
+        simple_plot(
+            data_x=simple_x_axis,
+            data_y=eeg_c4_m1[plot_start_index:plot_end_index],
+            title = "EEG C4-M1",
+        **kwargs
+    )
+
+    if "o2-m1" in include_eeg:
+        simple_plot(
+            data_x=simple_x_axis,
+            data_y=eeg_o2_m1[plot_start_index:plot_end_index],
+            title = "EEG O2-M1",
+            **kwargs
+        )
+
+    if "c3-m2" in include_eeg:
+        simple_plot(
+            data_x=simple_x_axis,
+            data_y=eeg_c3_m2[plot_start_index:plot_end_index],
+            title = "EEG C3-M2",
+            **kwargs
+        )
+
+def plot_slp_course(**kwargs):
+    # Default values
+    kwargs.setdefault("figsize", matplotlib.rcParams["figure.figsize"])
+    kwargs.setdefault("title", "")
+    kwargs.setdefault("xlabel", "")
+    kwargs.setdefault("ylabel", "")
+    kwargs.setdefault("label", [])
+    kwargs.setdefault("loc", "best")
+    kwargs.setdefault("grid", False)
+
+    kwargs.setdefault("linewidth", 2)
+    kwargs.setdefault("alpha", 1)
+    kwargs.setdefault("linestyle", "-") # or "--", "-.", ":"
+    kwargs.setdefault("marker", None) # or "o", "x", "s", "d", "D", "v", "^", "<", ">", "p", "P", "h", "H", "8", "*", "+"
+    kwargs.setdefault("markersize", 4)
+    kwargs.setdefault("markeredgewidth", 1)
+    kwargs.setdefault("markeredgecolor", "black")
+
+    plot_args = dict(
+        linewidth = kwargs["linewidth"],
+        alpha = kwargs["alpha"],
+        linestyle = kwargs["linestyle"],
+        marker = kwargs["marker"],
+        markersize = kwargs["markersize"],
+        # markeredgewidth = kwargs["markeredgewidth"],
+        # markeredgecolor = kwargs["markeredgecolor"],
+    )
+
+    slp_files_directory = 'Data/GIF/PSG_GIF/'
+    valid_slp_files = [file for file in os.listdir(slp_files_directory) if file.endswith(".slp")]
+
+    for slp_file in valid_slp_files:
+
+        slp_file_path = slp_files_directory + slp_file
+        slp_file = open(slp_file_path, "rb")
+        slp_file_lines = slp_file.readlines()
+        slp_file.close()
+
+        numbers = ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "."]
+
+        first_slp_line = slp_file_lines[0].decode("utf-8").strip()
+        final_index = len(first_slp_line)
+        for char_pos in range(len(first_slp_line)):
+            if first_slp_line[char_pos] not in numbers:
+                final_index = char_pos
+                break
+        slp_start_time_psg = first_slp_line[0:final_index]
+        slp_start_time_seconds_psg = float(slp_start_time_psg) * 3600
+
+        last_slp_line = slp_file_lines[-1].decode("utf-8").strip()
+        final_index = len(last_slp_line)
+        for char_pos in range(len(last_slp_line)):
+            if last_slp_line[char_pos] not in numbers:
+                final_index = char_pos
+                break
+        slp_end_time_psg = last_slp_line[0:final_index]
+        slp_end_time_seconds_psg = float(slp_end_time_psg) * 3600
+
+        del numbers, first_slp_line, last_slp_line, final_index
+
+        slp = list()
+        for slp_line in slp_file_lines:
+            slp_line = slp_line.decode("utf-8").strip()
+            if len(slp_line) > 1:
+                continue
+            slp.append(int(slp_line))
+        
+        while True:
+            if slp[-1] == 0:
+                del slp[-1]
+            else:
+                break
+        
+        while True:
+            if slp[0] == 0:
+                del slp[0]
+            else:
+                break
+        
+        better_slp_numbers = []
+        for stage in slp:
+            if stage == 0:
+                better_slp_numbers.append(5) # Wake
+            elif stage == 1:
+                better_slp_numbers.append(1) # N1
+            elif stage == 2:
+                better_slp_numbers.append(2) # N2
+            elif stage == 3:
+                better_slp_numbers.append(3) # N3
+            elif stage == 5:
+                better_slp_numbers.append(4) # REM
+        
+        number_stages = len(slp)
+        
+        rem_before_half = 0
+        rem_after_half = 0
+        n3_after_half = 0
+        changes = 0
+        
+        index = 0
+        
+        stage_course = []
+        last_stage = -1
+        for stage in better_slp_numbers:
+            if stage == last_stage:
+                stage_course[-1][1] += 1
+            else:
+                stage_course.append([stage, 1])
+                last_stage = stage
+                changes += 1
+            
+            if stage == 4 and index < number_stages / 2:
+                rem_before_half += 1
+            elif stage == 4 and index >= number_stages / 2:
+                rem_after_half += 1
+            elif stage == 3 and index >= number_stages * 0.65:
+                n3_after_half += 1
+            
+            index += 1
+        
+        if n3_after_half != 0 or rem_before_half > rem_after_half or changes > 50:
+            continue
+        
+        fig, ax = plt.subplots(figsize=kwargs["figsize"])
+        ax.set(title=kwargs["title"], xlabel=kwargs["xlabel"], ylabel=kwargs["ylabel"])
+        ax.grid(kwargs["grid"])
+        if len(kwargs["label"]) > 0:
+            ax.legend(kwargs["label"], loc=kwargs["loc"])
+
+        stage_colors = [None, plt.rcParams["axes.prop_cycle"].by_key()['color'][0], plt.rcParams["axes.prop_cycle"].by_key()['color'][1], plt.rcParams["axes.prop_cycle"].by_key()['color'][2], plt.rcParams["axes.prop_cycle"].by_key()['color'][3], plt.rcParams["axes.prop_cycle"].by_key()['color'][4]]
+        stage_counter = 0
+        
+        for i in range(len(stage_course)):
+            better_x = range(stage_counter*30, (stage_counter + stage_course[i][1])*30)
+            better_x = np.array(better_x) / 3600
+
+            ax.fill_between(
+                x = better_x,
+                y1 = 0,
+                y2 = stage_course[i][0],
+                color = stage_colors[stage_course[i][0]],
+                alpha = 0.6,
+            )
+            stage_counter += stage_course[i][1]
+
+        kwargs.setdefault("ylim", plt.ylim())
+        kwargs.setdefault("xlim", plt.xlim())
+        plt.ylim(kwargs["ylim"])
+        plt.xlim(kwargs["xlim"])
+
+        print(f"SLP file: {slp_file}")
+        
+        plt.show()
+
+        # answer = input("Show next or stop? (n/s): ")
+
+        # if answer.lower() == "s":
+        #     break
+
+
+tex_correction = 0.5
+tex_look = {
+    "text.usetex": True,
+    # "text.latex.preamble": \usepackage{amsmath}\usepackage{amssymb},
+    "font.family": "serif",
+    "font.serif": "Computer Modern",
+    #
+    "legend.fontsize": 10-tex_correction,
+    "xtick.labelsize": 10-tex_correction,
+    "ytick.labelsize": 10-tex_correction,
+    "font.size": 12-tex_correction,
+    "axes.titlesize": 12-tex_correction,
+    "axes.labelsize": 12-tex_correction,
+    #
+    "savefig.format": "pdf",
+    #
+    "savefig.bbox": "tight",
+    "savefig.transparent": False,
+    "savefig.dpi": 600,
+}
+
+python_correction = 0
+python_look = {
+    "legend.fontsize": 8+python_correction,
+    "xtick.labelsize": 8+python_correction,
+    "ytick.labelsize": 8+python_correction,
+    "font.size": 10+python_correction,
+    "axes.titlesize": 10+python_correction,
+    "axes.labelsize": 10+python_correction,
+    #
+    "savefig.format": "pdf",
+    #
+    "savefig.bbox": "tight",
+    "savefig.transparent": False,
+    "savefig.dpi": 600,
+}
+
+pt_to_inch = 1./72.27
+cm_to_inch = 1/2.54
+
+# linewidth = 16.2*cm_to_inch
+linewidth = 459.6215*pt_to_inch
+
+# fig_ratio = 3.4 / 2.7
+
+if __name__ == "__main__":
+    matplotlib.rcParams.update(tex_look)
+    
+    # multi-plots
+    # fig_ratio = 4 / 3
+    # linewidth *= 0.48 # 0.48, 0.5, 0.3
+
+    # standalone plots
+    fig_ratio = 3 / 2
+    fig_ratio = 2 / 1
+    linewidth *= 0.8
+    matplotlib.rcParams["figure.figsize"] = [linewidth, linewidth / fig_ratio]
+
+    # plot_slp_course()
+    raise SystemExit
+
+    random_seed = 2
+    print("Showing EEG plots for Wake stage...")
+    plot_eeg(plot_stage="w", include_eeg = ["f4-m1", "c4-m1", "o2-m1", "c3-m2"], xlim=[random_seed*30*256, (random_seed+0.5)*30*256], ylim=[-100, 100])
+    print("Showing EEG plots for N1 stage...")
+    plot_eeg(plot_stage="n1", include_eeg = ["f4-m1", "c4-m1", "o2-m1", "c3-m2"], xlim=[random_seed*30*256, (random_seed+0.5)*30*256], ylim=[-100, 100])
+    print("Showing EEG plots for N2 stage...")
+    plot_eeg(plot_stage="n2", include_eeg = ["f4-m1", "c4-m1", "o2-m1", "c3-m2"], xlim=[random_seed*30*256, (random_seed+0.5)*30*256], ylim=[-100, 100])
+    print("Showing EEG plots for N3 stage...")
+    plot_eeg(plot_stage="n3", include_eeg = ["f4-m1", "c4-m1", "o2-m1", "c3-m2"], xlim=[random_seed*30*256, (random_seed+0.5)*30*256], ylim=[-100, 100])
+    print("Showing EEG plots for REM stage...")
+    plot_eeg(plot_stage="rem", include_eeg = ["f4-m1", "c4-m1", "o2-m1", "c3-m2"], xlim=[random_seed*30*256, (random_seed+0.5)*30*256], ylim=[-100, 100])
+
+    # plot_eeg(plot_stage="n2", include_eeg=["c3-m2", "c4-m1"], xlim=[random_seed*30*256, (random_seed+1)*30*256])

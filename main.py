@@ -9,8 +9,10 @@ import numpy as np
 import os
 import pandas as pd
 from datetime import datetime, timedelta
+import random
 
 # LOCAL IMPORTS
+import plot_helper
 import read_edf
 import MAD
 import rpeak_detection
@@ -657,7 +659,7 @@ def ADD_RRI_MAD_SLP(
         slp_files_directory: str,
         lights_and_time_shift_csv_path: str,
         min_data_length_seconds: int = 5*3600,
-        fill_ecg_gaps_threshold_seconds: int = 3*60,
+        fill_ecg_gaps_threshold_seconds: int = 0,
         RRI_frequency = 4,
         MAD_frequency = 1
     ):
@@ -772,10 +774,10 @@ def ADD_RRI_MAD_SLP(
         
         valid_ecg_regions_somno = data_dict["valid_ecg_regions"]
 
-        somno_start_time_seconds_psg = somno_start_time_seconds_somno + time_shift + slope * (somno_start_time_seconds_somno - 7200)
+        # somno_start_time_seconds_psg = somno_start_time_seconds_somno + time_shift + slope * (somno_start_time_seconds_somno - 7200)
         
         hamilton_rpeaks_somno = np.unique(data_dict["hamilton"])
-        hamilton_rpeaks_seconds_psg = [(somno_start_time_seconds_psg + peak/ecg_sampling_frequency) + time_shift + slope * ((somno_start_time_seconds_psg + peak/ecg_sampling_frequency) - 7200) for peak in hamilton_rpeaks_somno]
+        hamilton_rpeaks_seconds_psg = [(somno_start_time_seconds_somno + peak/ecg_sampling_frequency) + time_shift + slope * ((somno_start_time_seconds_somno + peak/ecg_sampling_frequency) - 7200) for peak in hamilton_rpeaks_somno]
 
         # print(patient_id, time_shift, somno_start_time_seconds_psg, slp_start_time_seconds_psg)
         # print(valid_ecg_regions_somno)
@@ -783,8 +785,8 @@ def ADD_RRI_MAD_SLP(
 
         for valid_region in valid_ecg_regions_somno:
             # transform valid ecg region into psg times
-            valid_region_psg = [(somno_start_time_seconds_psg + valid_region[0]/ecg_sampling_frequency) + time_shift + slope * ((somno_start_time_seconds_psg + valid_region[0]/ecg_sampling_frequency) - 7200),
-                                (somno_start_time_seconds_psg + valid_region[1]/ecg_sampling_frequency) + time_shift + slope * ((somno_start_time_seconds_psg + valid_region[1]/ecg_sampling_frequency) - 7200)]
+            valid_region_psg = [(somno_start_time_seconds_somno + valid_region[0]/ecg_sampling_frequency) + time_shift + slope * ((somno_start_time_seconds_somno + valid_region[0]/ecg_sampling_frequency) - 7200),
+                                (somno_start_time_seconds_somno + valid_region[1]/ecg_sampling_frequency) + time_shift + slope * ((somno_start_time_seconds_somno + valid_region[1]/ecg_sampling_frequency) - 7200)]
 
             # print(np.array(valid_region_psg))
 
@@ -853,25 +855,21 @@ def ADD_RRI_MAD_SLP(
             synchronized_RRI.append(rri_values_in_valid_region)
 
             # calculate MAD from wrist acceleration data in valid ecg regions
-            first_slp_value_in_valid_region_somno = (first_slp_value_in_valid_region + slope * 7200 - time_shift) / (1 + slope)
-            last_slp_value_in_valid_region_somno = (last_slp_value_in_valid_region + slope * 7200 - time_shift) / (1 + slope)
+            # calculate MAD from wrist acceleration data in valid ecg regions
+            number_mad_values_in_valid_region = better_int(valid_interval_size_seconds_psg * MAD_frequency)
+            mad_acc_borders_psg = [[first_slp_value_in_valid_region + i/MAD_frequency, first_slp_value_in_valid_region + (i+1)/MAD_frequency] for i in range(number_mad_values_in_valid_region)] # type: ignore
+            mad_acc_borders_somno = [[(border[0] + slope * 7200 - time_shift) / (1 + slope), (border[1] + slope * 7200 - time_shift) / (1 + slope)] for border in mad_acc_borders_psg] # type: ignore
+            mad_acc_borders_num = [[int((border[0] - somno_start_time_seconds_somno) * acceleration_sample_frequency), int(np.ceil((border[1] - somno_start_time_seconds_somno) * acceleration_sample_frequency))] for border in mad_acc_borders_somno] # type: ignore
+            if mad_acc_borders_num[0][0] < 0:
+                mad_acc_borders_num[0][0] = 0
+                if mad_acc_borders_num[0][1] < 0:
+                    raise ValueError("Something went wrong.")
+            if mad_acc_borders_num[-1][1] > len(x_acceleration):
+                raise ValueError("Something went wrong.")
             
-            valid_interval_size_seconds_somno = last_slp_value_in_valid_region_somno - first_slp_value_in_valid_region_somno
-            number_mad_values_in_valid_region = int(valid_interval_size_seconds_psg * MAD_frequency)
-            number_acceleration_values_in_valid_region = int(valid_interval_size_seconds_psg * acceleration_sample_frequency)
-            corrected_mad_frequency = number_mad_values_in_valid_region / valid_interval_size_seconds_somno
-            corrected_acc_frequency = number_acceleration_values_in_valid_region / valid_interval_size_seconds_somno
-
-            mad_borders_in_acc = [[int(np.ceil((time_somno - somno_start_time_seconds_somno) * corrected_acc_frequency)), int(np.ceil((time_somno + 1/MAD_frequency - somno_start_time_seconds_somno) * corrected_acc_frequency))] for time_somno in np.arange(first_slp_value_in_valid_region_somno, last_slp_value_in_valid_region_somno, 1/corrected_mad_frequency)]
-            if mad_borders_in_acc[-1][0] > (last_slp_value_in_valid_region_somno - somno_start_time_seconds_somno) * corrected_acc_frequency:
-                mad_borders_in_acc.pop(-1)
-            # print(mad_borders_in_acc[0], mad_borders_in_acc[-1], (first_slp_value_in_valid_region_somno - somno_start_time_seconds_somno) * corrected_acc_frequency, (last_slp_value_in_valid_region_somno - somno_start_time_seconds_somno) * corrected_acc_frequency)
-            if len(mad_borders_in_acc) != number_mad_values_in_valid_region:
-                raise ValueError("Number of MAD borders in acceleration data does not match the expected number of MAD values in valid region.")
-
             # calculate MAD for each segment
             mad_values_in_valid_region = list()
-            for segment in mad_borders_in_acc:    
+            for segment in mad_acc_borders_num:    
                 mad_values_in_valid_region.append(MAD.calc_mad_in_interval(
                     acceleration_data_lists=[x_acceleration, y_acceleration, z_acceleration],
                     start_position=segment[0],
@@ -1015,7 +1013,7 @@ def ADD_RRI_MAD_APNEA(
         lights_and_time_shift_csv_path: str,
         apnea_events_csv_path: str,
         min_data_length_seconds: int = 0*3600,
-        fill_ecg_gaps_threshold_seconds: int = 3*60,
+        fill_ecg_gaps_threshold_seconds: int = 0,
         RRI_frequency = 4,
         MAD_frequency = 1,
         SAE_frequency = 1,
@@ -1034,9 +1032,17 @@ def ADD_RRI_MAD_APNEA(
 
     for data_dict in results_generator:
         patient_id = data_dict["ID"]
-        
-        somno_rec_date = data_dict["start_date"]
-        somno_start_date = datetime.strptime(somno_rec_date, "%Y-%m-%d")
+
+        if "start_date" in data_dict:
+            somno_rec_date = data_dict["start_date"]
+            somno_start_date = datetime.strptime(somno_rec_date, "%Y-%m-%d")
+            rec_date_available = True
+        else:
+            rec_date_available = False
+
+        if "start_time" not in data_dict:
+            print("Synchronization not possible. No start time found for patient:", patient_id)
+            continue
 
         rec_time = data_dict["start_time"]
         rec_time_numbers = rec_time.split(":")
@@ -1053,7 +1059,6 @@ def ADD_RRI_MAD_APNEA(
 
         # create SAE data
         sae_data = pd.read_csv(sae_file_path, sep=",")
-        #
         all_apnea_classes = ['Apnea', 'Obstructive Apnea', 'Central Apnea', 'Mixed Apnea', 'Hypopnea', 'Obstructive Hypopnea', 'Central Hypopnea']
 
         no_apnea_events = True
@@ -1073,6 +1078,12 @@ def ADD_RRI_MAD_APNEA(
                     sae_start_time = event_start
                 if event_end > sae_end_time:
                     sae_end_time = event_end
+            
+            if not rec_date_available:
+                if sae_start_time.hour < 16:
+                    print("Recording date of ECG and ACC data not available and can't also be deduced certainly for patient:", patient_id)
+                    continue
+                somno_start_date = sae_start_time
             
             sae_duration = better_int((sae_end_time-sae_start_time).total_seconds())
             sae_array = [0 for _ in range(sae_duration)]
@@ -1146,7 +1157,7 @@ def ADD_RRI_MAD_APNEA(
         
         valid_ecg_regions_somno = data_dict["valid_ecg_regions"]
 
-        somno_start_time_seconds_psg = somno_start_time_seconds_somno + time_shift + slope * (somno_start_time_seconds_somno - 7200)
+        # somno_start_time_seconds_psg = somno_start_time_seconds_somno + time_shift + slope * (somno_start_time_seconds_somno - 7200)
         
         hamilton_rpeaks_somno = np.unique(data_dict["hamilton"])
         hamilton_rpeaks_seconds_psg = [(somno_start_time_seconds_somno + peak/ecg_sampling_frequency) + time_shift + slope * ((somno_start_time_seconds_somno + peak/ecg_sampling_frequency) - 7200) for peak in hamilton_rpeaks_somno]
@@ -1257,7 +1268,7 @@ def ADD_RRI_MAD_APNEA(
             if len(sae_values_in_valid_region)/SAE_frequency != len(rri_values_in_valid_region)/RRI_frequency or len(sae_values_in_valid_region)/SAE_frequency != len(mad_values_in_valid_region)/MAD_frequency:
                 raise ValueError("Number of SAE, RRI and MAD values in valid region does not match.")
 
-        if fill_ecg_gaps_threshold_seconds > 0:
+        if fill_ecg_gaps_threshold_seconds > 0 and not no_apnea_events:
             ecg_gaps = []
             for i in range(len(start_end_valid_region_psg_times)-1):
                 ecg_gaps.append((start_end_valid_region_psg_times[i+1][0] - start_end_valid_region_psg_times[i][1]))
@@ -2373,6 +2384,75 @@ def uniform_apnea_files(
             print("Unknown file type:", file)
 
 
+def eeg_plotting():
+
+    plot_stage = "n1"
+
+    f = read_edf.pyedflib.EdfReader("Data/SN001.edf")
+    signal_labels = f.getSignalLabels()
+    print(signal_labels)
+    
+    start_time = f.getStartdatetime()
+    
+    eeg_f4_m1 = f.readSignal(signal_labels.index("EEG F4-M1"))
+    eeg_c4_m1 = f.readSignal(signal_labels.index("EEG C4-M1"))
+    eeg_o2_m1 = f.readSignal(signal_labels.index("EEG O2-M1"))
+    eeg_c3_m2 = f.readSignal(signal_labels.index("EEG C3-M2"))
+
+    eeg_f4_m1_frequency = f.getSampleFrequency(signal_labels.index("EEG F4-M1"))
+    eeg_c4_m1_frequency = f.getSampleFrequency(signal_labels.index("EEG C4-M1"))
+    eeg_o2_m1_frequency = f.getSampleFrequency(signal_labels.index("EEG O2-M1"))
+    eeg_c3_m2_frequency = f.getSampleFrequency(signal_labels.index("EEG C3-M2"))
+    f.close()
+
+    # plot a segment within desired time range
+    w_ranges = [["2001-01-01 23:59:30", "2001-01-02 00:03:00"], ["2001-01-02 00:17:00", "2001-01-02 00:18:30"], ["2001-01-02 01:29:30", "2001-01-02 01:35:00"]]
+    n1_ranges = [["2001-01-02 00:03:30", "2001-01-02 00:07:30"], ["2001-01-02 01:35:30", "2001-01-02 01:41:30"], ["2001-01-02 01:35:30", "2001-01-02 01:38:00"]]
+    n2_ranges = [["2001-01-02 00:08:30", "2001-01-02 00:11:30"], ["2001-01-02 00:25:00", "2001-01-02 00:51:30"], ["2001-01-02 00:59:30", "2001-01-02 01:16:00"], ["2001-01-02 01:38:30", "2001-01-02 01:59:30"]]
+    n3_ranges = [["2001-01-02 00:52:00", "2001-01-02 00:59:30"], ["2001-01-02 05:21:30", "2001-01-02 05:23:30"]]
+    rem_ranges = [["2001-01-02 01:17:00", "2001-01-02 01:29:30"], ["2001-01-02 04:18:30", "2001-01-02 04:46:30"], ["2001-01-02 05:47:30", "2001-01-02 06:16:30"]]
+
+    if plot_stage == "w":
+        plot_ranges = random.choice(w_ranges)
+    elif plot_stage == "n1":
+        plot_ranges = random.choice(n1_ranges)
+    elif plot_stage == "n2":
+        plot_ranges = random.choice(n2_ranges)
+    elif plot_stage == "n3":
+        plot_ranges = random.choice(n3_ranges)
+    elif plot_stage == "rem":
+        plot_ranges = random.choice(rem_ranges)
+
+    plot_start_index = int((datetime.strptime(plot_ranges[0], "%Y-%m-%d %H:%M:%S") - start_time).total_seconds() * eeg_f4_m1_frequency)
+    plot_end_index = int((datetime.strptime(plot_ranges[1], "%Y-%m-%d %H:%M:%S") - start_time).total_seconds() * eeg_f4_m1_frequency)
+
+    simple_x_axis = range(0, len(eeg_f4_m1[plot_start_index:plot_end_index]))
+    
+    plot_helper.simple_plot(
+        data_x=simple_x_axis,
+        data_y=eeg_f4_m1[plot_start_index:plot_end_index],
+        title = "EEG F4-M1"
+    )
+
+    plot_helper.simple_plot(
+        data_x=simple_x_axis,
+        data_y=eeg_c4_m1[plot_start_index:plot_end_index],
+        title = "EEG C4-M1"
+    )
+
+    plot_helper.simple_plot(
+        data_x=simple_x_axis,
+        data_y=eeg_o2_m1[plot_start_index:plot_end_index],
+        title = "EEG O2-M1"
+    )
+
+    plot_helper.simple_plot(
+        data_x=simple_x_axis,
+        data_y=eeg_c3_m2[plot_start_index:plot_end_index],
+        title = "EEG C3-M2"
+    )
+
+
 """
 -------------
 MAIN SECTION
@@ -2396,20 +2476,59 @@ if __name__ == "__main__":
     
     # apnea_info()
 
+    # ADD_RRI_MAD_APNEA(
+    #     new_save_file_path = "gif_sleep_apnea_events.pkl",
+    #     results_path = "Data/GIF/GIF.pkl",
+    #     gif_data_directory = "Data/GIF/SOMNOwatch/",
+    #     lights_and_time_shift_csv_path = "Data/GIF/GIF-lights.csv",
+    #     apnea_events_csv_path = "Data/GIF/sleep_apnea_events/",
+    #     min_data_length_seconds = 0*3600,
+    #     fill_ecg_gaps_threshold_seconds = 3*60,
+    #     RRI_frequency = 4,
+    #     MAD_frequency = 1,
+    #     SAE_frequency = 1,
+    # )
+
+    # check_apnea_dataset()
+
+    # ADD_RRI_MAD_SLP(
+    #     new_save_file_path = "gif_test.pkl",
+    #     results_path = "Data/GIF/GIF.pkl",
+    #     gif_data_directory = "Data/GIF/SOMNOwatch/",
+    #     slp_files_directory = "Data/GIF/PSG_GIF/",
+    #     lights_and_time_shift_csv_path = "Data/GIF/GIF-lights.csv",
+    #     min_data_length_seconds = 0*3600,
+    #     fill_ecg_gaps_threshold_seconds = 10*3600,
+    #     RRI_frequency = 4,
+    #     MAD_frequency = 1
+    # )
+
     ADD_RRI_MAD_APNEA(
         new_save_file_path = "gif_sleep_apnea_events.pkl",
-        results_path = "Data/GIF/GIF.pkl",
+        results_path = "Processed_GIF/GIF_Results.pkl",
         gif_data_directory = "Data/GIF/SOMNOwatch/",
         lights_and_time_shift_csv_path = "Data/GIF/GIF-lights.csv",
-        apnea_events_csv_path = "Data/GIF/all_apnea_events/",
+        apnea_events_csv_path = "Data/GIF/sleep_apnea_events/",
         min_data_length_seconds = 0*3600,
-        fill_ecg_gaps_threshold_seconds = 3*60,
+        fill_ecg_gaps_threshold_seconds = 0,
         RRI_frequency = 4,
         MAD_frequency = 1,
         SAE_frequency = 1,
     )
 
     # check_apnea_dataset()
+
+    ADD_RRI_MAD_SLP(
+        new_save_file_path = "gif_sleep_stages.pkl",
+        results_path = "Processed_GIF/GIF_Results.pkl",
+        gif_data_directory = "Data/GIF/SOMNOwatch/",
+        slp_files_directory = "Data/GIF/PSG_GIF/",
+        lights_and_time_shift_csv_path = "Data/GIF/GIF-lights.csv",
+        min_data_length_seconds = 0*3600,
+        fill_ecg_gaps_threshold_seconds = 0,
+        RRI_frequency = 4,
+        MAD_frequency = 1
+    )
 
     raise SystemExit
 
