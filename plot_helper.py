@@ -6,6 +6,7 @@ Python file containing functions that plot data for this project.
 
 # IMPORTS
 import read_edf
+from main import *
 
 import copy
 import os
@@ -80,7 +81,7 @@ def simple_plot(data_x, data_y, **kwargs):
         # markeredgecolor = kwargs["markeredgecolor"],
     )
     
-    fig, ax = plt.subplots(figsize=kwargs["figsize"])
+    fig, ax = plt.subplots(figsize=kwargs["figsize"], constrained_layout=True)
     ax.set(title=kwargs["title"], xlabel=kwargs["xlabel"], ylabel=kwargs["ylabel"])
     ax.grid(kwargs["grid"])
     if len(kwargs["label"]) > 0:
@@ -98,6 +99,72 @@ def simple_plot(data_x, data_y, **kwargs):
     plt.xlim(kwargs["xlim"])
     
     plt.show()
+
+
+def plot_ecg(**kwargs):
+    # Default values
+    kwargs.setdefault("figsize", matplotlib.rcParams["figure.figsize"])
+    kwargs.setdefault("title", "")
+    kwargs.setdefault("label", [])
+    kwargs.setdefault("loc", "best")
+    kwargs.setdefault("grid", False)
+
+    kwargs.setdefault("linewidth", 2)
+    kwargs.setdefault("alpha", 1)
+    kwargs.setdefault("linestyle", "-") # or "--", "-.", ":"
+    kwargs.setdefault("marker", None) # or "o", "x", "s", "d", "D", "v", "^", "<", ">", "p", "P", "h", "H", "8", "*", "+"
+    kwargs.setdefault("markersize", 4)
+    kwargs.setdefault("markeredgewidth", 1)
+    kwargs.setdefault("markeredgecolor", "black")
+
+    plot_args = dict(
+        linewidth = kwargs["linewidth"],
+        alpha = kwargs["alpha"],
+        linestyle = kwargs["linestyle"],
+        marker = kwargs["marker"],
+        markersize = kwargs["markersize"],
+        # markeredgewidth = kwargs["markeredgewidth"],
+        # markeredgecolor = kwargs["markeredgecolor"],
+    )
+
+    # choose a random edf file
+    file_data_name = "Somnowatch_Messung.edf"
+    file_data_path = "Data/" + file_data_name
+
+    # load the ECG data
+    ECG, frequency = read_edf.get_data_from_edf_channel(
+        file_path = file_data_path,
+        possible_channel_labels = parameters["ecg_keys"],
+        physical_dimension_correction_dictionary = parameters["physical_dimension_correction_dictionary"]
+        )
+
+    interval_size = 2*256 - int(0.3*256)# x seconds for 256 Hz
+
+    x = 30
+    lower_border = int(2091000 + random.randint(-x, x)*256) # normal 2087928, 2085880
+    lower_border = 2085880
+    lower_border = 2087928 + int(0.3*256)
+    # lower_border = 6292992 + 640 # normal with fluktuations
+    # lower_border = 1781760 # normal but negative peaks
+    # lower_border = 2156544 # normal but noisier
+
+    # lower_border = 17752064 # hard noise
+    # lower_border = 18344704 # not as extreme overkill
+    # lower_border = 10788096 + 640 # continous flat, one large spike 
+    # lower_border = 19059968 # extreme overkill
+
+    xlim = [lower_border, lower_border + interval_size]
+
+    data_y = ECG[lower_border:lower_border + interval_size]
+
+    # plot ECG
+    simple_plot(
+        data_x = np.array([i for i in range(len(data_y))]) / frequency, 
+        data_y = data_y, 
+        xlabel = r"Time (s)",
+        ylabel = r"Voltage ($\mu$V)",
+        **kwargs
+        )
 
 
 def plot_calibration_data(data_y, data_x, save_path, **kwargs):
@@ -510,116 +577,172 @@ def plot_MAD_values(
     None, but the plot is shown
     """
     # Set default values
-    kwargs.setdefault("figsize", [3.4, 2.7])
+    kwargs.setdefault("figsize", matplotlib.rcParams["figure.figsize"])
     kwargs.setdefault("title", None)
-    kwargs.setdefault("x_label", r"Time $\left(\text{in }\dfrac{1}{%i} \text{s}\right)$" % frequency)
-    kwargs.setdefault("y_label", r"Acceleration (in m$g$)")
-    kwargs.setdefault("legend", ["X", "Y", "Z", "MAD"])
+    kwargs.setdefault("grid", False)
+    kwargs.setdefault("loc", "best")
+    kwargs.setdefault("xlabel", r"Time (s)")
+    kwargs.setdefault("ylabel", r"Acceleration / MAD $\left(1g~/~\frac{1}{10}g\right)$")
+    kwargs.setdefault("label", [r"$x$", r"$y$", r"$z$", r"$r$", "MAD"])
     kwargs.setdefault("linewidth", 2)
-    kwargs.setdefault("line_alpha", 0.7)
     kwargs.setdefault("linestyle", "-")
-    kwargs.setdefault("xlim", [0, len(acceleration_data[0])])
-    kwargs.setdefault("marker_size", 10)
-    kwargs.setdefault("scatter_alpha", 1)
-    kwargs.setdefault("scatter_zorder", 2)
-    kwargs.setdefault("marker_color", "red")
-    kwargs.setdefault("errorbar_fmt", "o")
-    kwargs.setdefault("errorbar_zorder", 2)
-    kwargs.setdefault("errorbar_capsize", 4)
-    kwargs.setdefault("errorbar_capthick", 1.5)
-    kwargs.setdefault("errorbar_elinewidth", 1.5)
-
-
-    y_mins = []
-    y_maxs = []
-    for acc_data in acceleration_data:
-        y_mins.append(min(acc_data[kwargs["xlim"][0]:kwargs["xlim"][1]]))
-        y_maxs.append(max(acc_data[kwargs["xlim"][0]:kwargs["xlim"][1]]))
-    y_min = min(y_mins)
-    y_max = max(y_maxs)
-    kwargs.setdefault("ylim", [y_min-abs(0.2*y_max), y_max+abs(0.2*y_max)])
+    kwargs.setdefault("s", 10)
+    kwargs.setdefault("fmt", "o")
+    kwargs.setdefault("zorder", 2)
+    kwargs.setdefault("capsize", 0)
+    kwargs.setdefault("capthick", 1.5)
+    kwargs.setdefault("elinewidth", 1.5)
 
     # create arguments for line plotting
     local_plot_kwargs = dict()
     local_plot_kwargs["linewidth"] = kwargs["linewidth"]
-    local_plot_kwargs["alpha"] = kwargs["line_alpha"]
     local_plot_kwargs["linestyle"] = kwargs["linestyle"]
 
     # create arguments for scatter plotting
     local_scatter_kwargs = dict()
-    local_scatter_kwargs["s"] = kwargs["marker_size"]
-    local_scatter_kwargs["color"] = kwargs["marker_color"]
-    local_scatter_kwargs["alpha"] = kwargs["scatter_alpha"]
-    local_scatter_kwargs["zorder"] = kwargs["scatter_zorder"]
+    local_scatter_kwargs["s"] = kwargs["s"]
+    local_scatter_kwargs["zorder"] = 2
 
     # create arguments for errorbar plotting
     local_errorbar_kwargs = dict()
-    local_errorbar_kwargs["fmt"] = kwargs["errorbar_fmt"]
-    local_errorbar_kwargs["zorder"] = kwargs["errorbar_zorder"]
-    local_errorbar_kwargs["capsize"] = kwargs["errorbar_capsize"]
-    local_errorbar_kwargs["capthick"] = kwargs["errorbar_capthick"]
-    local_errorbar_kwargs["elinewidth"] = kwargs["errorbar_elinewidth"]
-    local_errorbar_kwargs["color"] = kwargs["marker_color"]
+    local_errorbar_kwargs["fmt"] = kwargs["fmt"]
+    local_errorbar_kwargs["zorder"] = kwargs["zorder"]
+    local_errorbar_kwargs["capsize"] = kwargs["capsize"]
+    local_errorbar_kwargs["capthick"] = kwargs["capthick"]
+    local_errorbar_kwargs["elinewidth"] = kwargs["elinewidth"]
 
-    # calculate time period in samples
-    mad_time_period_intervals = int(mad_time_period_seconds * frequency)
-    mad_x_values = np.arange(mad_time_period_intervals/2, len(acceleration_data[0]), mad_time_period_intervals)
-
-    # cut MAD values outside area of interest
-    start_interval = 0
-    end_interval = len(mad_x_values)
-    for i in range(len(mad_x_values)):
-        if mad_x_values[i] <= kwargs["xlim"][0]:
-            start_interval = i + 1
-        if mad_x_values[i] <= kwargs["xlim"][1]:
-            end_interval = i + 1
+    acc_colors = [plt.rcParams["axes.prop_cycle"].by_key()['color'][2], plt.rcParams["axes.prop_cycle"].by_key()['color'][3], plt.rcParams["axes.prop_cycle"].by_key()['color'][4]]
+    res_acc_color = plt.rcParams["axes.prop_cycle"].by_key()['color'][0]
+    mad_color = plt.rcParams["axes.prop_cycle"].by_key()['color'][1]
 
     # plot the data
-    fig, ax = plt.subplots(figsize=kwargs["figsize"])
-    ax.set_xlabel(kwargs["x_label"])
-    ax.set_ylabel(kwargs["y_label"])
-    ax.set_title(kwargs["title"])
+    fig, ax = plt.subplots(figsize=kwargs["figsize"], constrained_layout=True)
+    ax.set(title=kwargs["title"], xlabel=kwargs["xlabel"], ylabel=kwargs["ylabel"])
+    ax.grid(kwargs["grid"])
+
+    resultant_acceleration = [np.sqrt((acceleration_data[0][i]**2 + acceleration_data[1][i]**2 + acceleration_data[2][i]**2)) for i in range(len(acceleration_data[0]))]
+
+    line_x_values = np.array(range(0, len(acceleration_data[0])))/128
 
     legend_label_counter = 0
     for acc_data in acceleration_data:
         ax.plot(
-            np.arange(kwargs["xlim"][0], kwargs["xlim"][1]), 
-            acc_data[kwargs["xlim"][0]:kwargs["xlim"][1]], 
-            label=kwargs["legend"][legend_label_counter], 
+            line_x_values,
+            acc_data,
+            label=kwargs["label"][legend_label_counter],
+            color = acc_colors[legend_label_counter],
+            alpha = 1,
             **local_plot_kwargs
             )
         legend_label_counter += 1
     
-    # ax.scatter(
-    #     mad_x_values[start_interval:end_interval], 
-    #     MAD_values[start_interval:end_interval], 
-    #     label=kwargs["legend"],
-    #     **local_scatter_kwargs
-    #     )
+    ax.plot(
+        line_x_values,
+        resultant_acceleration,
+        label=kwargs["label"][legend_label_counter],
+        color = res_acc_color,
+        alpha = 1,
+        **local_plot_kwargs
+    )
+    legend_label_counter += 1
+
+    # calculate time period in samples
+    mad_time_period_intervals = int(mad_time_period_seconds)
+    mad_x_values = np.arange(mad_time_period_intervals/2, len(MAD_values), mad_time_period_intervals)
+
+    ax.scatter(
+        mad_x_values, 
+        MAD_values, 
+        label=kwargs["label"][legend_label_counter],
+        color = mad_color,
+        **local_scatter_kwargs
+        )
     
-    first_entry = True
-    for i in range(start_interval, end_interval):
-        if first_entry:
-            ax.errorbar(
-                mad_x_values[i], 
-                MAD_values[i], 
-                xerr=mad_time_period_intervals/2, 
-                label=kwargs["legend"][legend_label_counter],
-                **local_errorbar_kwargs
-                )
-            first_entry = False
-        else:
-            ax.errorbar(
-                mad_x_values[i], 
-                MAD_values[i], 
-                xerr=mad_time_period_intervals/2,
-                **local_errorbar_kwargs
-                )
+    # first_entry = True
+    # for i in range(len(MAD_values)):
+    #     if first_entry:
+    #         ax.errorbar(
+    #             mad_x_values[i], 
+    #             MAD_values[i], 
+    #             xerr=mad_time_period_intervals/2, 
+    #             label=kwargs["label"][legend_label_counter],
+    #             color = mad_color,
+    #             **local_errorbar_kwargs
+    #             )
+    #         first_entry = False
+    #     else:
+    #         ax.errorbar(
+    #             mad_x_values[i], 
+    #             MAD_values[i], 
+    #             xerr=mad_time_period_intervals/2,
+    #             color = mad_color,
+    #             **local_errorbar_kwargs
+    #             )
     
-    ax.legend(loc="best")
-    ax.set_xlim(kwargs["xlim"])
-    ax.set_ylim(kwargs["ylim"])
+    if len(kwargs["label"]) > 0:
+        ax.legend(kwargs["label"], loc=kwargs["loc"])
+    
+    kwargs.setdefault("ylim", plt.ylim())
+    kwargs.setdefault("xlim", plt.xlim())
+    plt.ylim(kwargs["ylim"])
+    plt.xlim(kwargs["xlim"])
+
     plt.show()
+
+
+def plot_acc_mad(**kwargs):
+    # choose a random file
+    data_directory = "Data/"
+    file_data_name = "Somnowatch_Messung.edf"
+
+    file_data_path = data_directory + file_data_name
+
+    # create lists to save the acceleration data and frequencies for each axis
+    acceleration_data = []
+    acceleration_data_frequencies = []
+
+    # get the acceleration data and frequency for each axis
+    for possible_axis_keys in parameters["wrist_acceleration_keys"]:
+        this_axis_signal, this_axis_frequency = read_edf.get_data_from_edf_channel(
+            file_path = file_data_path,
+            possible_channel_labels = possible_axis_keys,
+            physical_dimension_correction_dictionary = parameters["physical_dimension_correction_dictionary"]
+        )
+
+        # append data to corresponding lists
+        acceleration_data.append(this_axis_signal)
+        acceleration_data_frequencies.append(this_axis_frequency)
+
+    # load data and choose interval
+    total_length = len(acceleration_data[0])
+    frequency = acceleration_data_frequencies[0]
+
+    # choose size of interval
+    interval_size = 10 * 128 # 6 seconds for 128 Hz
+    lower_border = random.randint(0, total_length - interval_size) # 518241, 961920, 863046 (nice),
+    lower_border = 862904
+    upper_border = lower_border + interval_size
+
+    g = 9.80665 # m/s^2
+    g = 1
+
+    for i in range(len(acceleration_data)):
+        acceleration_data[i] = np.array(acceleration_data[i][lower_border:upper_border])/1000*g # convert to m/s^2
+
+    # calculate MAD values
+    this_files_MAD_values = MAD.calc_mad(
+        acceleration_data_lists = acceleration_data,
+        frequencies = acceleration_data_frequencies, 
+        time_period = 1,
+    )
+    this_files_MAD_values = np.array(this_files_MAD_values)*10
+
+    plot_MAD_values(
+        acceleration_data = acceleration_data,
+        frequency = frequency,
+        MAD_values = this_files_MAD_values, # type: ignore
+        mad_time_period_seconds = parameters["mad_time_period_seconds"],
+        )
 
 
 def plot_simple_histogram(
@@ -766,6 +889,76 @@ def plot_eeg(plot_stage: str = "w", include_eeg = ["f4-m1", "c4-m1", "o2-m1", "c
             title = "EEG C3-M2",
             **kwargs
         )
+
+
+def eeg_plotting():
+
+    plot_stage = "n1"
+
+    f = read_edf.pyedflib.EdfReader("Data/SN001.edf")
+    signal_labels = f.getSignalLabels()
+    print(signal_labels)
+    
+    start_time = f.getStartdatetime()
+    
+    eeg_f4_m1 = f.readSignal(signal_labels.index("EEG F4-M1"))
+    eeg_c4_m1 = f.readSignal(signal_labels.index("EEG C4-M1"))
+    eeg_o2_m1 = f.readSignal(signal_labels.index("EEG O2-M1"))
+    eeg_c3_m2 = f.readSignal(signal_labels.index("EEG C3-M2"))
+
+    eeg_f4_m1_frequency = f.getSampleFrequency(signal_labels.index("EEG F4-M1"))
+    eeg_c4_m1_frequency = f.getSampleFrequency(signal_labels.index("EEG C4-M1"))
+    eeg_o2_m1_frequency = f.getSampleFrequency(signal_labels.index("EEG O2-M1"))
+    eeg_c3_m2_frequency = f.getSampleFrequency(signal_labels.index("EEG C3-M2"))
+    f.close()
+
+    # plot a segment within desired time range
+    w_ranges = [["2001-01-01 23:59:30", "2001-01-02 00:03:00"], ["2001-01-02 00:17:00", "2001-01-02 00:18:30"], ["2001-01-02 01:29:30", "2001-01-02 01:35:00"]]
+    n1_ranges = [["2001-01-02 00:03:30", "2001-01-02 00:07:30"], ["2001-01-02 01:35:30", "2001-01-02 01:41:30"], ["2001-01-02 01:35:30", "2001-01-02 01:38:00"]]
+    n2_ranges = [["2001-01-02 00:08:30", "2001-01-02 00:11:30"], ["2001-01-02 00:25:00", "2001-01-02 00:51:30"], ["2001-01-02 00:59:30", "2001-01-02 01:16:00"], ["2001-01-02 01:38:30", "2001-01-02 01:59:30"]]
+    n3_ranges = [["2001-01-02 00:52:00", "2001-01-02 00:59:30"], ["2001-01-02 05:21:30", "2001-01-02 05:23:30"]]
+    rem_ranges = [["2001-01-02 01:17:00", "2001-01-02 01:29:30"], ["2001-01-02 04:18:30", "2001-01-02 04:46:30"], ["2001-01-02 05:47:30", "2001-01-02 06:16:30"]]
+
+    if plot_stage == "w":
+        plot_ranges = random.choice(w_ranges)
+    elif plot_stage == "n1":
+        plot_ranges = random.choice(n1_ranges)
+    elif plot_stage == "n2":
+        plot_ranges = random.choice(n2_ranges)
+    elif plot_stage == "n3":
+        plot_ranges = random.choice(n3_ranges)
+    elif plot_stage == "rem":
+        plot_ranges = random.choice(rem_ranges)
+
+    plot_start_index = int((datetime.strptime(plot_ranges[0], "%Y-%m-%d %H:%M:%S") - start_time).total_seconds() * eeg_f4_m1_frequency)
+    plot_end_index = int((datetime.strptime(plot_ranges[1], "%Y-%m-%d %H:%M:%S") - start_time).total_seconds() * eeg_f4_m1_frequency)
+
+    simple_x_axis = range(0, len(eeg_f4_m1[plot_start_index:plot_end_index]))
+    
+    simple_plot(
+        data_x=simple_x_axis,
+        data_y=eeg_f4_m1[plot_start_index:plot_end_index],
+        title = "EEG F4-M1"
+    )
+
+    simple_plot(
+        data_x=simple_x_axis,
+        data_y=eeg_c4_m1[plot_start_index:plot_end_index],
+        title = "EEG C4-M1"
+    )
+
+    simple_plot(
+        data_x=simple_x_axis,
+        data_y=eeg_o2_m1[plot_start_index:plot_end_index],
+        title = "EEG O2-M1"
+    )
+
+    simple_plot(
+        data_x=simple_x_axis,
+        data_y=eeg_c3_m2[plot_start_index:plot_end_index],
+        title = "EEG C3-M2"
+    )
+
 
 def plot_slp_course(**kwargs):
     # Default values
@@ -981,9 +1174,12 @@ if __name__ == "__main__":
 
     # standalone plots
     fig_ratio = 3 / 2
-    fig_ratio = 2 / 1
+    fig_ratio = 2 / 1.05
     linewidth *= 0.8
     matplotlib.rcParams["figure.figsize"] = [linewidth, linewidth / fig_ratio]
+
+    # plot_ecg(ylim=[-500, 1500])
+    plot_acc_mad()
 
     # plot_slp_course()
     raise SystemExit

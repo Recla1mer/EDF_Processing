@@ -12,7 +12,6 @@ from datetime import datetime, timedelta
 import random
 
 # LOCAL IMPORTS
-import plot_helper
 import read_edf
 import MAD
 import rpeak_detection
@@ -681,7 +680,15 @@ def ADD_RRI_MAD_SLP(
         # add Rpeak from Munich for sections where original were missing
         patient_id = data_dict["ID"]
         
-        somno_rec_date = data_dict["start_date"]
+        if "start_date" in data_dict:
+            somno_rec_date = data_dict["start_date"]
+        else:
+            somno_rec_date = data_dict["????-??-??"]
+
+        if "start_time" not in data_dict:
+            print("Synchronization not possible. No start time found for patient:", patient_id)
+            continue
+
         rec_time = data_dict["start_time"]
         rec_time_numbers = rec_time.split(":")
         if len(rec_time_numbers) == 3:
@@ -2382,75 +2389,6 @@ def uniform_apnea_files(
             # input("\nFinished Skipped Lines. Press Enter to continue...")
         else:
             print("Unknown file type:", file)
-
-
-def eeg_plotting():
-
-    plot_stage = "n1"
-
-    f = read_edf.pyedflib.EdfReader("Data/SN001.edf")
-    signal_labels = f.getSignalLabels()
-    print(signal_labels)
-    
-    start_time = f.getStartdatetime()
-    
-    eeg_f4_m1 = f.readSignal(signal_labels.index("EEG F4-M1"))
-    eeg_c4_m1 = f.readSignal(signal_labels.index("EEG C4-M1"))
-    eeg_o2_m1 = f.readSignal(signal_labels.index("EEG O2-M1"))
-    eeg_c3_m2 = f.readSignal(signal_labels.index("EEG C3-M2"))
-
-    eeg_f4_m1_frequency = f.getSampleFrequency(signal_labels.index("EEG F4-M1"))
-    eeg_c4_m1_frequency = f.getSampleFrequency(signal_labels.index("EEG C4-M1"))
-    eeg_o2_m1_frequency = f.getSampleFrequency(signal_labels.index("EEG O2-M1"))
-    eeg_c3_m2_frequency = f.getSampleFrequency(signal_labels.index("EEG C3-M2"))
-    f.close()
-
-    # plot a segment within desired time range
-    w_ranges = [["2001-01-01 23:59:30", "2001-01-02 00:03:00"], ["2001-01-02 00:17:00", "2001-01-02 00:18:30"], ["2001-01-02 01:29:30", "2001-01-02 01:35:00"]]
-    n1_ranges = [["2001-01-02 00:03:30", "2001-01-02 00:07:30"], ["2001-01-02 01:35:30", "2001-01-02 01:41:30"], ["2001-01-02 01:35:30", "2001-01-02 01:38:00"]]
-    n2_ranges = [["2001-01-02 00:08:30", "2001-01-02 00:11:30"], ["2001-01-02 00:25:00", "2001-01-02 00:51:30"], ["2001-01-02 00:59:30", "2001-01-02 01:16:00"], ["2001-01-02 01:38:30", "2001-01-02 01:59:30"]]
-    n3_ranges = [["2001-01-02 00:52:00", "2001-01-02 00:59:30"], ["2001-01-02 05:21:30", "2001-01-02 05:23:30"]]
-    rem_ranges = [["2001-01-02 01:17:00", "2001-01-02 01:29:30"], ["2001-01-02 04:18:30", "2001-01-02 04:46:30"], ["2001-01-02 05:47:30", "2001-01-02 06:16:30"]]
-
-    if plot_stage == "w":
-        plot_ranges = random.choice(w_ranges)
-    elif plot_stage == "n1":
-        plot_ranges = random.choice(n1_ranges)
-    elif plot_stage == "n2":
-        plot_ranges = random.choice(n2_ranges)
-    elif plot_stage == "n3":
-        plot_ranges = random.choice(n3_ranges)
-    elif plot_stage == "rem":
-        plot_ranges = random.choice(rem_ranges)
-
-    plot_start_index = int((datetime.strptime(plot_ranges[0], "%Y-%m-%d %H:%M:%S") - start_time).total_seconds() * eeg_f4_m1_frequency)
-    plot_end_index = int((datetime.strptime(plot_ranges[1], "%Y-%m-%d %H:%M:%S") - start_time).total_seconds() * eeg_f4_m1_frequency)
-
-    simple_x_axis = range(0, len(eeg_f4_m1[plot_start_index:plot_end_index]))
-    
-    plot_helper.simple_plot(
-        data_x=simple_x_axis,
-        data_y=eeg_f4_m1[plot_start_index:plot_end_index],
-        title = "EEG F4-M1"
-    )
-
-    plot_helper.simple_plot(
-        data_x=simple_x_axis,
-        data_y=eeg_c4_m1[plot_start_index:plot_end_index],
-        title = "EEG C4-M1"
-    )
-
-    plot_helper.simple_plot(
-        data_x=simple_x_axis,
-        data_y=eeg_o2_m1[plot_start_index:plot_end_index],
-        title = "EEG O2-M1"
-    )
-
-    plot_helper.simple_plot(
-        data_x=simple_x_axis,
-        data_y=eeg_c3_m2[plot_start_index:plot_end_index],
-        title = "EEG C3-M2"
-    )
 
 
 """
